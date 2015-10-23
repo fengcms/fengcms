@@ -1,0 +1,17 @@
+<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+	<tr class="type_tps">
+		<th>所属模块：</th>
+		<td>
+			<select name="project" id="project" class="inputxt" datatype="*" nullmsg="请选择所属模型！">
+				<option value="" style="color:red">选择模块</option>
+			{loop M("module")->findall("type=1&&status=1") $k $v}
+				<option value="{$v['project']}">{$v['name']}</option>
+			{/loop}
+			</select>
+		</td>
+		<td><span class="article_notes colorf60">※：该栏目归属于哪一个模块系统。</span></td>
+	</tr>
+	<tr id="classify" class="type_tps">
+	{include "classify/classify.html"}
+	</tr>
+</table>

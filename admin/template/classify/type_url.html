@@ -1,0 +1,23 @@
+<script src="js/common.js"></script>
+	{include "classify/type_module_classify.html"}
+<div class="gehang"></div>
+<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+	<tr>
+		<th>栏目名称：</th>
+		<td style="width: 300px;"><input name="name" type="text" id="name" class="inputxt" style="width:250px" datatype="*2-255" errormsg="栏目名称至少2个字符！" value="{$name}" /></td>
+		<td><span class="article_notes colorf60">※：栏目在导航上显示的名称。最好不要有重复。</span></td>
+	</tr>
+	<tr>
+		<th>链接方式：</th>
+		<td><select name="url_type" id="classify_url_type">
+			<option value="0">当前页打开</option>
+			<option value="1" selected>新窗口打开</option>
+		</select></td>
+		<td><span class="article_notes colorf60">※：选择外链栏目的打开方式。</span></td>
+	</tr>
+	<tr id="url">
+		<th>链接地址：</th>
+		<td><input name="html" type="text" id="html" class="inputxt" style="width:250px" datatype="*1-255" errormsg="链接地址输入不正确！" value="{if $html}{$html}{else}http://www.{/if}" /></td>
+		<td><span class="article_notes colorf60">※：输入链接地址，站外链接一定要带 http://</span></td>
+	</tr>
+</table>

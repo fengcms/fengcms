@@ -1,0 +1,86 @@
+<script src="js/common.js"></script>
+	{include "classify/type_module_classify.html"}
+<div class="gehang"></div>
+<!--添加方式-->
+<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+	<tr>
+	 <th>选择方式：</th>
+	 <td style="width: 300px;">
+		<select name="genre" id="genre">
+			<option value="one">普通栏目添加</option>
+			<option value="batch">批量栏目添加</option>
+		</select>
+	 </td>
+	 <td><span class="article_notes colorf60">※：普通栏目添加一次添加一个栏目，批量方式一次可以添加多个栏目</span></td>
+	</tr>
+</table>
+<div class="gehang"></div>
+<!--添加方法-->
+<div id="genre_content">
+	{include "classify/type_module_one.html"}
+</div>
+
+<!--添加方法-->
+
+<div class="gehang"></div>
+
+<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+<tr>
+	<th>栏目介绍：</th>
+	<td width="500"><textarea name="intro" id="intro" altercss="gray" class="gray" style="width:500px" datatype="*0-255" errormsg="栏目介绍不能为空！" >{$intro}</textarea></td>
+	<td><span class="article_notes colorf60">※：栏目介绍内容，支持html。调用方法 &#123;$intro&#125;</span></td>
+</tr>
+<script type="text/javascript">
+	//设置编辑器
+KindEditor.ready(function(K) {
+	var editor = K.editor({
+					allowFileManager : true
+				});
+		//加载上传图片
+		K('#image').click(function() {
+			editor.loadPlugin('image', function() {
+				editor.plugin.imageDialog({
+					showRemote : false,
+					imageUrl : K('#img').val(),
+					clickFn : function(url, title, width, height, border, align) {
+						K('#img').val(url);
+						editor.hideDialog();
+					}
+				});
+			});
+		});
+});
+</script>
+<tr>
+	<th>栏目图片：</th>
+	<td>
+	<input type="text" name="img" id="img" value="" class="inputxt" style="width:300px"/> <input type="button" id="image" value="选择图片" class="admin_button inputxt" style="width:100px;height:30px;" />
+	</td>
+	<td><span class="article_notes colorf60">※：上传栏目图片。</span></td>
+</tr>
+<tr>
+	<th>栏目关键词：</th>
+	<td><input name="key" type="text" id="key" class="inputxt" style="width:500px" datatype="*0-255" errormsg="栏目名称至少6个字符！" value="{$key}" /></td>
+	<td><span class="article_notes colorf60">※：栏目KeyWords，针对搜索引擎，调用方法 &#123;$key&#125;</span></td>
+</tr>
+<tr>
+	<th>栏目描述：</th>
+	<td><textarea name="description" id="description" altercss="gray" class="gray" style="width:500px" datatype="*0-255" errormsg="请填写栏目描述！">{$description}</textarea></td>
+	<td><span class="article_notes colorf60">※：栏目description，针对搜索引擎，调用方法 &#123;$description&#125;</span></td>
+</tr>
+<tr>
+	<th>频道模板：</th>
+	<td><input type="text" name="channel_template" id="channel_template" value="{if $template}{$template}{/if}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目模板！"/> <input type="button" id="filemanager" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+	<td><span class="article_notes colorf60">※：如果此栏目包含子栏目，则使用这个模板。</span></td>
+</tr>
+<tr>
+	<th>栏目模板：</th>
+	<td><input type="text" name="classify_template" id="classify_template" value="{if $template}{$template}{/if}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目模板！"/> <input type="button" id="filemanager2" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+	<td><span class="article_notes colorf60">※：如果此栏目不包含子栏目，则使用这个模板。</span></td>
+</tr>
+<tr>
+	<th>内容模板：</th>
+	<td><input type="text" name="content_template" id="content_template" value="{if $content_template}{$content_template}{/if}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目内容模板！"/> <input type="button" id="filemanager3" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+	<td><span class="article_notes colorf60">※：设置该栏目里添加的内容页面的模板</span></td>
+</tr>
+</table>

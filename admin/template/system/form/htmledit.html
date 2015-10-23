@@ -1,0 +1,21 @@
+<script type="text/javascript">
+	//设置编辑器
+KindEditor.ready(function({$v['name']}K) {
+	var editor = {$v['name']}K.editor({
+					allowFileManager : true
+				});
+{$v['name']}K.create('textarea[name="{$v['name']}"]', {
+		resizeType : 0,
+		allowPreviewEmoticons : false,
+		allowImageUpload : false,
+		afterBlur:function(){
+		   this.sync();
+		}
+		});
+
+});
+</script>
+<tr>
+	<th>{$item}{$v['aliases']}:</th>
+	<td colspan="2"><textarea class="{$v['name']}" id="{$v['name']}" name="{$v['name']}" style="width:98%;height:300px;">{if $info[$v['name']]}{$info[$v['name']]}{else}{$v['defaults']}{/if}</textarea></td>
+</tr>

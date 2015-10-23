@@ -1,0 +1,51 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$description}">
+<meta name="keywords" content="{$key}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<script src="/js/jquery.min.js"></script>
+<script src="/js/jquery.select.js"></script>
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<div id="web">
+	<hgroup id="hgroup">
+		<h2>在线留言</h2>
+		<span><a href="{curl('message')}">查看留言</a> <a href="{curl('message','add')}">我要留言</a></span>
+	</hgroup>
+	{$page=sqlpage("message","2")}
+	<div id="gbook_l">
+		{loop $page['list'] $k $v}
+		<div class="gbook_show">
+			<div class="gbook_left"><em>{intval($k+1)}</em><span>{if $v['name']}{$v['name']}{else}匿名网友{/if}说</span></div>
+			<div class="gbook_right">
+				<div class="gbook_title"><strong>{$v['title']}</strong><span>留言时间：{date('Y-m-d',$v['time'])}</span></div>
+				<div class="gbook_con">{$v['content']}</div>
+				{if $v['reply']}
+				<div class="goobk_admin">
+					<strong>管理员回复：</strong>
+					<span>回复时间：{date('Y-m-d',$v['rtime'])}</span>
+					<p>{$v['reply']}</p>
+				</div>
+				{/if}
+			</div>
+		</div>
+		{/loop}
+		<div id="fenye">{$page['fy']}</div>
+	</div>
+</div>
+
+{include "scrap/footer.html"}
+
+</body>
+</html>

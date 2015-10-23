@@ -1,0 +1,59 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>栏目添加</title>
+
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="public/htmledit/kindeditor.js"></script>
+<script src="public/htmledit/lang/zh_CN.js"></script>
+
+<script src="js/classify_form.js"></script>
+
+</head>
+
+<body>
+
+<div id="main">
+<form method="post" action="?controller=classify&operate=save" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_8"><a href="#" id="save">保存栏目</a></dd>
+			<dd class="art_ico_9"><a href="?controller=classify">取消返回</a></dd>
+		</dl>
+	</div>
+	<div id="art_body">
+		<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+			<tr>
+				<th>栏目类型：</th>
+				<td style="width: 300px;">
+					<label><input type="radio" name="type" class="type" value="module" checked>模型</label>
+					<label><input type="radio" name="type" class="type" value="url">外链</label>
+					<label><input type="radio" name="type" class="type" value="single">单页</label>
+				</td>
+				<td><span class="article_notes colorf60">※：选择栏目类型</span></td>
+			</tr>
+			<tr>
+				<th>导航显示：</th>
+				<td><label><input type="radio" name="nav" id="nav" value="1" checked> 是</label><label><input type="radio" name="nav" id="nav" value="0"> 否</label></td>
+				<td><span class="article_notes colorf60">※：该栏目是否要在网站导航上显示</span></td>
+			</tr>
+		</table>
+		<div class="gehang"></div>
+
+		<div id="type_content">
+			{include "classify/type_module.html"}
+		</div>
+	</div>
+	<input type="hidden" name="time" id="time" value="{time()}">
+</div>
+</form>
+
+</body>
+</html>

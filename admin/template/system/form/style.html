@@ -1,0 +1,13 @@
+<tr>
+	<th>标题样式:</th>
+	<td><input id="style" name="style" type="text" class="inputxt" style="width:300px" ignore="ignore" datatype="*0-255" value="{if $info[style]]}{$info[style]}{/if}"/>&nbsp;
+		<span id="open_tags" class="downlist_tab color00f"><em>打开样式列表</em>
+			<div id="tags_list" class="downlist_box">
+				{loop D("tags")->sort("hits","order","desc")->getall() $key $val}
+				<a href="#" onclick="gets('{$v['name']}',this)">{$val['name']}</a>
+				{/loop}
+			</div>
+		</span>
+	</td>
+	<td></td>
+</tr>

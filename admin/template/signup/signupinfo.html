@@ -1,0 +1,11 @@
+{$array=D("signup_base")->field('name,phone')->getone()}
+<h3 id="siguptitle">刘峰峰老师的{$user}报名信息</h3>
+<div id="sigupcontent">
+<b>学生姓名：</b>{$user}<br>
+<b>联系电话：</b>{substr($phone,0,7)}****<br>
+<b>家庭地址：</b>{mb_substr($fadd,0,-3,'utf8')}*****<br>
+<b>家长姓名：</b>{$fname}<br>
+<b>报名老师：</b>{$array['name']}老师<br>
+<b>联系电话：</b>{$array['phone']}<br>
+<b>报名时间：</b>{date('Y-m-d H:i:s')}<br>
+</div>

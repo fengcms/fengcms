@@ -1,0 +1,57 @@
+@charset "UTF-8";
+
+/*******************************************************************
+ * @authors FengCms 
+ * @web     http://www.fengcms.com
+ * @email   web@fengcms.com
+ * @date    2013-11-18 10:48:56
+ * @version FengCms Beta 1.0
+ * @copy    Copyright © 2013-2018 Powered by DiFang Web Studio  
+ *******************************************************************/
+*{ margin:0; padding:0;}
+html {}
+body {font-family:tahoma,"宋体"; font-size:12px;color:#000; background: #333;}
+a:link,a:visited,a:active{ color:#000; text-decoration:none; font-size:12px;star:expression(this.onFocus=this.blur());}
+a:hover{ color:#f60; text-decoration:underline;font-size:12px;}
+a:focus {outline:0;}
+ul,dl,li,dd,dl { list-style:none;}
+img { border:none;}
+.w120 {width: 120px;}
+.none {display: none;}
+.f60 {color: #f60;font-weight: bold;padding: 0 5px;font-family:tahoma}
+.f00 {color: #f00;font-weight: bold;padding: 0 5px;font-family:tahoma}
+.c06f {color: #06f;font-size: 14px;}
+#step4 {background: #000;}
+#stepbox {position: absolute;left: 50%;top:50%;margin:-310px 0 0 -310px;width: 600px;height: 600px;background:url(anzhuang.png) 0 0 no-repeat;padding: 10px;}
+	#buzhou h1 {width: 600px;height: 190px;text-indent: -9999em;}
+	#buzhou span {display: block;height: 60px;text-indent: -9999em;}
+
+#stepinfo {width: 540px;height: 210px;overflow:hidden;padding:20px 30px}
+	#read {width: 530px;height: 200px;overflow:auto;background: #fff;padding: 5px;}
+		#read pre {line-height: 1.8;}
+	#steptable {width: 540px;height: 210px;overflow:auto;background: #fff;}
+		table {width: 100%;}
+		table,th,td {border-collapse: collapse; border:1px solid #D4E2E3;padding:5px;}
+		th{background: #4A71B0;font-size: 14px;color: #fff}
+		.col1 {width: 100px;}
+		.col2 {width: auto;}
+		.col3 {width: 120px;}
+		.col4{width: 60px;}
+		.tablemysql {}
+			.tablemysql .input {height: 23px;width: 330px;border: 1px solid #ccc;}
+#stepsub {width: 600px;height: 100px;overflow: hidden;}
+	#stepsub input {display: block;width: 182px;height: 42px;margin: 20px auto;text-indent: -9999em;cursor: pointer;border:none;}
+	.submit1 {background:url(sub.png) 0 -126px no-repeat;}
+	.submit1:hover {background:url(sub.png)  0 -84px no-repeat;}
+	.submit2 {background:url(sub.png)  0 -294px no-repeat;}
+	.submit2:hover {background:url(sub.png)  0 -252px no-repeat;}
+
+#loading {position: absolute;left: 50%;top:50%;margin:-300px 0 0 -300px;width: 600px;height: 600px;background-image: url(loading.gif);}
+
+#stepsub a {display:block;width: 182px;height: 42px;text-indent: -9999em;float: left;}
+	#stepsub .gohome {background:url(sub.png) 0 -42px no-repeat;margin:20px 20px 0 110px;}
+	#stepsub .gohome:hover {background-position: 0 0;}
+	#stepsub .goadmin {background:url(sub.png) 0 -378px no-repeat;margin:20px 0 0 0;}
+	#stepsub .goadmin:hover {background-position: 0 -336px;}
+
+.tishi {display: block;text-align: center;line-height: 3;color: #f00;font-weight: bold;font-size: 16px;}

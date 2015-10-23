@@ -1,0 +1,15 @@
+1、linux + apache 
+
+使用根目录下的 .htaccess 文件即可。
+
+2、linux + nginx 
+
+根据主机要求，将 根目录下的　nginx.conf 配置文件配置到系统
+
+3、windows 2003 + iis6
+
+使用　httpd.ini 伪静态文件即可。（需要主机安装伪静态插件）
+
+4、windows 2008 + iis7 或者以上版本
+
+使用 web.config 配置文件 （需要主机安装伪静态插件）

@@ -1,0 +1,55 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>后台首页</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+</head>
+
+<body>
+<div id="main">
+	<div id="main_top">
+		
+	</div>
+	<div id="art_body">
+    	<table cellspacing="0" class="add_art">
+        	<tr><th colspan="2"><h3>系统操作提示信息</h3></th></tr>
+            <tr>
+            	<td width="240"><img src="image/duihao.png" style="display:block; margin:20px auto" /></td>
+            	<td>
+				{if $_GET['type']=="save"}
+					{if $_GET['re']=='1'}
+					操作成功！
+					{elseif $_GET['re']=='0'}
+					操作失败！
+					{/if}
+				{elseif $_GET['type']=="exc"}
+					{if $_GET['re']=='1'}
+					操作成功！
+					{elseif $_GET['re']=='0'}
+					操作失败！
+					{/if}
+					<script>setTimeout("Gotonew('?controller=modulemanage')",3000); </script>
+				{else}
+					操作异常！
+					<script>setTimeout("Gotonew('?controller=modulemanage')",3000); </script>
+				{/if}
+                </td>
+            </tr>
+            <tr>
+            	<th colspan="2">
+				{if $_GET['type']=="save"}
+				【<a href="?controller=modulemanage&operate=add">继续添加</a>】
+				【<a href="?controller=modulemanage&operate=update&id={$_GET['id']}">继续修改</a>】
+				{/if}
+				【<a href="?controller=modulemanage">返回模块管理</a>】
+				</th>
+            </tr>
+        </table>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Pragma" CONTENT="no-cache">     
+<meta http-equiv="Cache-Control" CONTENT="no-cache">     
+<meta http-equiv="Expires" CONTENT="0">
+<title>文章管理</title>
+
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script type="text/javascript">
+$(function(){
+	data=$(".form").Validform({
+		tiptype:2,
+		callback:function(data){
+			if(data.status=="y"){
+				location.href =	"?controller=fieldmanage&project={$_GET['project']}&operate=execution&type=save&re=1&id="+data.id;
+			}else if(data.status=="e"){
+				alert("字段已存在！")
+			}else{
+				location.href =	"?controller=fieldmanage&project={$_GET['project']}&operate=execution&type=save&re=0&id="+data.id;
+
+			}
+		}
+	});
+
+	$("#save").click(function(){
+		data.ajaxPost();
+		$.Hidemsg();
+	});
+});
+</script>
+</head>
+
+<body>
+
+<div id="main">
+<form method="post" action="?controller=fieldmanage&project={$_GET['project']}&operate=save" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_8"><a href="#" id="save">保存字段</a></dd>
+			<dd class="art_ico_9"><a href="?controller=fieldmanage&project={$_GET['project']}">取消返回</a></dd>
+		</dl>
+	</div>
+	<div id="art_body">
+		<table cellspacing="0" class="add_art">
+			<tr>
+				<th style="width:100px">所属系统：</th>
+				<td style="width:300px">{$name}</td>
+				<td><span class="article_notes colorf60">※：添加的字段归属于“{$name}”系统</span></td>
+			</tr>
+			<tr>
+				<th>字段英文：</th>
+				<td><input name="name" type="text" id="name" class="inputxt" style="width:200px" datatype="/\w{3,6}/i" errormsg="字段英文至少2个字符！" value="" /></td>
+				<td><span class="article_notes colorf60">※：添加值为新建字段在数据库中的字段名，只能是英文</span></td>
+			</tr>
+			<tr>
+				<th>字段中文：</th>
+				<td><input name="aliases" type="text" id="aliases" class="inputxt" style="width:200px" datatype="s2-10" errormsg="字段中文至少2-10个字符！" value="" /></td>
+				<td><span class="article_notes colorf60">※：在后台显示的字段名称</span></td>
+			</tr>
+			<tr>
+				<th>字段类型：</th>
+				<td><select id="type" name="type">
+					{loop D("module_field_type")->where('f="1"')->getall() $k $v}
+					<option value="{$v['id']}">{$v['name']}</option>
+					{/loop}
+				</select></td>
+				<td><span class="article_notes colorf60">※：选择要添加的字段的类型</span></td>
+			</tr>
+			<tr>
+				<th>默认值：</th>
+				<td><input name="defaults" type="text" id="defaults" class="inputxt" style="width:100px" ignore="ignore" datatype="*1-225" errormsg="默认值太长了！" value="" /></td>
+				<td><span class="article_notes colorf60">※：该字段默认显示内容</span></td>
+			</tr>
+			<tr>
+				<th>是否必填：</th>
+				<td><label><input type="radio" id="must" name="must" value="1">是</label><label><input type="radio" id="must" name="must" value="0" checked>否</label></td>
+				<td><span class="article_notes colorf60">※：如果选择必填，则添加内容时，该字段不能为空</span></td>
+			</tr>
+			<tr>
+				<th>限制长度：</th>
+				<td><input name="length" type="text" id="length" class="inputxt" style="width:100px" ignore="ignore" datatype="*1-6" errormsg="限制长度只能是“1-255”样的格式！"  value="" /></td>
+				<td><span class="article_notes colorf60">※：限制字段内容的长度，格式为 1-255</span></td>
+			</tr>
+			<tr>
+				<th>后台显示：</th>
+				<td><label><input type="checkbox" id="enable" name="enable" value="1"> 后台是否显示</label></td>
+				<td><span class="article_notes colorf60">※：勾选后，该字段可以直接显示在后台模型分页列表上</span></td>
+			</tr>
+			<tr>
+				<th>搜索选项：</th>
+				<td><label><input type="checkbox" id="search" name="search" value="1"> 是否启用检索</label></td>
+				<td><span class="article_notes colorf60">※：勾选后，后台可以根据该字段值进行搜索</span></td>
+			</tr>
+			<tr>
+				<th>内容为空提示：</th>
+				<td><input name="nullmsg" type="text" id="nullmsg" class="inputxt" style="width:200px" ignore="ignore" datatype="*5-20" errormsg="请输入5-20个字符之间的提示！"  value="" /></td>
+				<td><span class="article_notes colorf60">※：勾选“必填”，如果该字段没填写内容，则提示这里设置的文案</span></td>
+			</tr>
+			<tr>
+				<th>格式错误提示：</th>
+				<td><input name="errormsg" type="text" id="errormsg" class="inputxt" style="width:200px" datatype="*5-20" ignore="ignore" errormsg="请输入5-20个字符之间的提示！"  value="" /></td>
+				<td><span class="article_notes colorf60">※：如果输入内容格式错误，则提示这里设置的文案</span></td>
+			</tr>
+		</table>
+	</div>
+</div>
+<input type="hidden" name="module_id" id="module_id" value="{$id}">
+<input type="hidden" name="project" id="project" value="{$project}">
+</form>
+ </body>
+</html>

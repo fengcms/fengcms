@@ -1,0 +1,158 @@
+<div id="head_top">
+	<div class="web">
+		<div id="head_top_hy"><strong>{$web['name']}</strong>欢迎您的光临！</div>
+		<div id="head_top_link">
+			<a onclick="SetHome(window.location)" href="javascript:void(0)">设为首页</a> | 
+			<a onclick="AddFavorite(window.location,document.title)" href="javascript:void(0)">加入收藏</a>
+		</div>
+	</div>
+</div>
+<header id="head" class="web">
+	<h1 id="logo"><a href="/" target="_blank" alt="{$web['name']}">{$web['title']}</a></h1>
+	<div id="soso">
+		<form method="post" action="/?controller=search">
+		<div class="soso_select" id="projectval">
+			<select id="project" name="project">
+				<option value="">全部</option>
+				<!--{
+				标签作用：循环开启搜索的模型
+				查询表格：module表。模型存储表。
+				查询条件：类型为1（0为系统模型，关键词之类的），搜索为1（开启搜索），状态为1（没有禁用的）
+				读取字段：数据表名、项目名称
+				读取条数：20条。一般够用了。
+				排序方法：按ID排序，正序
+				}-->
+				{loop l("module","w[type=1&&search=1&&status=1];f[project,item];n[20];s[id,2]") $k $v}
+				<option value="{$v['project']}"{if $_GET['project']==$v['project']} selected="selected"{/if}>{$v['item']}</option>
+				{/loop}
+			</select>
+		</div>
+		<div class="soso_input">
+			<input type="text" class="soso_text" name="tags" id="tags" value="{if $_GET['tags']}{$_GET['tags']}{/if}" />
+			<input type="submit" class="soso_submit" value="搜索">
+			<!--{<input type="button" class="soso_submit" value="搜索" onclick="window.location.href='{if URL_TYPE==1}/tags/{else}/?controller=search&project='+document.getElementById('project').value+'&tags={/if}'+document.getElementById('tags').value">}-->
+		</div>
+		</form>
+		<!--{原来我在这里写了一个美化版的搜索。但是考虑到各位拿来做二次开发的难度，还是决定用最原始的表单吧。这样虽然不是很美观，但是利于大家学习。}-->
+		<div class="soso_tags">
+			<strong>热搜：</strong>
+			<!--{
+			标签作用：循环网站热门关键词
+			查询表格：tags表。关键词存储表。
+			查询条件：忽略，即查询所有的关键词。
+			读取字段：读取name
+			读取条数：忽略，在忽略的情况下，默认读取10条。
+			排序方法：按热度(hits)排序，倒序
+			}-->
+			{loop l("tags","f[name];s[hits,1]") $k $v}
+			<a href="{search($v['name'])}">{$v['name']}</a> 
+			{/loop}
+		</div>
+	</div>
+</header>
+<nav id="nav">
+	<ul class="web">
+
+		<!--{
+		判断：如果获取不到 controller 则给首页链接加上 样式 nav_on
+		凡是在动态地址里的参数，都可以用{$_GET['controller']}这种方式获取，并用做需要的用途。
+		例如动态地址：http://127.0.0.1/?controller=classify&project=article&classify=JianRongWenTi&classid=3
+		可以用 {$_GET['controller']} 获取到值 classify		获取控制器
+		可以用 {$_GET['project']} 获取到值 article 			获取模型类型表名
+		可以用 {$_GET['classify']} 获取到值 JianRongWenTi	获取栏目英文名称
+		可以用 {$_GET['classid']} 获取到值 3				获取栏目ID
+		}-->
+
+		<li class="nav_home"><a href="/" {if !$_GET['controller']}class="nav_on"{/if}>网站首页</a></li>
+
+		<!--{
+		标签作用：循环网站网站顶级栏目
+		查询表格：classify表。栏目存储表。
+		查询条件：classid=0，表示所属栏目ID为0，则表示为顶级栏目。
+				  nav=1，表示栏目显示状态为1。（在添加栏目的时候，可以选择栏目是否在导航中显示。就是这个字段起的左右。）
+		读取字段：读取id,html,name,url_type字段，分别是栏目ID、链接地址和栏目中文名以及栏目链接方式字段。
+		读取条数：100条。当要把所有的记录全部读取出来的时候，则可以写一个较大的数字。忽略的话，不是表示所有，而是表示10条。
+		排序方法：按排序(sort)排序，正序。默认会按照你设定的字段排序，如果忽略的话，会自动根据ID排序，正序。
+				  sort字段是栏目排序字段，在栏目管理里的栏目排序功能，就是控制这个字段的。
+		}-->
+
+		{loop l("classify","w[classid=0&&nav=1];f[id,html,name,url_type];n[100];s[sort,2]") $k $v}
+
+		<!--{
+		判断1：如果为外链栏目，则直接输出html的值。如果不是外链栏目，则用url函数处理html值后再输出。
+		url函数具体作用，请参考白皮书
+
+		判断2：如果从url中获取classid等于该条记录的ID，或者当前栏目的顶级栏目的ID等于该条记录的ID，则加上 样式 nav_on
+		如果从url中获取classid等于该条记录的ID，表示你当前访问的栏目页面，就是导航上的这个栏目。则这里加上 样式 nav_on
+		当前栏目的顶级栏目的ID等于该条记录的ID，表示，你当问访问的栏目页面，归属于导航上的这个栏目。则这里加上 样式 nav_on
+		|| 这两条竖线是表示或者的意思。更多详细内容，请参考白皮书。
+
+		判断3：如果该记录的url_type字段值等于1，则加上 target="_blank" 新窗口打开属性
+		url_type表示链接方式，字段值默认为0，且只有外链栏目有此选项。
+		一般来说，当导航上有一个外链，是链接到别的网站去的，我们一般会使用新窗口打开。而如果是链接到自己的网站的内页，则没有必要。因此有这个选项。
+		有人问，那么我想所有的栏目都直接打开新窗口怎么办？
+		笨蛋，把这个判断去掉，就是全部新窗口打开-_-|||
+		}-->
+
+		<li><a href="{if $v['type']=='url'}{$v['html']}{else}{url($v['html'])}{/if}"{if $_GET['classid']==$v['id']||$topid==$v['id']} class="nav_on"{/if}{if $v['url_type']=='1'} target="_blank"{/if}>{$v['name']}</a>
+			<!--{
+			这里要做一个下拉菜单的效果。（这个下拉菜单和首页的幻灯在IE8以下浏览器中有兼容问题，我这里仅仅是做一个循环演示。）
+			变量说明：$navid
+			如上面的L标签一样，我们通过classid=0获取到一级栏目。
+			这里，我们是需要获取到二级栏目，因此，对应的，这个二级栏目的claaid应该等于上面的栏目的ID。
+			所以我们需要输出ID，用 $v['id']来进行输出。
+			我们知道l标签中的w等也用到了中括号，所以，如果直接把$v['id']写进l标签中去，则会导致解析冲突。
+			所以，我们把这个条件单拉出来写一个变量。如下：{$navid=$v['id']}
+			通过变量，我们可以不断的扩展L标签的可能，在默认模版中多处用到。
+			}-->
+
+			{$navid=$v['id']}
+
+			<!--{
+			变量说明：$navwhere
+			上面我们通过一个变量获取到了classid。这里为什么要用一个变量呢？
+			因为这个条件不仅仅是循环里用到了，而且在外面还用在了一个判断上面。这个判断下面的注释说明。
+			所以，为了避免重复写，我们把整个条件全部拉出来写一个变量。
+			然后，在下面的loop循环中，我们只要把这个变量写进入，就可以引用这组查询条件了。
+			也就是说：
+
+			{$navwhere=M("module")->l("classify","w[classid=$navid&&nav=1];f[id,html,name,url_type];n[100];s[sort,2]")}
+			{loop $navwhere $key $val}
+
+			是等于
+
+			{loop l("classify","w[classid=$navid&&nav=1];f[id,html,name,url_type];n[100];s[sort,2]") $key $val}
+
+			这个结果的。这是一个比较重要的知识点，慢慢理解。
+			}-->
+
+			{$navwhere=M("module")->l("classify","w[classid=$navid&&nav=1];f[id,html,name,url_type];n[100];s[sort,2]")}
+
+			<!--{
+			判断说明：
+			array_filter 是一个PHP函数，来判断数组是否有内容的。
+			我们用
+			{if array_filter($navwhere)!=""}
+			来判断，这个变量中是否包含内容。也就是说，用这个判断来判断当前栏目下，有没有下级导航。
+			如果有，则输出判断中的内容，如果没有，就什么也不输出。
+			!=""	代表，不等于空。
+			}-->
+
+			{if array_filter($navwhere)!=""}
+			<ul class="submenu">
+				{loop $navwhere $key $val}
+				<li><a href="{if $val['type']=='url'}{$val['html']}{else}{url($val['html'])}{/if}"{if $val['url_type']=='1'} target="_blank"{/if}>{$val['name']}</a></li>
+				{/loop}
+			</ul>
+			{/if}
+		</li>
+		{/loop}
+
+		<!--{
+		判断：如果获取到 controller 的值等于 message 加上 样式 nav_on
+		如果不想在导航显示在线留言，删除下面的li即可。
+		}-->
+
+		<li><a href="{curl('message')}" {if $_GET['controller']=='message'}class="nav_on"{/if}>在线留言</a></li>
+	</ul>
+</nav>

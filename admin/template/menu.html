@@ -1,0 +1,70 @@
+<div id="menu">
+	<h3 id="menu_top">后台管理菜单</h3>
+	<div id="menu_tab">
+		<ul>
+			<li class="active" id="tab_t1" onclick="return swap_tab(1)"><span>内容</span></li>
+			<li class="normal" id="tab_t2" onclick="return swap_tab(2)"><span>系统</span></li>
+			<li class="normal" id="tab_t3" onclick="return swap_tab(3)"><span>相关</span></li>
+			<li class="normal" id="tab_t4" onclick="return swap_tab(4)"><span>模块</span></li>
+		</ul>
+	</div>
+	<div id="menu_con">
+		<div id="tab_1" class="tab_block">
+			<h4 class="menu_h4">内容管理</h4>
+			<ul class="menu_list">
+				{loop M("module")->findall("type=1&&status=1") $k $v}
+				<li><a href="?controller=module&project={$v['project']}" class="colorFFC" target="main">{$v['name']}</a>　<a href="?controller=module&project={$v['project']}&operate=add" class="colorf60" target="main">添加{$v['item']}</a></li>
+				{/loop}
+			</ul>
+			<div id="menu_line"></div>
+			<ul class="menu_list">
+				<li><a href="?controller=classify" target="main">频道栏目管理</a>　<a href="?controller=classify&operate=add" class="colorf60" target="main">添加</a></li>
+				<li><a href="?controller=recover" target="main">回收站</a></li>
+			</ul>
+		</div>
+		<div id="tab_2" class="tab_none">
+			<h4 class="menu_h4">系统管理</h4>
+			<ul class="menu_list">
+				<li><a href="?controller=base" target="main">网站基本信息设置</a></li>
+				<li><a href="?controller=dbmanage&operate=dbbackup" target="main">数据库管理</a></li>
+			</ul>
+			<h4 class="menu_h4">模板管理</h4>
+			<ul class="menu_list">
+				<li><a href="?controller=tplmanage" target="main">模板管理</a></li>
+				<li><a href="?controller=tplmanage&project=css" target="main">Css 管理</a></li>
+				<li><a href="?controller=tplmanage&project=inc" target="main">核心碎片管理</a></li>
+				<li><a href="?controller=tplmanage&project=scrap" target="main">自定义碎片管理</a></li>
+				<li><a href="?controller=tplmanage&project=show" target="main">广告代码管理</a></li>
+			</ul>
+		</div>
+		<div id="tab_3" class="tab_none">
+			<h4 class="menu_h4">相关管理</h4>
+			<ul class="menu_list">
+				{loop M("module")->findall("type=0&&status=1") $k $v}
+				<li><a href="?controller=module&project={$v['project']}" class="colorFFC" target="main">{$v['name']}</a>　<a href="?controller=module&project={$v['project']}&operate=add" class="colorf60" target="main">添加</a></li>
+				{/loop}
+			</ul>
+			<div id="menu_line"></div>
+			<ul class="menu_list">
+				<li><a href="?controller=message" target="main">留言管理</a></li>
+			</ul>
+		</div>
+		<div id="tab_4" class="tab_none">
+			<h4 class="menu_h4">模块系统</h4>
+			<ul class="menu_list">
+				<li><a href="?controller=modulemanage" target="main">管理模块</a>　<a href="?controller=modulemanage&operate=add" class="colorf60" target="main">添加模块</a></li>
+			</ul>
+			<div id="menu_line"></div>
+			<ul class="menu_list">
+				{loop M("module")->findall("type=1&&status=1") $k $v}
+				<li><a href="?controller=fieldmanage&project={$v['project']}" class="colorFFC" target="main">{$v['name']}字段</a></li>
+				{/loop}
+			</ul>
+		</div>
+		<!--
+		<div id="tab_4" class="tab_none">4</div>
+		<div id="tab_5" class="tab_none">5</div>
+		<div id="tab_6" class="tab_none">6</div>
+		-->
+	</div>
+</div>

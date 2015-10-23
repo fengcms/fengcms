@@ -1,0 +1,31 @@
+<script type="text/javascript">
+	//设置编辑器
+KindEditor.ready(function({$v['name']}K) {
+	var editor = {$v['name']}K.editor({
+					allowFileManager : true
+				});
+		//加载上传图片
+		{$v['name']}K('#batchimg').click(function() {
+			editor.loadPlugin('multiimage', function() {
+				editor.plugin.multiImageDialog({
+					clickFn : function(urlList) {
+
+						K.each(urlList, function(i, data) {
+							//div.append('<img src="' + data.url + '">');
+							urls +data.url;
+							{$v['name']}K("#{$v['name']}").val(urls);
+						});
+						editor.hideDialog();
+					}
+				});
+			});
+		});
+});
+</script>
+<tr>
+	<th>{$item}图片:</th>
+	<td>
+	<input type="text" name="{$v['name']}" id="{$v['name']}" value="{if $info['img']}{$info['img']}{/if}" class="inputxt" style="width:300px"/> <input type="button" id="{$v['name']}K" value="选择图片" class="admin_button inputxt" style="width:100px;height:30px;" />
+	</td>
+	<td></td>
+</tr>

@@ -1,0 +1,82 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$web['name']}全站有关“{$_GET['tags']}”的内容。 ">
+<meta name="keywords" content="{$_GET['tags']}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<script src="/js/jquery.min.js"></script>
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<!--{
+模版说明：
+这个模版是整站搜索，会搜索所有打开了搜索的模型内容。
+模型搜索打开选项在 后台 → 模块 → 管理模块 → 对应模块后面的“编辑” → 其他选项 → 启用搜索
+由于默认新建的模型是不包含tags这个字段的。
+因此，整站搜索，默认情况下仅搜索 title 字段。
+如果所有开启搜索的模型，均包含tags字段（就是你都加上了这个字段）
+则会同时搜索title和tags这两个字段来匹配关键词。
+}-->
+
+<!--{
+变量说明
+变量作用：开启搜索模式。
+变量详解：除了 “ ($_GET,'',10) ” 中的引号需要理解一下，其他均无需理解，照抄即可。
+这个中间的单引号中，可以增加新的搜索字段。例如，你希望在全站搜索中增加info字段，就可以在这里填写上info字段。
+如果是增加多个字段，按照这个格式增加 “ 'info,img,date' ”。也就是用英文逗号隔开。
+必须强调说明的是  ————  这些字段必须所有开启搜索的模型中全部包含。否则，就会出错。
+
+第三个是数字，代表搜索结果显示多少条。
+
+关于这两处的具体示例，看 article_search.html 文件。
+
+一般来说，整站搜索不需要搜索太多的字段。默认即可。因为是跨表查询，开启多个字段的话存在效率问题。
+}-->
+
+{$search=M("module")->search($_GET,'',100)}
+<div id="web">
+	<hgroup id="hgroup">
+		<h2>站内搜索</h2>
+		<!--{
+		代码说明：
+		{$_GET['tags']}，从地址栏获取搜索的关键词。
+		判断说明：
+		获取搜索的条数，如果存在搜索结果，则显示搜索结果的条数。如果不存在，则显示0。
+		看得懂最好，看不懂没关系，照抄。
+		}-->
+		<span>搜索“{$_GET['tags']}”，本次共找到相关网页{if $search['total']}{$search['total']}{else}0{/if}条</span>
+	</hgroup>
+	<div id="soso_list">
+		<ul class="list_14">
+			<!--{
+			标签作用：循环搜索结果。
+			详细说明：循环查询和l标签不一样，照抄即可。里面的详细的循环体，和l标签是一样的，不再累述。
+			}-->
+			{loop $search['list'] $k $v}
+			<li><span>{date('Y-m-d',$v['time'])}</span><a href="{url($v['html'])}" target="_blank">{$v['title']}</a></li>
+			<!--{
+			判断说明：
+			和文章系统栏目页的那个判断一样，只是把5改成了10。详情可以看article_class.html模版文件。
+			这个判断不是必要的。大家可以自己自由发挥。
+			}-->
+			{if intval(intval($k+1)%10)==0&&intval($k+1)<100} <div class="newsfy_line"></div>{/if}
+			{/loop}
+		</ul>			
+	</div>
+	<!--{ 调用分页代码 }-->
+	<div id="fenye">{$search['fy']}</div>	
+</div>
+
+{include "scrap/footer.html"}
+</body>
+</html>

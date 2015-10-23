@@ -1,0 +1,47 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$info}">
+<meta name="keywords" content="{$tags}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<div id="web">
+	<div id="web_con">
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>{$title}</h3>
+				<div id="where">{include "inc/where.html"}</div>
+			</div>
+			<div id="article">
+				<div class="gehang"></div>
+				<div id="article_nr">{$content}</div>
+			</div>
+		</div>
+	</div>
+	<div id="web_bar">
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>栏目导航</h3>
+			</div>
+			<ul id="bar_nav">
+				{loop l("single","w[classid=$classid&&status=1];f[id,html,title];n[30];s[id,2]") $v}
+				<li {if $id==$v['id']}class="bar_nav_on"{/if}><a href="{url($v['html'])}">{$v['title']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+	</div>
+</div>
+
+{include "scrap/footer.html"}
+</body>
+</html>

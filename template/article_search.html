@@ -1,0 +1,59 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$web['name']}全站有关“{$_GET['tags']}”的内容。 ">
+<meta name="keywords" content="{$_GET['tags']}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<script src="/js/jquery.min.js"></script>
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<!--{
+模版说明：
+文章搜索模版大抵和全站搜索是一样的。只是增加了搜索字段，更改了搜索条数，多显示几个字段而已。
+大家可以自由发挥，为每一个模型都建立不同的搜索模版。
+}-->
+{$search=M("module")->search($_GET,'info,date,hits',10)}
+<div id="class_main" class="web">
+	<hgroup id="hgroup">
+		<h2>站内搜索</h2>
+		<span>搜索“{$_GET['tags']}”，本次共找到相关网页{if $search['total']}{$search['total']}{else}0{/if}条</span>
+	</hgroup>
+
+	<div id="class_contont">
+		<div id="class_list">
+			{loop $search['list'] $k $v}
+			<dl>
+				{if $v['img']}<dt><img src="{$v['img']}" alt="{$v['title']}"></dt>{/if}
+				<dd>
+					<strong><a href="{url($v['html'])}" target="_blank">{$v['title']}</a></strong>
+					<section>
+						<em class="class_list_time">更新时间：</em>
+						<time>{$v['date']}</time>
+						<em class="class_list_author">文章作者：</em>
+						<span>{$v['author']}</span>
+						<em class="class_list_hot">阅读次数：</em>
+						<span><tt>{intval($v['hits'])}</tt>次</span>
+					</section>
+					<p>{$v['info']}</p>
+				</dd>
+			</dl>
+			{/loop}
+		</div>
+		<div id="fenye">{$search['fy']}</div>
+	</div>
+	
+</div>
+
+{include "scrap/footer.html"}
+</body>
+</html>

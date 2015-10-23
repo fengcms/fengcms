@@ -1,0 +1,13 @@
+<!--{
+碎片作用：显示当前内容阅读页面的上一条的信息的链接。
+调用方法：{include "inc/prev.html"}
+使用注意：
+1、该系统碎片只能用在模型内容页面模版中，如 article_content.html
+2、该模型必须拥有系统字段“栏目”，否则会报错。
+}-->
+{$prev=M("module")->l($_GET['project'],"w[id>$id&&classid=$classid];n[1];f[title,html];s[id,2]")}
+{if is_array($prev)}
+{loop $prev $k $v}<a href="{url($v['html'])}" title="{$v['title']}">{$v['title']}</a>{/loop}
+{else}
+没有了！
+{/if}

@@ -1,0 +1,88 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>文章管理</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="js/classify_list.js"></script>
+</script>
+</head>
+
+<body>
+
+<div id="main">
+  <form name="checkboxform" method="post" action="?controller=classify&operate=batch" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_1"><a href="?controller=classify&operate=add">添加栏目</a></dd>
+			<dd class="art_ico_2"><a href="?controller=classify&operate=sorts&classid={$_GET['id']}">栏目排序</a></dd>
+			<dd class="art_ico_3"><a href="#" id="delete">删除栏目</a></dd>
+			{if $_GET['id']}
+				{$up=M("classify")->findone("id=".$_GET['id'])}
+				{if $up['classid']=="0"}
+				<dd class="art_ico_9"><a href="?controller=classify">返回上级</a></dd>
+				{else}
+				<dd class="art_ico_9"><a href="?controller=classify&id={$up['classid']}">返回上级</a></dd>
+				{/if}
+			{/if}
+			<dt class="art_ico_7"><span>快速导航</span></dt>
+		</dl>
+	</div>
+	<div id="art_body">
+		<div id="art_list">
+			<table cellspacing="0">
+				<tr>
+					<th width="40">选择</th>
+					<th width="50">ID</th>
+					<th width="100">所属模块</th>
+					<th class="art_title_th">栏目名称</th>
+					<th width="300">操作</th>
+				</tr>
+				{loop $classify $k $v}
+				<tr class="bg_fff">
+					<td><input type="checkbox" name="classify[]" id="record{intval($k+1)}" value="{$v['id']}" /></td>
+					<td>{intval($v['id'],10)}</td>
+					<td>{if $v['type']=="module"}
+						{$name=M("module")->findname('project="'.$v['project'].'"')}
+						{$name}
+						{elseif $v['type']=="url"}
+						外链系统
+						{elseif $v['type']=="single"}
+						单页系统
+						{/if}
+					</td>
+					<td><a {if D("classify")->where("classid=".$v['id'])->getcount()>0}href="?controller=classify&id={$v['id']}" class="class_jia"{else}href="#" class="class_jian"{/if}>{$v['name']}</a></td>
+					<td style="text-align:left">
+					{if $v['type']=="module"}
+					<a href="{if URL_TYPE==0}/{/if}{url($v['html'])}" class="color333" target="_blank">预览</a> | 
+					<a href="?controller=classify&operate=update&id={$v['id']}" class="color333">编辑栏目</a> | 
+					<a href="?controller=classify&operate=delete&id={$v['id']}&type={$v['type']}" class="color333" onclick="javascript:return confirm('您确定要删除“{$v['name']}”，并会清空所属的所有记录吗？')">删除栏目</a> | 
+					<a href="?controller=classify&operate=emptys&id={$v['id']}" class="color333" onclick="javascript:return confirm('您确定要清空所属“{$v['name']}”的所有记录吗？')">清空内容</a>
+					{elseif $v['type']=='url'}
+					<a href="{$v['html']}" target="_blank" class="color333">预览</a> | 
+					<a href="?controller=classify&operate=update&id={$v['id']}" class="color333">编辑栏目</a> | 
+					<a href="?controller=classify&operate=delete&id={$v['id']}&type={$v['type']}" class="color333" onclick="javascript:return confirm('您确定要删除“{$v['name']}”吗？')">删除栏目</a>
+					{elseif $v['type']=='single'}
+					<a href="{$v['html']}" target="_blank" class="color333">预览</a> | 
+					<a href="?controller=classify&operate=update&id={$v['id']}" class="color333">编辑栏目</a> | 
+					<a href="?controller=classify&operate=delete&id={$v['id']}&type={$v['type']}" class="color333" onclick="javascript:return confirm('您确定要删除“{$v['name']}”吗？')">删除栏目</a> | 
+					<a href="?controller=classify&operate=emptys&id={$v['id']}" class="color333" onclick="javascript:return confirm('您确定要清空所属“{$v['name']}”的所有记录吗？')">清空内容</a>
+					{/if}
+					</td>
+				</tr>
+				{/loop}
+			</table>
+		</div>
+		<div id="art_sxsz">
+			<div id="art_xz"><input type="button" value="全选" id="art_xz_qx" onclick="checkAll()" /><input type="button" value="反选" id="art_xz_fx" onclick="switchAll()" /><input type="button" value="不选" id="art_xz_bx" onclick="uncheckAll()" /></div>
+			</div>
+	</div>
+  </form>
+</div>
+
+</body>
+</html>
