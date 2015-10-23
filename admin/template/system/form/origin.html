@@ -1,0 +1,13 @@
+<tr>
+	<th>{$item}{$v['aliases']}:</th>
+	<td><input id="{$v['name']}" name="{$v['name']}" type="text" class="inputxt" style="width:300px" {if $v['must']=='0'}ignore="ignore"{/if} datatype="{$v['type_verification']}{$v['length']}" nullmsg="{if $v['nullmsg']}{$v['nullmsg']}{else}请填写信息！{/if}" errormsg="{if $v['errormsg']}{$v['errormsg']}{else}{$v['item']}{$v['aliases']}要{$v['length']}个字符！{/if}" value="{if $info[$v['name']]}{$info[$v['name']]}{else}{$v['defaults']}{/if}"/>&nbsp;
+	<span id="open_author" class="downlist_tab color00f"><em>打开{$v['aliases']}列表</em>
+			<div id="tags_list" class="downlist_box">
+				{loop D("origin")->sort("hits","order","desc")->getall() $key $val}
+				<a href="#" onclick="gets('{$v['name']}',this)">{$val['name']}</a>
+				{/loop}
+			</div>
+		</span>
+	</td>
+	<td><span class="article_notes colorf60">※：录入{$item}来源，可在“相关”→“来源管理”里批量添加来源</span></td>
+</tr>

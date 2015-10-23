@@ -1,0 +1,58 @@
+<!--{
+碎片说明：
+该碎片用于显示网站的当前位置。
+调用方法：
+{include "inc/where.html"}
+
+设置项说明：
+
+	$str 		每个链接之间的间隔符。默认为两个尖号。
+	$webname 	网站首页是显示“网站首页”，还是显示网站的名称（后台基本信息设置）。
+				为 0 显示“网站首页”
+				为 1 显示网站标题
+				推荐设置为显示网站标题，更加利于搜索引擎优化。
+	$hgroup 	位置导航起始文字。可根据您的需要任意修改。
+	$readtitle 	内容页面位置导航是显示内容的标题，还是显示“内容正文”
+				为 1 显示带链接的内容的标题
+				为 0 显示“内容正文”四个字。
+				推荐设置为1，利于搜索引擎优化。
+}-->
+{$str="&gt;&gt;"}
+{$webname="1"}
+{$hgroup="当前位置："}
+{$readtitle="1"}
+
+<!--{
+以下内容请确认您完全理解的情况下进行修改，否则，请勿修改。
+}-->
+{$hgroup} <a href="/">{if $webname==1}{$web['name']}{else}网站首页{/if}</a>
+{if $_GET['controller']==""||$_GET['controller']=="home"}
+	 {$str} 网站首页
+{elseif $_GET['controller']=="classify"}
+	{if $_GET['project']=="single"}
+		{loop M("module")->location($classid,$str) $k $v}
+		{$v}
+		{/loop}
+	{else}
+		{loop M("module")->location($id,$str) $k $v}
+		{$v}
+		{/loop}
+	{/if}	
+{elseif $_GET['controller']=="content"}
+	{loop M("module")->location($classid,$str) $k $v}
+	{$v}
+	{/loop}
+	 {$str} {if $readtitle=="1"}<a href="{url($html)}" title="{$title}">{$title}</a>{else}内容正文{/if}
+{elseif $_GET['controller']=="message"}
+	{if $_GET['operate']=="add"}
+		 {$str} 我要留言
+	{else}
+		 {$str} 查看留言
+	{/if}	
+{elseif $_GET['controller']=="map"}
+	 {$str} 网站地图
+{elseif $_GET['controller']=="tags"}
+	 {$str} 标签云
+{else}
+	 {$str} <a href="/">返回首页</a>
+{/if}

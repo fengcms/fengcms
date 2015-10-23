@@ -1,0 +1,184 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$description}">
+<meta name="keywords" content="{$key}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<script src="/js/jquery.js"></script>
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<!--{
+变量：	$classid=$_GET['classid']
+当前页面调用的所有都应该是属于当前的。所以，调用限制条件里，要加上classid=当前的栏目ID。
+$_GET['classid']是从页面地址中获取到栏目ID。
+例如这个地址：http://127.0.0.1/?controller=classify&project=article&classify=HeYuYiHua&classid=4
+通过这个变量，就可以获取到 $classid=4
+然后，在本页面所有需要加限制条件的地方，加上 classid='$classid' 
+就可以起到 classid='4' 的效果了。
+那么可以不可以直接在查询语句中写 classid='$_GET['classid']' 来获取呢？
+不可以，因为其中的方括号查询语句冲突了。所以执行会出错。
+因此，需要写成变量。
+写成变量的另外一个好处是，可以多次调用。
+这是一个非常重要的知识点，一定要掌握。
+
+特别注意：变量名是可以随意设定的，但是同一个模版上，不能有两个相同的变量名！否则会冲突。
+}-->
+{$classid=$_GET['classid']}
+<div id="web">
+	<div id="web_con">
+		<div class="home_box">
+			<div class="boxtitle">
+				<!--{ $name 是读取当前栏目的标题 }-->
+				<h3>{$name}</h3>
+				<div id="where">{include "inc/where.html"}</div>
+			</div>
+			<!--{
+			变量：
+			这里是分页变量。在FengCms系统中算是一个比较特殊的。用于分页列表。最后的数字代表读取多少条。
+			因为只有分页列表用，因此不需要深入理解，只需要记住修改最后的数字，即可调整条数即可。
+			}-->
+			{$record=M("module")->page($project,$id,100)}
+			<div id="news_fenye">
+				<ul class="list_14">
+					<!--{
+					标签作用：循环分页列表。
+					这是一个集成标签，因此没有l标签复杂。其中循环体和l标签是一致的。具体查看白皮书。
+					}-->
+					{loop $record['list'] $k $v}
+					<li><span>{date('Y年m月d日',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+					<!--{
+					判断：
+					判断当循环的条数除以5的余数为0并且条数值小于100，则加上一条虚线。
+					主要是为了提高分页列表的阅读体验做的设计。
+					关于K值的运用，白皮书中有详细的说明。这里讲一下原理。
+					1、	$k 值默认是从0开始的。所以如果直接用k值除以5取余数的话，第五条的K值为4，这显然不行。
+						因此，用intval($k+1)来让这个值从1开始，而不是从0开始。
+					2、	只要是取余数得到的值为0，则说明数字为除以数的整数倍。
+						如本例中，我们是%5,表示除以5取余数。则得到的值为 5 10 15 这样的数字。
+						也就是说，只要是5的倍数，就加上这条虚线。好理解吧？
+					3、	最后，我们并且这个值小于100。也就是说，第一百行的时候，我们不加这条虚线。
+						因为本例中，我们设定的分页条数为共100条。也就是说，当$k+1=100的时候，就是最后一条了。
+						最后一条下面就是分页标签了。所以不需要加上这个虚线。因此加上了这个判断。
+						注意：本例中的判断中的100和上面分页变量里的分页条数的100为统一的。如果修改上面的数字，这里也要修改。
+					FengCms的判断是异常灵活并且非常好用的。这需要一定的逻辑能力。
+					如果你感觉有点困难，没关系，只要照抄和修改其中的数字即可。
+					或者你到论坛提问，说你想实现什么判断，但是不会写，我们来帮你写。
+					}-->
+					{if intval(intval($k+1)%5)==0&&intval($k+1)<100} <div class="newsfy_line"></div>{/if}
+					{/loop}
+				</ul>
+			</div>
+			<div id="fenye">{$record['fy']}</div>
+		</div>
+	</div>
+	<div id="web_bar">
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>最新推荐</h3>
+			</div>
+			<ul class="list_12">
+				<!--{
+				标签作用：调用文章系统当前栏目设为推荐的最新添加的信息。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的推荐属性为1(attrib_j=1)并且文章系统的状态为1(status=1)的内容。
+				读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+				读取条数：10条。
+				排序方法：按照id排序，倒序。
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_j=1&&status=1];f[title,html,date];n[10];s[id,1]") $k $v}
+				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div id="home_show_a">
+			{include "show/home_a_show.html"}
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>图文推荐</h3>
+			</div>
+			<ul class="bar_pic">
+				<!--{
+				标签作用：调用文章系统当前栏目设为推荐属性的图文文章。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的attrib_j为1并且图片部位空并且状态为1(status=1)的内容。
+				读取字段：title\html\img
+				读取条数：4条。
+				排序方法：按照id排序，倒序。
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_j=1&&img!=''&&status=1];f[title,html,img];n[4];s[id,1]") $k $v}
+				<li><a href="{url($v['html'])}" title="{$v['title']}"><img src="{$v['img']}" alt="{$v['title']}"/><span>{$v['title']}</span></a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>热门资讯</h3>
+			</div>
+			<ul class="list_12">
+				<!--{
+				标签作用：调用文章系统当前栏目设为热门的点击量最多的信息。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的推荐属性为1(attrib_r=1)并且文章系统的状态为1(status=1)的内容。
+				读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+				读取条数：10条。
+				排序方法：按照hits排序，倒序。(hits字段存储的是点击次数)
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_r=1&&status=1];f[title,html,date];n[10];s[hits,1]") $k $v}
+				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>热门图文</h3>
+			</div>
+			<ul class="bar_pic">
+				<!--{
+				标签作用：调用文章系统当前栏目设为热门属性的图文文章。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的attrib_r为1并且图片部位空并且状态为1(status=1)的内容。
+				读取字段：title\html\img
+				读取条数：4条。
+				排序方法：按照hits排序，倒序。(hits字段存储的是点击次数)
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_r=1&&img!=''&&status=1];f[title,html,img];n[4];s[hits,1]") $k $v}
+				<li><a href="{url($v['html'])}" title="{$v['title']}"><img src="{$v['img']}" alt="{$v['title']}"/><span>{$v['title']}</span></a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>标签云</h3>
+				<a href="{curl('tags')}" class="more">更多</a>
+			</div>
+			<ul class="tags_list">
+				<!--{
+				标签作用：循环网站热门关键词
+				查询表格：tags表。关键词存储表。
+				查询条件：忽略，即查询所有的关键词。
+				读取字段：读取name
+				读取条数：20
+				排序方法：按热度(hits)排序，倒序
+				}-->
+				{loop l("tags","f[name];n[20];s[hits,1]") $k $v}
+				<li><a href="{search($v['name'])}" target="_blank">{$v['name']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+	</div>
+</div>
+
+{include "scrap/footer.html"}
+</body>
+</html>

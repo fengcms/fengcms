@@ -1,0 +1,114 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<meta name="description" content="{$description}">
+<meta name="keywords" content="{$key}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<link href="/js/validform/css.css" rel="stylesheet" type="text/css" />
+<script src="/js/jquery.js"></script>
+<script src="/js/validform/validform.js"></script>
+<script type="text/javascript">
+$(function(){
+	data=$(".form").Validform({
+		tiptype:2,
+		showAllError:true,
+		callback:function(data){
+			var check=confirm("您确定要提交留言吗？");
+			if(check){
+				
+				if(data.status=="y"){
+					alert("您的留言发布成功！");
+					location.href =	"{curl('message')}";
+				}else if(data.status=="c"){
+					alert("验证码不正确！");
+				}else{
+					alert("发布失败");
+					location.href =	"{curl('message')}";
+
+				}
+			}			
+			return false;
+		}
+	});
+	$("#save").click(function(){
+		data.ajaxPost();
+		$.Hidemsg();
+	});
+});
+</script>
+<!--{
+这边的留言校验，我们采用的是“validform”的校验代码。
+如果需要修改校验样式，请访问：http://validform.rjboy.cn/
+在提交留言页面，这个共用JS，一定要放在上面的这段JS的下面。
+}-->
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<div id="web">
+	<hgroup id="hgroup">
+		<h2>在线留言</h2>
+		<span><a href="{curl('message')}">查看留言</a> <a href="{curl('message','add')}">我要留言</a></span>
+	</hgroup>
+	<div id="gbook_w">
+		<form method="post" action="/?controller=message&operate=save" class="form">
+		<table>
+			<tr>
+				<th>标题:</th>
+				<td><input type="text" id="title" name="title" datatype="*5-255" errormsg="留言标题不能少于5个字！" nullmsg="留言标题不能为空" value="" ></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th>昵称:</th>
+				<td><input type="text" name="name" ignore="ignore" datatype="s0-255" errormsg="昵称输入不正确！"></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th>QQ:</th>
+				<td><input type="text" name="qq" ignore="ignore" datatype="n5-12" errormsg="QQ输入不正确！"></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th>手机:</th>
+				<td><input type="text" name="tel" ignore="ignore" datatype="m" errormsg="手机输入不正确！"></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th>邮箱:</th>
+				<td><input type="text" name="mail" ignore="ignore" datatype="e" errormsg="邮箱输入不正确！"></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th>内容:</th>
+				<td><textarea id="content" name="content" datatype="*10-500" errormsg="留言内容不能少于10个字！" nullmsg="留言内容不能为空"></textarea></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th>验证码:</th>
+				<td><input type="text" name="vcode" id="vcode" value="" ajaxurl="/?controller=home&operate=vccore" datatype="*4-4" nullmsg="请输入验证码！" errormsg="验证码输入错误" style="width:100px"> <img  title="点击刷新" src="/vccore.php" align="absbottom" onclick="this.src='/vccore.php?'+Math.random();"></img></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th></th>
+				<td><input type="button" value="提交留言" id="save"></td>
+				<td></td>
+			</tr>
+		</table>
+		<input type="hidden" name="time" value="{time()}">
+		</form>
+	</div>
+</div>
+
+{include "scrap/footer.html"}
+
+</body>
+</html>

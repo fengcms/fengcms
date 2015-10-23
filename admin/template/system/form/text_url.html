@@ -1,0 +1,5 @@
+<tr>
+	<th>{$item}{$v['aliases']}:</th>
+	<td width="650"><input id="{$v['name']}" name="{$v['name']}" type="text" class="inputxt" style="width:300px" {if $v['must']=='0'}ignore="ignore"{/if} datatype="url" nullmsg="{if $v['nullmsg']}{$v['nullmsg']}{else}请填写信息！{/if}" errormsg="{if $v['errormsg']}{$v['errormsg']}{else}{$v['item']}链接地址不正确！{/if}" value="{if $info[$v['name']]}{$info[$v['name']]}{else}{$v['defaults']}{/if}"/></td>
+	<td></td>
+</tr>

@@ -1,0 +1,63 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>文章管理</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+</head>
+
+<body>
+
+<div id="main">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_1"><a href="?controller=modulemanage&operate=add">添加模块</a></dd>
+			<dd class="art_ico_5"><a href="?controller=modulemanage&operate=load">导入模块</a></dd>
+			<dt class="art_ico_7"><span>快速导航</span></dt>
+		</dl>
+	</div>
+	<div id="art_body">
+		<div id="art_list">
+			<table cellspacing="0">
+				<tr>
+					<th width="50">ID</th>
+					<th>模型名称</th>
+					<th>数据表</th>
+					<th>项目名称</th>
+					<th>项目单位</th>
+					<th>状态</th>
+					<th width="300">操作</th>
+				</tr>
+				{loop $module $k $v}
+				<tr class="bg_fff">
+					<td>{intval($v['id'],10)}</td>
+					<td>{$v['name']}</td>
+					<td>{$v['project']}</td>
+					<td>{$v['item']}</td>
+					<td>{$v['unit']}</td>
+					<td>{if $v['status']==1}开启{else}禁用{/if}</td>
+					<td>
+					<a href="?controller=modulemanage&operate=elicit&id={$v['id']}" class="color333" onclick="javascript:return confirm('您确定要导出“{$v['name']}”这个模型吗？')">导出</a> | 
+					<a href="?controller=fieldmanage&project={$v['project']}" class="color333">字段</a> | 
+					{if $v['status']==1}
+					<a href="?controller=modulemanage&operate=disabled&f=0&id={$v['id']}" class="color333">禁用
+					{else}
+					<a href="?controller=modulemanage&operate=disabled&f=1&id={$v['id']}" class="color333">开启
+					{/if}</a> | 
+					<a href="?controller=modulemanage&operate=update&id={$v['id']}" class="color333">编辑</a> | 
+					<a href="?controller=modulemanage&operate=delete&id={$v['id']}" class="color333" onclick="javascript:return confirm('您确定要删除“{$v['name']}”吗？')">删除</a>
+					</td>
+				</tr>
+				{/loop}
+			</table>
+		</div>
+		<div id="art_sxsz"></div>
+	</div>
+</div>
+
+</body>
+</html>

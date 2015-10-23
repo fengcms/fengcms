@@ -1,0 +1,28 @@
+RewriteEngine On
+RewriteBase /
+
+RewriteRule ^index.html index.php?controller=home&operate=index
+
+RewriteRule ^content_(.*)_(.*).html index.php?controller=content&project=$1&id=$2
+
+RewriteRule ^tags/(.*)_(.*).html index.php?controller=search&tags=$1&page=$2
+
+RewriteRule ^tags/(.*).html index.php?controller=search&tags=$1
+
+RewriteRule ^(.*)_(.*)_(.*)_(.*).html index.php?controller=classify&project=$1&classify=$2&classid=$3&page=$4
+
+RewriteRule ^(.*)_(.*)_(.*).html index.php?controller=classify&project=$1&classify=$2&classid=$3
+
+RewriteRule ^map.html index.php?controller=map
+
+RewriteRule ^message.html index.php?controller=message
+
+RewriteRule ^message_add.html index.php?controller=message&operate=add
+
+RewriteRule ^message_(.*)_(.*).html index.php?controller=message&operate=$1&id=$2
+
+RewriteRule ^message_(.*).html index.php?controller=message&page=$1
+
+RewriteRule ^signup.html index.php?controller=signup
+
+RewriteRule !\.(js|txt|gif|jpg|png|bmp|css|swf|html|htm|php)$ index.php

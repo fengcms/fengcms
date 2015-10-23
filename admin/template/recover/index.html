@@ -1,0 +1,85 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>文章管理</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="js/recover.js"></script>
+</head>
+
+<body>
+
+<div id="main">
+
+  <form name="checkboxform" method="post" action="?controller=recover&project={$_GET['project']}&operate=batch" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_2"><a href="#" name="recovers" class="recovers">文章还原</a></dd>
+			<dd class="art_ico_3"><a href="#" name="thorough" class="thorough">彻底删除</a></dd>
+			<dt class="art_ico_7"><span>快速导航</span></dt>
+		</dl>
+	</div>
+	<div id="art_body">
+		<div id="art_class">
+			<ul>				
+				{loop M("module")->findall("type=1&&recover=1") $k $v}
+					<li class="art_ico_pd">
+						<a href="?controller=recover&project={$v['project']}">{if $v['project']==$_GET['project']}<strong>{$v['name']}</strong>{else}{$v['name']}{/if}</a>
+					</li>
+				{/loop}
+			</ul>
+		</div>
+		<div id="art_list">
+			<table cellspacing="0">
+				<tr>
+					<th width="40">选择</th>
+					<th class="art_title_th">标题</th>
+					<th width="100">栏目</th>
+					<th width="100">录入</th>
+					<th width="200">属性</th>
+					<th width="100">时间</th>
+					<th width="100">状态</th>
+					<th width="100">操作</th>
+				</tr>
+				{loop $list $k $v}
+				<tr class="bg_fff">
+					<td><input type="checkbox" id="news{intval($k+1)}" name="article[]" value="{$v['id']}" /></td>
+					<td><a href="{$v['html']}" target="_blank" class="art_title_pic">{$v['title']}</a></td>
+					<td>{$v['classify_name']}</td>
+					<td>{$v['inputer']}</td>
+					<td>
+					{if $v['attrib_j']==1}｜荐{/if}
+					{if $v['attrib_g']==1}｜滚{/if}
+					{if $v['attrib_t']==1}｜头{/if}
+					{if $v['attrib_r']==1}｜热{/if}
+					{if $v['attrib_d']==1}｜固{/if}
+					{if $v['attrib_h']==1}｜幻{/if}
+					</td>
+					<td>{$v['date']}</td>
+					<td>
+					{if $v['start']=="0"}未发布{elseif $v['start']=="1"}已发布{/if}
+					</td>
+					<td><a href="?controller=recover&project={$_GET['project']}&operate=recoverone&id={$v['id']}" class="color00f">还原</a>&nbsp; |&nbsp;
+						<a href="?controller=recover&project={$_GET['project']}&operate=delete&id={$v['id']}" class="color999">删除</a></td>
+				</tr>
+				{/loop}
+			</table>
+		</div>
+		<div id="art_sxsz">
+			<div id="art_xz"><input type="button" value="全选" id="art_xz_qx" onclick="checkAll()" /><input type="button" value="反选" id="art_xz_fx" onclick="switchAll()" /><input type="button" value="不选" id="art_xz_bx" onclick="uncheckAll()" /></div>
+		</div>
+		<div id="art_fenye">
+			<dl>{$fy}</dl>
+		</div>
+	</div>
+	<input type="hidden" name="method" id="method"><input type="hidden" name="parameter" id="parameter">
+   </form>
+</div>
+
+</body>
+</html>

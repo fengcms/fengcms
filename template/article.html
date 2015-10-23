@@ -1,0 +1,295 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$description}">
+<meta name="keywords" content="{$key}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<script src="/js/jquery.js"></script>
+<script src="/js/jquery.marquee.js"></script>
+<script src="/js/jquery.hd.js"></script>
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+<!--{
+	调用文件说明：
+	jquery.min.js 			jquery库
+	jquery.marquee.js 		jquery 滚动效果库。这个jquery库功能非常强大。更多内容访问：http://www.17sucai.com/pins/369.html
+	jquery.hd.js 			jquery 幻灯效果文件。这个插件非常小巧，实现效果也足以大多数情况下应用。因此FengCms用这个插件替代了myfocus焦点图JS组件。
+	common.js 				共用JS。这个JS是我们自己写的。里面有比较详细的注释。便于您自己修改。
+	html5.js 				判断，如果是IE，就加上html5.js。因为IE不支持html5属性，所以这里加上了这个兼容IE。
+}-->
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<!--{
+变量：	$classid=$_GET['classid']
+当前页面调用的所有都应该是属于当前的。所以，调用限制条件里，要加上classid=当前的栏目ID。
+$_GET['classid']是从页面地址中获取到栏目ID。
+例如这个地址：http://127.0.0.1/?controller=classify&project=article&classify=HeYuYiHua&classid=4
+通过这个变量，就可以获取到 $classid=4
+那么可以不可以直接在查询语句中写 $_GET['classid'] 来获取呢？
+不可以，因为其中的方括号查询语句冲突了。所以执行会出错。
+因此，需要写成变量。
+写成变量的另外一个好处是，可以多次调用。
+这是一个非常重要的知识点，一定要掌握。
+
+特别注意：变量名是可以随意设定的，但是同一个模版上，不能有两个相同的变量名！否则会冲突。
+}-->
+
+{$classid=$_GET['classid']}
+
+<div id="web">
+	<div id="web_con">
+		<div id="home_hd">
+			<!--{
+			标签作用：循环显示文章系统内当前频道所有设为幻灯属性的图片文章。
+			查询表格：article 表。自带文章系统表。
+			查询条件：查询文章系统的当前频道(,$classid)的幻灯属性为1(attrib_h=1)并且图片不为空(img!='')并且状态为1(status=1)的内容。
+					  在正常的查询条件后面机上（,栏目ID数字）如(w[status=1,4];)即可读取该栏目和该栏目所属子栏目的内容。
+			读取字段：title\html\img
+			读取条数：5条。
+			排序方法：按照id排序，倒序。
+			}-->
+			{loop l("article","w[attrib_h=1&&img!=''&&status=1,$classid];f[title,html,img];n[5];s[id,1]") $k $v}
+			<a href="{url($v['html'])}"><img src="{$v['img']}" alt="{$v['title']}" width="300" height="274"></a>
+			{/loop}		
+		</div>
+		<div id="home_news">
+			<div id="home_news_tt">
+				<dl>
+					<!--{
+					标签作用：网站头条，循环显示网站文章系统内所有设为头条属性的文章。
+					查询表格：article 表。自带文章系统表。
+					查询条件：查询文章系统的当前频道的头条属性为1(attrib_t=1)并且状态为1(status=1)的内容。
+					读取字段：title\html
+					读取条数：3条。
+					排序方法：按照id排序，倒序。
+					}-->
+					{loop l("article","w[attrib_t=1&&status=1,$classid];f[title,html];n[3];s[id,1]") $k $v}
+					<!--{
+					判断：
+					这是一个非常简单的判断，判断第一条，使用dt标签。其他使用dd标签。
+					关于$k值更多内容，请参考白皮书。
+					}-->
+						{if $k==0}<dt>{else}<dd>{/if}<a href="{url($v['html'])}">{$v['title']}</a>{if $k==0}</dt>{else}</dd>{/if}
+					{/loop}
+				</dl>
+			</div>
+			<div id="home_news_list">
+				<ul class="list_14">
+					<!--{
+					标签作用：调用文章系统最新添加的信息。
+					查询表格：article 表。自带文章系统表。
+					查询条件：查询文章系统的当前频道的状态为1(status=1)的内容。（一般情况下，只要是调去模型内容列表，都需要加上限制条件status=1，否则在回收站里的内容也会一并读取出来。）
+					读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+					读取条数：8条。
+					排序方法：按照id排序，倒序。
+					}-->
+					{loop l("article","w[status=1,$classid];f[title,html,date];n[8];s[id,1]") $k $v}
+					<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+					{/loop}
+				</ul>
+			</div>
+		</div>
+		<div id="home_gunpic">
+			<div class="home_box">
+				<div class="boxtitle">
+					<h3>滚动图文</h3>
+					<div class="home_gun_control">
+						<a href="javascript:void(0);" id="gol"><em></em></a>
+						<a href="javascript:void(0);" id="gor"><em></em></a>
+					</div>
+				</div>
+				<div id="home_guncon">
+					<ul>
+						<!--{
+						标签作用：调用文章系统设为滚动的图片文章。
+						查询表格：article 表。自带文章系统表。
+						查询条件：查询当前频道滚动属性为1(attrib_g=1)并且图片不为空的(img!='')并且文章系统的状态为1(status=1)的内容。
+						读取字段：title\html\img
+						读取条数：8条。
+						排序方法：按照id排序，倒序。
+						}-->
+						{loop l("article","w[attrib_g=1&&img!=''&&status=1,$classid];f[title,html,img];n[8];s[id,1]") $k $v}
+						<li><a href="{url($v['html'])}" title="{$v['title']}"><img src="{$v['img']}" alt="{$v['title']}"/><span>{$v['title']}</span></a></li>
+						{/loop}
+					</ul>
+				</div>
+			</div>
+		</div>
+		<div id="home_xh">
+			<!--{
+			标签作用：循环文章栏目表，用以构建整个循环的外框。
+			查询表格：classify 表。系统栏目表。
+			查询条件：查询项目为article的，并且所属栏目为$classid（上面定义过的，当前频道的ID的变量）的栏目。
+			读取字段：id\name\html		
+			读取条数：20条。
+			排序方法：按照sort排序，正序。（sort是栏目排序字段）
+			}-->
+			{loop l("classify","w[project='article'&&classid='$classid'];f[id,name,html];n[20];s[sort,2]") $k $v}
+			<!--{
+			判断：
+			这里有一个小小的判断。
+			intval($k%2)==0，这是除以2取余数的一个算法，用来计算哪个是单双数。
+			分别给不同的浮动样式，一个向左，一个向右。
+			}-->
+			<div class="home_box {if intval($k%2)==0}f_l clear{else}f_r{/if}">
+				<div class="boxtitle">
+					<h3>{$v['name']}</h3>
+					<a href="{url($v['html'])}" class="more">更多</a>
+				</div>
+				<ul class="list_12">
+					<!--{
+					变量：
+					在这里，我们使用了一个变量{$classid=$v['id']}。
+					如同上面显示栏目名称我们使用的代码	{$v['name']}
+					大家可以看出来	$v['id']	是显示该栏目的ID的。
+					而在文章表中，字段classid表示文章归属于哪个栏目。
+					由此，我们得出的查询方法为	{$classid=$v['id']}
+					那么，为什么要写一个变量呢？直接放在下面的查询语句中不行吗？
+					答案是不行。因为放在执行语句中，是无法读取其父循环的字段的。
+					因此，需要单拉出来，写在外面，写一个变量等于这个父循环中的值，
+					然后再把变量写到循环里面去即可。
+					这是一个比较重要的知识点。
+					}-->
+					{$fuclassid=$v['id']}
+					<!--{
+					标签作用：调用文章系统内属于当前栏目的文章。
+					查询表格：article 表。自带文章系统表。
+					查询条件：查询classid等于当前栏目的ID，并且文章系统的状态为1(status=1)的内容。
+					读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+					读取条数：8条。
+					排序方法：按照id排序，倒序。
+
+					注意，这里是一个子循环，在他外面有栏目表的循环。
+					因为是子循环，所以不能再用 $k 和 $v 来表示循环数字 和读取字段方法了。
+					需要改成别的。如示例中，我们使用了 $key 和 $val
+
+					详情请查阅白皮书。
+					}-->				
+					{loop l("article","w[status=1,$fuclassid];f[title,html,date];n[8];s[id,1]") $key $val}
+					<li><span>{date('m/d',strtotime($val['date']))}</span><a href="{url($val['html'])}">{$val['title']}</a></li>
+					{/loop}
+				</ul>
+			</div>
+			<!--{
+			判断：
+			在这个循环中间，可以插入广告的哦！
+			这个判断是判断目前循环了几个。
+			然后满足$k==3(也就是第四个，从0开始的)，则加上这个广告。
+			可以加入更多的广告*^0^*
+			}-->
+			{if $k==3}
+			<div class="home_c_l_show">{include "show/home_c_l_show.html"}</div>
+			{/if}
+			{/loop}
+		</div>
+	</div>
+	<div id="web_bar">
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>最新推荐</h3>
+			</div>
+			<ul class="list_12">
+				<!--{
+				标签作用：调用文章系统当前栏目设为推荐的最新添加的信息。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的推荐属性为1(attrib_j=1)并且文章系统的状态为1(status=1)的内容。
+				读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+				读取条数：10条。
+				排序方法：按照id排序，倒序。
+				}-->
+				{loop l("article","w[attrib_j=1&&status=1,$classid];f[title,html,date];n[10];s[id,1]") $k $v}
+				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div id="home_show_a">
+			{include "show/home_a_show.html"}
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>图文推荐</h3>
+			</div>
+			<ul class="bar_pic">
+				<!--{
+				标签作用：调用文章系统当前栏目设为推荐属性的图文文章。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的attrib_j为1并且图片部位空并且状态为1(status=1)的内容。
+				读取字段：title\html\img
+				读取条数：4条。
+				排序方法：按照id排序，倒序。
+				}-->
+				{loop l("article","w[attrib_j=1&&img!=''&&status=1,$classid];f[title,html,img];n[4];s[id,1]") $k $v}
+				<li><a href="{url($v['html'])}" title="{$v['title']}"><img src="{$v['img']}" alt="{$v['title']}"/><span>{$v['title']}</span></a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>热门资讯</h3>
+			</div>
+			<ul class="list_12">
+				<!--{
+				标签作用：调用文章系统当前栏目设为热门的点击量最多的信息。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的推荐属性为1(attrib_r=1)并且文章系统的状态为1(status=1)的内容。
+				读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+				读取条数：10条。
+				排序方法：按照hits排序，倒序。(hits字段存储的是点击次数)
+				}-->
+				{loop l("article","w[attrib_r=1&&status=1,$classid];f[title,html,date];n[10];s[hits,1]") $k $v}
+				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>热门图文</h3>
+			</div>
+			<ul class="bar_pic">
+				<!--{
+				标签作用：调用文章系统当前栏目设为热门属性的图文文章。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的attrib_r为1并且图片部位空并且状态为1(status=1)的内容。
+				读取字段：title\html\img
+				读取条数：4条。
+				排序方法：按照hits排序，倒序。(hits字段存储的是点击次数)
+				}-->
+				{loop l("article","w[attrib_r=1&&img!=''&&status=1,$classid];f[title,html,img];n[4];s[hits,1]") $k $v}
+				<li><a href="{url($v['html'])}" title="{$v['title']}"><img src="{$v['img']}" alt="{$v['title']}"/><span>{$v['title']}</span></a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>标签云</h3>
+				<a href="{curl('tags')}" class="more">更多</a>
+			</div>
+			<ul class="tags_list">
+				<!--{
+				标签作用：循环网站热门关键词
+				查询表格：tags表。关键词存储表。
+				查询条件：忽略，即查询所有的关键词。
+				读取字段：读取name
+				读取条数：20
+				排序方法：按热度(hits)排序，倒序
+				}-->
+				{loop l("tags","f[name];n[20];s[hits,1]") $k $v}
+				<li><a href="{search($v['name'])}" target="_blank">{$v['name']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+	</div>
+</div>
+
+{include "scrap/footer.html"}
+
+</body>
+</html>

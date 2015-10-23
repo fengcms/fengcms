@@ -1,0 +1,39 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$web['description']}">
+<meta name="keywords" content="{$web['key']}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<script src="/js/jquery.min.js"></script>
+<script src="/js/myfocus-2.0.1.min.js"></script>
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+
+<div id="web">
+	<hgroup id="hgroup">
+		<h2>标签云</h2>
+		<span>{include "inc/where.html"}</span>
+
+	</hgroup>
+
+	<div id="tags_list">
+			{loop M("tags")->index() $k $v}
+			<a href="{search($v['name'])}" target="_blank">{$v['name']}</a>
+			{/loop}
+	</div>
+</div>
+
+{include "scrap/footer.html"}
+</body>
+</html>

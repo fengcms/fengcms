@@ -1,0 +1,94 @@
+★★★★★★★★★★★★★★★★★★★★★★★★★★
+★　　　　　　　　　　　　　　　　　　　　　　　　★
+★　　　网站根目录下文件夹以及文件的详细说明　　　★
+★　　　　　　　　　　　　　　　　　　　　　　　　★
+★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+/admin/			网站后台目录（可直接改名，以增加网站安全性）
+/app/			前台程序目录
+/css/			CSS目录（我们建议将CSS放在此目录，这样可以在网站后台管理CSS）
+/font/			字体目录（用于验证码）
+/image/			模版图片目录
+/install/		安装目录，在linux下安装需要输入 /install/index.php 全路径（在服务器上安装后，必须删除）
+/js/			JS目录。里面有
+				jquery.js		jquery1.10
+				jquery.min.js		jquery1.4.4
+				html5.js		让不支持html5的浏览器支持html5标签
+				common.js		默认模版自带的共用JS
+				validform		即时验证目录（百度validform）
+			以上JS文件并非一定要使用。各位站长可以根据自己的需求增加或删除。
+/system/		FengCms核心目录，请勿修改
+/template/		前台模版目录。
+/upload/		上传文件目录。
+				/upload/file/		上传类似doc\zip等文件的保存目录
+				/upload/image/		上传图片保存目录
+				/upload/module/		后台模块导出保存目录（1.09版本开始整合在此处）
+.htaccess		适用于阿帕奇等服务器环境的伪静态配置文件。（除非你真的理解，否则请勿修改。）
+config.php		FengCms配置文件（已经改为中文注释，方便站长修改。）
+httpd.ini		适用于IIS伪静态配置文件。
+nginx.conf		适用于nginx伪静态配置文件。（请资讯主机商应该将这个文件改成什么名字。）
+index.php		前台核心程序
+license.txt		版权说明文件。可删除
+vccore.php		验证码程序。
+更新说明.txt		更新说明文件。可删除
+目录说明.txt		你正在看的这个文件。可删除。
+FengCms 模版标签白皮书.doc	标签如何使用的说明文件。可删除。
+
+★★★★★★★★★★★★★★★★★★★★★★★★★★
+★　　　　　　　　　　　　　　　　　　　　　　　　★
+★　在linux系统下必须设置777权限的目录以及文件　　★
+★　　　　　　　　　　　　　　　　　　　　　　　　★
+★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+
+/admin/app/dbbackup	数据库备份目录
+/admin/app/cache	后台缓存文件
+/app/cache		前台缓存文件
+/template		模版目录
+/css			样式目录
+/upload/		上传目录	
+/config.php		配置文件
+
+
+
+★★★★★★★★★★★★★★★★★★★★★★★★★★
+★　　　　　　　　　　　　　　　　　　　　　　　　★
+★　　　　　　　模板目录详细说明　　　　　　　　　★
+★　　　　　　　　　　　　　　　　　　　　　　　　★
+★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+
+FengCms模版目录为根目录下的 template 目录。
+
+FengCms 官方模版会在模版的每一处细节都留下注释信息，便于您的理解阅读。
+
+/inc/				系统碎片存放目录
+	/inc/next.html		内容页，下一条碎片	
+	/inc/prev.html		内容页，上一条碎片
+	/inc/title.html		网站通用碎片，显示网站标题
+	/inc/where.html		网站通用碎片，显示当前访问页面的面包屑位置。
+
+/scrap/				用户自定义碎片存放目录
+	/scrap/footer.html	网站模版通用页尾
+	/scrap/header.html	网站模版通用页头
+
+/show/				广告代码存放目录（在后台“系统”→“模版管理”→“广告代码管理”里增删改查）
+
+============== 模型页面模版 ==========================================
+article.html			FengCms自带模型文章系统的频道页面模版。
+article_class.html		FengCms自带模型文章系统的栏目页面模版。
+article_content.html		FengCms自带模型文章系统的内容页面模版。
+article_search.html		FengCms自带模型文章系统的搜索页面模版。
+======================================================================
+如果您新建了一个模型，则一般对应的，需要建立四个模版以供您新建的这个模型使用。
+命名规则如上，article 是建立模型的表名。
+
+
+============== 系统通用模版 ==========================================
+index.html			网站首页模版
+map.html			网站地图模版
+message.html			留言首页模版
+message_add.html		提交留言模版
+search.html			网站整站搜索模版（搜索所有开启搜索的模型）
+single.html			单页内容模版
+tags.html			标签云模版

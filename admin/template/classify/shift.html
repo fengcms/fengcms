@@ -1,0 +1,30 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>栏目添加</title>
+
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="public/htmledit/kindeditor.js"></script>
+<script src="public/htmledit/lang/zh_CN.js"></script>
+
+<script src="js/classify_form.js"></script>
+
+</head>
+
+<body>
+<form method="post" action="?controller=module&project={$_GET['project']}&operate=shift" class="form">
+{$classifyselect=M("classify")->procoption(M("classify")->classifytree(M("classify")->findall('type!="url"&&project="'.$_GET['project'].'"')),($_GET['classid']?$_GET['classid']:($info['classid']?$info['classid']:0)),true)}
+选择栏目:<select class="inputxt" id="classid" name="classid" datatype="*" nullmsg="请选择归属栏目！" errormsg="请添加{$v['item']}栏目">
+						{$classifyselect}
+					</select><br><br>
+					<input type="hidden" name="classarray" value="{$_GET['classarray']}">
+<input type="submit" class="inputxt" value="确定转移">
+</form>
+
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>模板管理</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+</head>
+
+<body>
+
+<div id="main">
+
+  <form name="checkboxform" method="post" action="?controller=tplmanage&operate=batch" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_1">
+			{if $_GET['project']=="css"}
+			<a href="?controller=tplmanage&operate=add&project=css">新建CSS</a>
+			{elseif $_GET['project']=="scrap"}
+			<a href="?controller=tplmanage&operate=add&project=scrap">新建碎片</a>
+			{elseif $_GET['project']=="inc"}
+			{elseif $_GET['project']=="show"}
+			<a href="?controller=tplmanage&operate=add&project=show">新建广告</a>
+			{else}
+			<a href="?controller=tplmanage&operate=add&project=tpl">新建模板</a>
+			{/if}
+			</dd>
+			<dt class="art_ico_7"><span>快速导航</span></dt>
+		</dl>
+	</div>
+	<div id="art_body">
+
+		<div id="art_list">
+			<table cellspacing="0">
+			{if $_GET['project']=="css"}
+				<tr>
+					<th class="art_title_th">样式名称</th>
+					<th width="100">操作</th>
+				</tr>
+				{loop array_filter(getFile(ROOT_PATH.'/css')) $v}
+				<tr class="bg_fff">
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=css&name={substr($v,0,-4)}">{$v}</a></span></td>
+					<td>
+					<a href="?controller=tplmanage&operate=update&project=css&name={substr($v,0,-4)}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=css&name={substr($v,0,-4)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这个CSS吗？')">删除</a>
+					</td>
+				</tr>
+				{/loop}
+			{elseif $_GET['project']=="scrap"}
+				<tr>
+					<th class="art_title_th">碎片名称</th>
+					<th width="100">操作</th>
+				</tr>
+				{loop array_filter(getFile(ROOT_PATH.'/template/scrap')) $v}
+				<tr class="bg_fff">
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=scrap&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td>
+					<a href="?controller=tplmanage&operate=update&project=scrap&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=scrap&name={substr($v,0,-5)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这个碎片吗？')">删除</a>
+					</td>
+				</tr>
+				{/loop}
+			{elseif $_GET['project']=="inc"}
+				<tr>
+					<th class="art_title_th">碎片名称</th>
+					<th width="100">操作</th>
+				</tr>
+				{loop array_filter(getFile(ROOT_PATH.'/template/inc')) $v}
+				<tr class="bg_fff">
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=inc&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td>
+					<a href="?controller=tplmanage&operate=update&project=inc&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<del class="colorf60">删除</del>
+					</td>
+				</tr>
+				{/loop}
+			{elseif $_GET['project']=="show"}
+				<tr>
+					<th class="art_title_th">广告名称</th>
+					<th width="100">操作</th>
+				</tr>
+				{loop array_filter(getFile(ROOT_PATH.'/template/show')) $v}
+				<tr class="bg_fff">
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=show&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td>
+					<a href="?controller=tplmanage&operate=update&project=show&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=show&name={substr($v,0,-5)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这条广告吗？')">删除</a>
+					</td>
+				</tr>
+				{/loop}
+			{else}
+				<tr>
+					<th class="art_title_th">模板名称</th>
+					<th width="100">操作</th>
+				</tr>
+				{loop array_filter(getFile(ROOT_PATH.'/template')) $v}
+				<tr class="bg_fff">
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=tpl&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td>
+					<a href="?controller=tplmanage&operate=update&project=tpl&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=tpl&name={substr($v,0,-5)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这个模板吗？')">删除</a>
+					</td>
+				</tr>
+				{/loop}
+			{/if}
+			</table>
+		</div>
+		<div id="art_sxsz"></div>
+	</div>
+   </form>
+</div>
+
+</body>
+</html>

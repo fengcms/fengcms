@@ -1,0 +1,26 @@
+FengCms 1.32版修改过的文件
+/system/app.php
+/system/common/function.php
+/system/common/waf.php
+/system/common/filter.php
+/web.config
+
+/绝大对数模版文件，将万能标签方式更新为新方法，并修复少量模版错误（此不要求更新修复）
+
+FengCms 1.31版修改过的文件
+/system/common/filter.php
+/app/model/messageModel.php
+
+FengCms 1.30版修改过的文件
+
+/app/controller/classifyController.php
+/admin/template/system/form/batchpic.html
+
+FengCms 1.29版修改过的文件
+
+/system/common/function.php
+/system/core/template.php
+/admin/app/model/classifyModel.php
+/admin/version.php
+
+新增template_mobile目录

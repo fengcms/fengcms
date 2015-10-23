@@ -1,0 +1,93 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Pragma" CONTENT="no-cache">     
+<meta http-equiv="Cache-Control" CONTENT="no-cache">     
+<meta http-equiv="Expires" CONTENT="0">
+<title>管理 - 添加</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/plugin/datePicker/datePicker.css" type="text/css" rel="stylesheet" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script type="text/javascript" src="public/jquery/validform/plugin/datePicker/jquery.datePicker-min.js"></script>
+
+<script type="text/javascript">
+$(function(){
+	data=$(".form").Validform({
+		tiptype:2,
+		callback:function(data){
+			if(data.status=="y"){
+				location.href =	"?controller=message&operate=execution&re=1&id="+data.id;
+			}else{
+				location.href =	"?controller=message&operate=execution&re=0&id="+data.id;
+			}
+		}
+	});
+
+	$("#save").click(function(){
+		data.ajaxPost();
+		$.Hidemsg();
+	});
+});
+</script>
+
+</head>
+
+<body>
+
+<div id="main">
+	<form method="post" action="?controller=message&operate=save" class="form">
+		<div id="main_top">
+			<dl id="article_ico">
+				<dd class="art_ico_8"><a href="#" id="save">确定回复</a></dd>
+				<dd class="art_ico_9"><a href="?controller=message">取消返回</a></dd></dl>
+		</div>
+		<div id="art_body">
+	<table cellspacing="0" class="add_art">
+	 <tr>
+	<th>标题:</th>
+	<td width="650"><input id="title" name="title" type="text" class="inputxt" style="width:300px" value="{$title}"/></td>
+	<td></td>
+	</tr>
+	 <tr>
+	<th>昵称:</th>
+	<td width="650"><input id="name" name="name" type="text" class="inputxt" style="width:300px" value="{$name}"/></td>
+	<td></td>
+	</tr>
+	 <tr>
+	<th>QQ:</th>
+	<td width="650"><input id="qq" name="qq" type="text" class="inputxt" style="width:300px" value="{$qq}"/></td>
+	<td></td>
+	</tr>
+	 <tr>
+	<th>电话:</th>
+	<td width="650"><input id="tel" name="tel" type="text" class="inputxt" style="width:300px" value="{$tel}"/></td>
+	<td></td>
+	</tr>
+	 <tr>
+	<th>邮箱:</th>
+	<td width="650"><input id="mail" name="mail" type="text" class="inputxt" style="width:300px" value="{$mail}"/></td>
+	<td></td>
+	</tr>
+	<tr>
+	<th>内容:</th>
+	<td colspan="2"><textarea class="content" name="content" style="width:500px;height:100px;">{$content}</textarea></td>
+	</tr>
+	<tr>
+	<th>回复:</th>
+	<td colspan="2"><textarea class="content" name="reply" style="width:500px;height:100px;">{$reply}</textarea></td>
+	</tr>
+	<tr>
+	<input type="hidden" id="id" name="id" value="{$_GET['id']}">
+	<input type="hidden" id="status" name="status" value="1">
+	<input type="hidden" name="rtime" id="rtime" value="{time()}"></table>
+	</form>
+</div>
+
+</body>
+</html>

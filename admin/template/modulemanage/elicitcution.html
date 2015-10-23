@@ -1,0 +1,42 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>后台首页</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+</head>
+
+<body>
+<div id="main">
+	<div id="main_top">
+		
+	</div>
+	<div id="art_body">
+    	<table cellspacing="0" class="add_art">
+        	<tr><th colspan="2"><h3>系统操作提示信息</h3></th></tr>
+            <tr>
+            	<td width="240"><img src="image/duihao.png" style="display:block; margin:20px auto" /></td>
+            	<td>
+				{if $_GET['re']=='1'}
+					导出成功！
+					您的模块导出地址：<a href="{urldecode($_GET['url'])}" target="_blank">{urldecode($_GET['url'])}</a>
+				{elseif $_GET['re']=='0'}
+					操作失败！
+				{else}
+					操作异常！
+				{/if}
+                </td>
+            </tr>
+            <tr>
+            	<th colspan="2">
+				【<a href="?controller=modulemanage">返回模块管理</a>】
+				</th>
+            </tr>
+        </table>
+    </div>
+</div>
+</body>
+</html>

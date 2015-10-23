@@ -1,0 +1,6 @@
+{if $v[$val['name']]!=""}
+{$classify=M("classify")->findone("id=".$v[$val['name']],"name")}
+<td>{if $classify['name']!=""}{$classify['name']}{else}栏目不存在{/if}</td>
+{else}
+<td>未选栏目</td>
+{/if}

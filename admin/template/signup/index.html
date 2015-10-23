@@ -1,0 +1,99 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>文章管理</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="css/theme.css" rel="stylesheet" type="text/css">
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="js/signup_list.js"></script>
+
+<script type="text/javascript">
+$(function(){
+	function signupinfo(id){
+		$("#sigupinfo").load('?controller=signup&operate=signupinfo&id='+id);
+		$('.theme-popover-mask').fadeIn(100);
+		$('.theme-popover').slideDown(200);
+    }
+
+	$('.theme-poptit .close').click(function(){
+		$('.theme-popover-mask').fadeOut(100);
+		$('.theme-popover').slideUp(200);
+	});
+window.signupinfo = signupinfo;
+});
+
+</script>
+
+</head>
+
+<body>
+
+<div id="main">
+
+  <form name="checkboxform" method="post" action="?controller=signup&operate=deletebatch" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_4"><a href="?controller=signup&operate=signup" name="signup" class="signup">报名设置</a></dd>
+			<dd class="art_ico_3"><a href="#" id="delete" class="delete">删除报名</a></dd>
+		</dl>
+	</div>
+	<div id="art_body">
+		<div id="art_list">
+			<table cellspacing="0">
+				<tr>
+					<th width="40">选择</th>
+					<th class="art_title_th">姓名</th>
+					<th width="100">性别</th>
+					<th width="100">手机</th>
+					<th width="100">家长</th>
+					<th width="100">地址</th>
+					<th width="100">QQ</th>
+					<th width="100">报名时间</th>
+					<th width="100">状态</th>
+					<th width="100">操作</th>
+				</tr>
+				{loop $list $k $v}
+				<tr class="bg_fff">
+					<td><input type="checkbox" id="record{intval($k+1)}" name="record[]" value="{$v['id']}" /></td>
+					<td><a href="#" class="art_title_txt" title="{$v['content']}">{$v['user']}</a></td>
+					<td>{$v['sex']}</td>
+					<td>{$v['phone']}</td>
+					<td>{$v['fname']}</td>
+					<td>{$v['sadd']}</td>
+					<td>{$v['qq']}</td>
+					<td>{date('Y-m-d',$v['time'])}</td>
+					<td>
+					{if $v['status']=="0"}<span class="colorf00" onclick="signupinfo({$v['id']})">发送失败</span>{else}发送成功{/if}
+					</td>
+					<td>
+						<a href="?controller=signup&operate=detail&id={$v['id']}" target="_blank" class="color00f">查看</a>&nbsp; |&nbsp;
+						<a href="?controller=signup&operate=deleteone&id={$v['id']}" class="colorf00" onclick="javascript:return confirm('您确定要删除本条报名吗？')">删除</a>
+					</td>
+				</tr>
+				{/loop}
+			</table>
+		</div>
+		<div id="art_sxsz">
+			<div id="art_xz"><input type="button" value="全选" id="art_xz_qx" onclick="checkAll()" /><input type="button" value="反选" id="art_xz_fx" onclick="switchAll()" /><input type="button" value="不选" id="art_xz_bx" onclick="uncheckAll()" /></div>
+		</div>
+		<div id="art_fenye">
+			<dl>{$fy}</dl>
+		</div>
+	</div>
+	<input type="hidden" name="method" id="method"><input type="hidden" name="parameter" id="parameter">
+   </form>
+</div>
+<div class="theme-popover">
+	<div class="theme-poptit">
+		<a href="javascript:;" title="关闭" class="close">×</a>
+			<div id="sigupinfo"></div>
+	</div>
+</div>
+<div class="theme-popover-mask"></div>
+</body>
+</html>

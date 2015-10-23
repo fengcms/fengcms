@@ -1,0 +1,82 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Pragma" CONTENT="no-cache">     
+<meta http-equiv="Cache-Control" CONTENT="no-cache">     
+<meta http-equiv="Expires" CONTENT="0">
+<title>文章管理</title>
+
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="public/htmledit/kindeditor.js"></script>
+<script src="public/htmledit/lang/zh_CN.js"></script>
+<script src="js/common.js"></script>
+<script src="js/modulemanage_form.js"></script>
+</head>
+
+<body>
+<div id="main">
+<form method="post" action="?controller=modulemanage&operate=save" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_8"><a href="#" id="save">保存模块</a></dd>
+			<dd class="art_ico_9"><a href="?controller=modulemanage">取消返回</a></dd>
+		</dl>
+	</div>
+	<div id="art_body">
+		<table cellspacing="0" class="add_art">
+			<tr>
+				<th>模块状态：</th>
+				<td width="320">
+					<label><input type="radio" name="status" id="status" value="1" checked> 开启</label>
+					<label><input type="radio" name="status" id="status" value="0"> 关闭</label>
+				</td>
+				<td><span class="article_notes colorf60">※：该模型是否启用</span></td>
+			</tr>
+			<tr>
+				<th>模块名称：</th>
+				<td width="320"><input name="name" type="text" id="name" class="inputxt" style="width:200px" datatype="*2-255" errormsg="模块名称至少2个字符！" value="" /></td>
+				<td><span class="article_notes colorf60">※：该模型在后台菜单中的名称</span></td>
+			</tr>
+			<tr>
+				<th>模块表名：</th>
+				<td><input name="project" type="text" id="project" class="inputxt" style="width:100px" datatype="/\w{3,6}/i" errormsg="模块表名表名3-6个字符！" value="" /></td>
+				<td><span class="article_notes colorf60">※：模块表名在创建后无法修改，只能是英文</span></td>
+			</tr>
+			<tr>
+				<th>项目名称：</th>
+				<td><input name="item" type="text" id="item" class="inputxt" style="width:100px" datatype="*2-5" errormsg="项目名称只能是中文1-5个字！" value="" /></td>
+				<td><span class="article_notes colorf60">※：该模块中添加内容的项目名称，如“文章”、“产品”</span></td>
+			</tr>
+			<tr>
+				<th>项目单位：</th>
+				<td><input name="unit" type="text" id="unit" class="inputxt" style="width:100px" datatype="*1-2" errormsg="项目单位只能是1-2个字！"  value="" /></td>
+				<td><span class="article_notes colorf60">※：该模块中添加内容的项目单位，如“篇”、“张”、“条”、“个”</span></td>
+			</tr>
+			<tr>
+				<th>删除选项：</th>
+				<td><label><input type="checkbox" id="recover" name="recover" value="1"> 启用回收站</label></td>
+				<td><span class="article_notes colorf60">※：开启后，该模型的内容可以加入回收站，否则只能直接删除</span></td>
+			</tr>
+			<tr>
+				<th>搜索选项：</th>
+				<td><label><input type="checkbox" id="search" name="search" value="1"> 启用搜索</label></td>
+				<td><span class="article_notes colorf60">※：开启后，该模型在前台以及后台均可使用搜索功能</span></td>
+			</tr>
+			<tr>
+				<th>模块描述：</th>
+				<td><textarea name="description" id="description" ignore="ignore" altercss="gray" class="gray" style="width:500px" datatype="*" errormsg="模块描述不能为空！" ></textarea></td>
+				<td><span class="article_notes colorf60">※：简单描述该模块实现的功能，便于记忆理解</span></td>
+			</tr>
+		</table>
+	</div>
+</div>
+<input type="hidden" name="time" id="time" value="{time()}">
+</form>
+ </body>
+</html>

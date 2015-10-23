@@ -1,0 +1,10 @@
+<footer id="footer" class="web">
+	<div id="footer_link">
+		{loop l("single","w[classid=49&&status=1];f[html,title];n[30];s[id,2]") $v}
+		<a href="{url($v['html'])}" target="_blank">{$v['title']}</a>&nbsp;|&nbsp;
+		{/loop}
+		<a href="{curl('map')}" target="_blank">网站地图</a>&nbsp;|&nbsp;
+		<a href="{curl('message')}" target="_blank">在线留言</a>
+	</div>
+	<div id="copy">{$web['copyright']}</div>
+</footer>

@@ -1,0 +1,27 @@
+<script type="text/javascript">
+	//设置编辑器
+KindEditor.ready(function({$v['name']}K) {
+	var editor = {$v['name']}K.editor({
+					allowFileManager : true
+				});
+		//加载上传图片
+		{$v['name']}K("#{$v['name']}file").click(function() {
+			editor.loadPlugin('insertfile', function() {
+				editor.plugin.fileDialog({
+							fileUrl : {$v['name']}K("#{$v['name']}").val(),
+							clickFn : function(url, title) {
+								{$v['name']}K("#{$v['name']}").val(url);
+								editor.hideDialog();
+							}
+						});
+				});
+			});
+});
+</script>
+<tr>
+	<th>{$item}{$v['aliases']}:</th>
+	<td>
+	<input type="text" name="{$v['name']}" id="{$v['name']}" value="{if $info[$v['name']]}{$info[$v['name']]}{else}{$v['defaults']}{/if}" class="inputxt" style="width:300px" {if $v['must']=='0'}ignore="ignore"{/if} datatype="{$v['type_verification']}{$v['length']}" nullmsg="{if $v['nullmsg']}{$v['nullmsg']}{else}请填写信息！{/if}" errormsg="{if $v['errormsg']}{$v['errormsg']}{else}{$v['item']}{$v['aliases']}要{$v['length']}个字符！{/if}" /> <input type="button" id="{$v['name']}file" value="选择文件" class="admin_button inputxt" style="width:100px;height:30px;" />
+	</td>
+	<td></td>
+</tr>

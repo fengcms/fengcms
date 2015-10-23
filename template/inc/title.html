@@ -1,0 +1,34 @@
+<!--{
+碎片说明：
+该碎片用于显示网站标题。用来判断不同的情况下，网页的title值显示为什么。
+在FengCms模版中，没一个模版只需要写入
+<title>{include "inc/title.html"}</title>
+就可以在所有的页面显示对应的标题了。
+如果您进行了深入的二次开发，可能需要调整这个系统标签。
+一般情况下，无需修改。这里有大量的判断，如果确认需要修改，请确认您完全理解这些判断。
+}-->
+{if $_GET['controller']==""||$_GET['controller']=="home"}
+{$web['title']}
+{elseif $_GET['controller']=="classify"}
+	{if $_GET['project']=="single"}
+		{if count(M("module")->title($classid))}{loop M("module")->title($classid) $k $v} {$v} {/loop}{/if}{$web['title']}
+	{else}
+		{if count(M("module")->title($id))}{loop M("module")->title($id) $k $v}{$v}{/loop}{/if}{$web['title']}
+	{/if}
+{elseif $_GET['controller']=="content"}
+{$title} - {if count(M("module")->title($classid))}{loop M("module")->title($classid) $k $v} {$v} {/loop}{/if}{$web['title']}
+{elseif $_GET['controller']=="message"}
+	{if $_GET['operate']=="add"}
+		我要留言 - {$web['title']}
+	{else}
+		在线留言 - {$web['title']}
+	{/if}
+{elseif $_GET['controller']=="map"}
+网站地图 - {$web['title']}
+{elseif $_GET['controller']=="tags"}
+标签云 - {$web['title']}
+{elseif $_GET['controller']=="search"}
+{$web['name']}全站有关“{$_GET['tags']}”的内容 - {$web['title']}
+{else}
+{$web['title']}
+{/if}

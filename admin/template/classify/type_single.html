@@ -1,0 +1,17 @@
+<script src="js/common.js"></script>
+<!--添加方法-->
+<div id="genre_content">
+	{include "classify/type_module_one.html"}
+</div>
+
+<!--添加方法-->
+
+<div class="gehang"></div>
+
+<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+<tr>
+	<th>内容模板：</th>
+	<td style="width: 450px;"><input type="text" name="content_template" id="content_template" value="{if $content_template}{$content_template}{else}/single.html{/if}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目内容模板！"/> <input type="button" id="filemanager3" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+	<td><span class="article_notes colorf60">※：指定该单页栏目的内容页面模版。</span></td>
+</tr>
+</table>

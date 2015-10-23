@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>栏目添加</title>
+
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="public/htmledit/kindeditor.js"></script>
+<script src="public/htmledit/lang/zh_CN.js"></script>
+<script src="js/common.js"></script>
+<script src="js/classify_form.js"></script>
+</head>
+
+<body>
+
+<div id="main">
+<form method="post" action="?controller=classify&operate=save" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_8"><a href="#" id="save">保存栏目</a></dd>
+			<dd class="art_ico_9"><a href="?controller=classify">取消返回</a></dd>
+		</dl>
+	</div>
+	<div id="art_body">
+		<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+			<tr>
+				<th>栏目类型：</th>
+				<td style="width: 300px;">
+					<label><input type="radio" name="type" class="type" value="module" {if $type=="module"}checked{/if} disabled>模型</label>
+					<label><input type="radio" name="type" class="type" value="url" {if $type=="url"}checked{/if} disabled>外链</label>
+					<label><input type="radio" name="type" class="type" value="url" {if $type=="single"}checked{/if} disabled>单页</label>
+				</td>
+				<td><span class="article_notes colorf60">※：栏目类型不可修改</span></td>
+			</tr>
+			<tr>
+				<th>导航显示</th>
+				<td><label><input type="radio" name="nav" id="nav" value="1" {if $nav=="1"}checked{/if}> 是</label><label><input type="radio" name="nav" id="nav" value="0" {if $nav=="0"}checked{/if}> 否</label></td>
+				<td><span class="article_notes colorf60">※：该栏目是否要在网站导航上显示</span></td>
+			</tr>
+		</table>
+		<div class="gehang"></div>
+
+		<div id="type_content">
+			{if $type=="module"}
+				<!--添加方式-->
+				<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+					<tr>
+						<th>所属模型：</th>
+						<td style="width: 300px;">
+							<select name="module_id" id="module_id" disabled>
+							{loop M("module")->findall("type=1&&status=1") $k $v}
+								<option value="{$v['id']}" {if $project==$v['project']}selected{/if}>{$v['name']}</option>
+							{/loop}
+							</select>
+						</td>
+						<td><span class="article_notes colorf60">※：栏目所属模型不可修改</span></td>
+					</tr>
+					{$classifyselect=M("classify")->procoption(M("classify")->classifytree(M("classify")->findall('type="module"')),$classid)}
+					<tr>
+						<th>所属栏目：</th>
+						<td>
+							<select class="inputxt" id="classid" name="classid" disabled>
+								<option value="0" style="color:red">频道栏目</option>
+								{$classifyselect}
+							</select>
+						</td>
+						<td><span class="article_notes colorf60">※：所属栏目不可修改</span></td>
+					</tr>
+				</table>
+				<div class="gehang"></div>
+				<!--添加方法-->
+				<div id="genre_content">
+					<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+						<tr>
+							<th>栏目名称：</th>
+							<td style="width: 300px;"><input name="name" type="text" id="name" class="inputxt" style="width:240px" datatype="*2-255" errormsg="栏目名称至少2个字符！" value="{$name}" /></td>
+							<td><span class="article_notes colorf60">※：栏目在导航上显示的名称。最好不要有重复</span></td>
+						</tr>
+						<tr>
+							<th>英文名称：</th>
+							<td><input name="enname" type="text" id="enname" class="inputxt" style="width:240px" datatype="*2-255" errormsg="英文名称至少2个字符！" value="{$enname}"  disabled /></td>
+							<td><span class="article_notes colorf60">※：栏目的英文url，不可修改。</span></td>
+						</tr>
+					</table>
+				</div>
+
+				<!--添加方法-->
+
+				<div class="gehang"></div>
+
+				<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+				<tr>
+					<th>栏目介绍：</th>
+					<td width="500"><textarea name="intro" id="intro" altercss="gray" class="gray" style="width:500px" datatype="*0-255" errormsg="栏目介绍不能为空！" >{$intro}</textarea></td>
+					<td><span class="article_notes colorf60">※：栏目介绍内容，支持html。调用方法 &#123;$intro&#125;</span></td>
+				</tr>
+				<script type="text/javascript">
+					//设置编辑器
+				KindEditor.ready(function(K) {
+					var editor = K.editor({
+									allowFileManager : true
+								});
+						//加载上传图片
+						K('#image').click(function() {
+							editor.loadPlugin('image', function() {
+								editor.plugin.imageDialog({
+									showRemote : false,
+									imageUrl : K('#img').val(),
+									clickFn : function(url, title, width, height, border, align) {
+										K('#img').val(url);
+										editor.hideDialog();
+									}
+								});
+							});
+						});
+				});
+				</script>
+				<tr>
+					<th>栏目图片：</th>
+					<td>
+					<input type="text" name="img" id="img" value="{$img}" class="inputxt" style="width:300px"/> <input type="button" id="image" value="选择图片" class="admin_button inputxt" style="width:100px;height:30px;" />
+					</td>
+					<td><span class="article_notes colorf60">※：上传栏目图片。</span></td>
+				</tr>
+				<tr>
+					<th>栏目关键词：</th>
+					<td><input name="key" type="text" id="key" class="inputxt" style="width:500px" datatype="*0-255" errormsg="栏目名称至少6个字符！" value="{$key}" /></td>
+					<td><span class="article_notes colorf60">※：栏目KeyWords，针对搜索引擎，调用方法 &#123;$key&#125;</span></td>
+				</tr>
+				<tr>
+					<th>栏目描述：</th>
+					<td><textarea name="description" id="description" altercss="gray" class="gray" style="width:500px" datatype="*0-255" errormsg="请填写栏目描述！">{$description}</textarea></td>
+					<td><span class="article_notes colorf60">※：栏目description，针对搜索引擎，调用方法 &#123;$description&#125;</span></td>
+				</tr>
+				<tr>
+					<th>频道模板：</th>
+					<td><input type="text" name="channel_template" id="channel_template" value="{$channel_template}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目模板！"/> <input type="button" id="filemanager" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+					<td><span class="article_notes colorf60">※：如果此栏目包含子栏目，则使用这个模板。</span></td>
+				</tr>
+				<tr>
+					<th>栏目模板：</th>
+					<td><input type="text" name="classify_template" id="classify_template" value="{$classify_template}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目模板！"/> <input type="button" id="filemanager2" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+					<td><span class="article_notes colorf60">※：如果此栏目不包含子栏目，则使用这个模板。</span></td>
+				</tr>
+				<tr>
+					<th>内容模板：</th>
+					<td><input type="text" name="content_template" id="content_template" value="{$content_template}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目内容模板！"/> <input type="button" id="filemanager3" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+					<td><span class="article_notes colorf60">※：设置该栏目里添加的内容页面的模板</span></td>
+				</tr>
+				</table>
+			{elseif $type=="url"}
+				<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+					<tr>
+						<th>栏目名称：</th>
+						<td><input name="name" type="text" id="name" class="inputxt" style="width:300px" datatype="*2-255" errormsg="栏目名称至少2个字符！" value="{$name}" /></td>
+						<td><span class="article_notes colorf60">※：栏目在导航上显示的名称。最好不要有重复。</span></td>
+					</tr>
+					<tr>
+						<th>链接方式：</th>
+						<td><select name="url_type" id="classify_url_type">
+							<option value="0">当前页打开</option>
+							<option value="1" selected>新窗口打开</option>
+						</select></td>
+						<td><span class="article_notes colorf60">※：选择外链栏目的打开方式。</span></td>
+					</tr>
+					<tr id="url">
+						<th>链接地址：</th>
+						<td><input name="html" type="text" id="html" class="inputxt" style="width:300px" datatype="*1-255" errormsg="链接地址输入不正确！" value="{if $html}{$html}{else}http://www.{/if}" /></td>
+						<td><span class="article_notes colorf60">※：输入链接地址，站外链接一定要带 http://</span></td>
+					</tr>
+				</table>
+			{elseif $type=="single"}
+			<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+				<tr>
+					<th>栏目名称：</th>
+					<td><input name="name" type="text" id="name" class="inputxt" style="width:300px" datatype="*2-255" errormsg="栏目名称至少2个字符！" value="{$name}" /></td>
+					<td><span class="article_notes colorf60">※：栏目在导航上显示的名称。最好不要有重复。</span></td>
+				</tr>
+				<tr>
+					<th>英文名称：</th>
+					<td><input name="enname" type="text" id="enname" class="inputxt" style="width:300px" datatype="*2-255" errormsg="英文名称至少2个字符！" value="{$enname}" disabled/></td>
+					<td><span class="article_notes colorf60">※：栏目的英文url。最好不要有重复。</span></td>
+				</tr>
+			</table>
+
+			<div class="gehang"></div>
+
+			<table cellspacing="0" cellpadding="0" border="0" class="add_art">
+			<tr>
+				<th>内容模板：</th>
+				<td><input type="text" name="content_template" id="content_template" value="{if $content_template}{$content_template}{else}/single.html{/if}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="请选择栏目内容模板！"/> <input type="button" id="filemanager2" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+				<td><span class="article_notes colorf60">※：指定该单页栏目的内容页面模版。</span></td>
+			</tr>
+			</table>
+			{/if}
+		</div>
+	</div>
+	<input type="hidden" name="id" id="id" value="{$id}">
+	<input type="hidden" name="time" id="time" value="{time()}">
+</form>
+</div>
+
+</body>
+</html>

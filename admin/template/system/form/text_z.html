@@ -1,0 +1,5 @@
+<tr>
+	<th>{$item}{$v['aliases']}:</th>
+	<td width="650"><input id="{$v['name']}" name="{$v['name']}" type="text" class="inputxt" style="width:300px" {if $v['must']=='0'}ignore="ignore"{/if} datatype="/^[\u4E00-\u9FA5\uf900-\ufa2d]{{str_replace('-',',',$v['length'])}}$/" nullmsg="{if $v['nullmsg']}{$v['nullmsg']}{else}请填写信息！{/if}" errormsg="{if $v['errormsg']}{$v['errormsg']}{else}{$v['item']}{$v['aliases']}要{$v['length']}个字符！{/if}" value="{if $info[$v['name']]}{$info[$v['name']]}{else}{$v['defaults']}{/if}"/></td>
+	<td></td>
+</tr>

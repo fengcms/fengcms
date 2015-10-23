@@ -1,0 +1,73 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Pragma" CONTENT="no-cache">     
+<meta http-equiv="Cache-Control" CONTENT="no-cache">     
+<meta http-equiv="Expires" CONTENT="0">
+<title>文件编辑</title>
+
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+<script src="public/jquery/validform/validform.js"></script>
+<script src="js/filemanage.js"></script>
+</head>
+
+<body>
+<div id="main">
+
+{if $_GET['project']=="tpl"}{$project="模板"}{/if}
+{if $_GET['project']=="css"}{$project="CSS"}{/if}
+{if $_GET['project']=="scrap"}{$project="碎片"}{/if}
+{if $_GET['project']=="inc"}{$project="碎片"}{/if}
+
+<form method="post" action="?controller=tplmanage&operate=save" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_8"><a href="#" id="save">保存{$project}</a></dd>
+			<dd class="art_ico_9"><a href="?controller=tplmanage&project={$_GET['project']}" id="save">返回列表</a></dd>
+		</dl>
+	</div>
+	<div id="art_body">
+		<table cellspacing="0" class="add_art">
+			{if $_GET['project']!="tpl"}
+			<tr>
+				<th>调用{$project}：</th>
+				<td colspan="2">
+					{if $_GET['project']=="css"}
+						&lt;link href="/css/{$name}.css" rel="stylesheet" type="text/css" /&gt;
+					{/if}
+					{if $_GET['project']=="scrap"}
+						&#123;include "scrap/{$name}.html"&#125;
+					{/if}
+					{if $_GET['project']=="inc"}
+						&#123;include "inc/{$name}.html"&#125;
+					{/if}
+					{if $_GET['project']=="show"}
+						&#123;include "show/{$name}.html"&#125;
+					{/if}
+				</td>
+			</tr>
+			{/if}
+			<tr>
+				<th>{$project}名称：</th>
+				<td width="350"><input name="name" type="text" id="name" class="inputxt bgccc" style="width:300px" datatype="s1-255" errormsg="文件名称至少6个字符！" nullmsg="文件名称不能为空！" value="{$name}" readonly="true"/></td>
+				<td class="colorf60">* 不需要填写后缀名</td>
+			</tr>
+			<tr>
+				<th>{$project}内容：</th>
+				<td colspan="2">
+				<textarea name="content" id="content" altercss="gray" class="gray" style="width:100%;height:600px;color:#555;font-size:14px;line-height:1.5" datatype="*" errormsg="文件内容不能为空！" nullmsg="文件内容不能为空！" >{htmlspecialchars($content)}</textarea>
+				</td>
+			</tr>
+		</table>
+	</div>
+</div>
+<input type="hidden" name="type" id="type" value="1">
+<input type="hidden" name="project" id="project" value="{$_GET['project']}">
+</form>
+ </body>
+</html>

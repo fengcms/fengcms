@@ -1,0 +1,74 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>文章管理</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="public/jquery/validform/validform.js"></script>
+<script src="js/tab.js"></script>
+<script>
+$(function(){
+	data=$(".form").Validform({
+		tiptype:2,
+		callback:function(data){
+			if(data.status=="y"){
+				location.href =	"?controller=fieldmanage&project={$_GET['project']}&operate=execution&type=save&re=1&id="+data.id;
+			}else if(data.status=="e"){
+				alert("您没有选择字段！")
+			}else{
+				location.href =	"?controller=fieldmanage&project={$_GET['project']}&operate=execution&type=save&re=0&id="+data.id;
+
+			}
+		}
+	});
+
+	$("#save").click(function(){
+		data.ajaxPost();
+		$.Hidemsg();
+	});
+});
+</script>
+
+</head>
+
+<body>
+{$module=M("module")->findone('project="'.$_GET['project'].'"')}
+<div id="main">
+  <form name="checkboxform" method="post" action="?controller=fieldmanage&project={$_GET['project']}&operate=systemsave" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_1"><a href="#" id="save">确定增加</a></dd>
+			<dd class="art_ico_1"><a href="?controller=fieldmanage&project={$_GET['project']}">取消返回</a></dd>
+			<dt class="art_ico_7"><span>快速导航</span></dt>
+		</dl>
+	</div>
+	<div id="art_body">
+		<div id="art_list">
+			<table cellspacing="0">
+				<tr>
+					<th width="50">排序</th>
+					<th>字段名称</th>
+					<th>字段类型</th>
+				</tr>
+				{loop $systemfield $k $v}
+				<tr class="bg_fff">
+					<td><input type="checkbox" id="record{intval($k+1)}" name="record[]" value="{$v['id']}" {if in_array($v['class'],array_multi2single($field))}checked disabled{/if}></td>
+					<td>{$v['name']}</td>
+					<td>{$v['class']}</td>
+				</tr>
+				{/loop}
+			</table>
+		</div>
+		<div id="art_sxsz">
+			<div id="art_xz"><input type="button" value="全选" id="art_xz_qx" onclick="checkAll()" /><input type="button" value="反选" id="art_xz_fx" onclick="switchAll()" /><input type="button" value="不选" id="art_xz_bx" onclick="uncheckAll()" /></div>
+			</div>
+	</div>
+	<input type="hidden" name="project" id="project" value="{$_GET['project']}">
+	</form>
+</div>
+
+</body>
+</html>

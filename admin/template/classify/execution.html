@@ -1,0 +1,57 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>后台首页</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="js/tab.js"></script>
+</head>
+
+<body>
+<div id="main">
+	<div id="main_top">
+	{if $_GET['type']=="save"}{$info=D("classify")->where("id=".$_GET['id'])->getone()}{/if}
+	</div>
+	<div id="art_body">
+    	<table cellspacing="0" class="add_art">
+        	<tr><th colspan="2"><h3>系统操作提示信息</h3></th></tr>
+            <tr>
+            	<td width="240"><img src="image/duihao.png" style="display:block; margin:20px auto" /></td>
+            	<td>
+				{if $_GET['type']=="save"}
+					{if $_GET['re']=='1'}
+					栏目保存成功！
+					{elseif $_GET['re']=='0'}
+					栏目保存失败！
+					{/if}
+				{elseif $_GET['type']=="exc"}
+					{if $_GET['re']=='1'}
+					操作成功！
+					{elseif $_GET['re']=='0'}
+					操作失败！
+					{/if}
+					<script>setTimeout("Gotonew('?controller=classify')",3000); </script>
+				{else}
+					操作异常！
+					<script>setTimeout("Gotonew('?controller=classify')",3000); </script>
+				{/if}
+                </td>
+            </tr>
+            <tr>
+            	<th colspan="2">
+				【<a href="?controller=classify">返回栏目管理</a>】
+				【<a href="?controller=classify&operate=add">添加栏目</a>】
+				{if $_GET['type']=="save"}
+				【<a href="?controller=classify&operate=update&id={$info['id']}">修改栏目</a>】
+				{if $type==0}【<a href="?controller=module&project={$info['project']}&operate=add&classid={$info['id']}">添加所属文章</a>】{/if}
+				【<a href="{$info['html']}" target="_blank">预览栏目</a>】
+				{/if}
+				</th>
+            </tr>
+        </table>
+    </div>
+</div>
+</body>
+</html>

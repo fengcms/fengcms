@@ -1,0 +1,90 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>文章管理</title>
+<link href="css/css.css" rel="stylesheet" type="text/css" />
+<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
+<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
+<script src="public/jquery/validform/validform.js"></script>
+<script src="js/tab.js"></script>
+<script type="text/javascript">
+$(function(){
+	data=$(".form").Validform({
+		tiptype:2,
+		callback:function(data){
+			if(data.status=="y"){
+				alert("排序成功！");
+				location.href =	"?controller=fieldmanage&project={$_GET['project']}";
+			}else{
+				alert("排序失败！");
+				location.href =	"?controller=fieldmanage&project={$_GET['project']}";
+
+			}
+		}
+	});
+
+	$("#sort").click(function(){
+		data.ajaxPost();
+		$.Hidemsg();
+	});
+});
+</script>
+</head>
+
+<body>
+{$module=M("module")->findone('project="'.$_GET['project'].'"')}
+<div id="main">
+	<form method="post" action="?controller=fieldmanage&project={$_GET['project']}&operate=sort" class="form">
+	<div id="main_top">
+		<dl id="article_ico">
+			<dd class="art_ico_1"><a href="?controller=fieldmanage&project={$_GET['project']}&operate=add">添加字段</a></dd>
+			<dd class="art_ico_1"><a href="?controller=fieldmanage&project={$_GET['project']}&operate=system&project={$_GET['project']}">系统字段</a></dd>
+			<dd class="art_ico_2"><a href="#" id="sort">排序字段</a></dd>
+			<dt class="art_ico_7"><span>快速导航</span></dt>
+		</dl>
+	</div>
+	<div id="art_body">
+		<div id="art_list">
+			<table cellspacing="0">
+				<tr>
+					<th width="50">排序</th>
+					<th>字段名称</th>
+					<th>字段别名</th>
+					<th>归属模型</th>
+					<th>字段类型</th>
+					<th>状态</th>
+					<th width="150">操作</th>
+				</tr>
+				{loop $field $k $v}
+				<tr class="bg_fff">
+					<td><input type="text" id="sort" name="sort[]" value="{intval($v['sort'])}" style="width:30px;padding:2px 0;text-align:center;border:1px solid #ccc"><input type="hidden" id="id" name="id[]" value="{$v['id']}"></td>
+					<td>{$v['name']}</td>
+					<td>{$v['aliases']}</td>
+					<td>{$module['name']}</td>
+					<td>{$v['type_name']}</td>
+					<td>{if $v['status']=='1'}
+						<a href="?controller=fieldmanage&project={$_GET['project']}&operate=enable&id={$v['id']}&status=0" class="colorf60">开启</a>
+						{else}
+						<a href="?controller=fieldmanage&project={$_GET['project']}&operate=enable&id={$v['id']}&status=1" class="color999">禁用</a>
+						{/if}</td>
+					<td>
+					<a href="?controller=fieldmanage&project={$_GET['project']}&operate=update&id={$v['id']}" class="color333">编辑</a> | 
+					{if $v['type_f']==0}
+					删除
+					{else}
+					<a href="?controller=fieldmanage&project={$_GET['project']}&operate=delete&id={$v['id']}&type={$v['type']}" class="color333" onclick="javascript:return confirm('您确定要删除“{$v['name']}”吗？')">删除</a>
+					{/if}
+					</td>
+				</tr>
+				{/loop}
+			</table>
+		</div>
+		<div id="art_sxsz">
+			</div>
+	</div>
+	</form>
+</div>
+
+</body>
+</html>

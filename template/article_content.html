@@ -1,0 +1,162 @@
+{$web=M("web")->information}
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{include "inc/title.html"}</title>
+<link href="/css/style.css" rel="stylesheet" type="text/css">
+<meta name="description" content="{$info}">
+<meta name="keywords" content="{strip_tags($tags)}">
+<meta name="generator" content="FengCms" />
+<meta name="author" content="FengCms">
+<script src="/js/jquery.js"></script>
+<script src="/js/common.js"></script>
+<!--[if IE]><script src="/js/html5.js"></script><![endif]-->
+</head>
+<body>
+
+{include "scrap/header.html"}
+
+<div id="web">
+	<div id="web_con">
+		<div class="home_box">
+			<div class="boxtitle">
+				<!--{ $classname 是文章页面读取当前栏目的标题 }-->
+				<h3>{$classname}</h3>
+				<div id="where">{include "inc/where.html"}</div>
+			</div>
+			<div id="article">
+				<div id="article_title"><h2>{$title}</h2></div>
+				<div id="article_date">文章来源：{$origin}　　文章作者：{$author}　　日期：{$date}</div>
+				<div id="article_shoucang"><script language="javascript" src="/image/sc.js"></script></div>
+				<div class="gehang"></div>
+				<div id="article_info">{$info}</div>
+				<div class="gehang"></div>
+				<div id="article_nr">
+					<div class="article_nr_ad">{include "show/home_a_show.html"}</div>
+					{$content}
+				</div>
+				<div id="article_editor"><span>责任编辑：{$inputer} 阅读了{intval($hits)}次</span>关键词：{$tags}</div>
+				<div id="article_next">
+					<b>上一篇：</b>{include "inc/prev.html"}<br />
+					<b>下一篇：</b>{include "inc/next.html"}
+				</div>
+
+				<div id="article_like">
+					<h3>大家都在看</h3>
+					<ul class="list_14">
+						<!--{
+						标签作用：调用和当前文章相关的的内容。
+						这个标签用l标签写太繁琐，所以用特殊写法。
+						不用理解，照抄即可。
+						中间的循环体，和l标签一样。
+						}-->
+						{loop M("module")->related($_GET['project'],strip_tags($tags)) $k $v}
+						<li><a href="{url($v['html'])}" target="_blank">{$v['title']}</a></li>
+						{/loop}
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div id="web_bar">
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>最新推荐</h3>
+			</div>
+			<ul class="list_12">
+				<!--{
+				标签作用：调用文章系统当前栏目设为推荐的最新添加的信息。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的推荐属性为1(attrib_j=1)并且文章系统的状态为1(status=1)的内容。
+				读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+				读取条数：10条。
+				排序方法：按照id排序，倒序。
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_j=1&&status=1];f[title,html,date];n[10];s[id,1]") $k $v}
+				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div id="home_show_a">
+			{include "show/home_a_show.html"}
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>图文推荐</h3>
+			</div>
+			<ul class="bar_pic">
+				<!--{
+				标签作用：调用文章系统当前栏目设为推荐属性的图文文章。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的attrib_j为1并且图片部位空并且状态为1(status=1)的内容。
+				读取字段：title\html\img
+				读取条数：4条。
+				排序方法：按照id排序，倒序。
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_j=1&&img!=''&&status=1];f[title,html,img];n[4];s[id,1]") $k $v}
+				<li><a href="{url($v['html'])}" title="{$v['title']}"><img src="{$v['img']}" alt="{$v['title']}"/><span>{$v['title']}</span></a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>热门资讯</h3>
+			</div>
+			<ul class="list_12">
+				<!--{
+				标签作用：调用文章系统当前栏目设为热门的点击量最多的信息。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的推荐属性为1(attrib_r=1)并且文章系统的状态为1(status=1)的内容。
+				读取字段：title\html\date		这里的日期，使用了两个PHP函数，详情查阅白皮书。
+				读取条数：10条。
+				排序方法：按照hits排序，倒序。(hits字段存储的是点击次数)
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_r=1&&status=1];f[title,html,date];n[10];s[hits,1]") $k $v}
+				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>热门图文</h3>
+			</div>
+			<ul class="bar_pic">
+				<!--{
+				标签作用：调用文章系统当前栏目设为热门属性的图文文章。
+				查询表格：article 表。自带文章系统表。
+				查询条件：查询当前栏目的attrib_r为1并且图片部位空并且状态为1(status=1)的内容。
+				读取字段：title\html\img
+				读取条数：4条。
+				排序方法：按照hits排序，倒序。(hits字段存储的是点击次数)
+				}-->
+				{loop l("article","w[classid='$classid'&&attrib_r=1&&img!=''&&status=1];f[title,html,img];n[4];s[hits,1]") $k $v}
+				<li><a href="{url($v['html'])}" title="{$v['title']}"><img src="{$v['img']}" alt="{$v['title']}"/><span>{$v['title']}</span></a></li>
+				{/loop}
+			</ul>
+		</div>
+		<div class="home_box">
+			<div class="boxtitle">
+				<h3>标签云</h3>
+				<a href="{curl('tags')}" class="more">更多</a>
+			</div>
+			<ul class="tags_list">
+				<!--{
+				标签作用：循环网站热门关键词
+				查询表格：tags表。关键词存储表。
+				查询条件：忽略，即查询所有的关键词。
+				读取字段：读取name
+				读取条数：20
+				排序方法：按热度(hits)排序，倒序
+				}-->
+				{loop l("tags","f[name];n[20];s[hits,1]") $k $v}
+				<li><a href="{search($v['name'])}" target="_blank">{$v['name']}</a></li>
+				{/loop}
+			</ul>
+		</div>
+	</div>
+</div>
+
+{include "scrap/footer.html"}
+</body>
+</html>
