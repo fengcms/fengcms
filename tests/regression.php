@@ -148,11 +148,19 @@ try {
     expect_check(request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$extraSuperId,'password'=>$editorPassword])['status']===403,
         'another super administrator reset requires operator password');
+    expect_check(request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$extraSuperId,'password'=>$editorPassword,'operator_password'=>'wrong-password'])['status']===403,
+        'another super administrator reset rejects incorrect operator password');
     $resetSuper=request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$extraSuperId,'password'=>'NewPass8!','operator_password'=>$password]);
-    expect_check($resetSuper['status']===200 && str_contains($resetSuper['body'],'本次生成的认证码') &&
+    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$resetSuper['body'],$resetSuperCodeMatch);
+    expect_check($resetSuper['status']===200 && isset($resetSuperCodeMatch[1]) &&
         request('GET','/admin/index.php',$superCookies)['status']===302,
         'operator password permits super administrator reset and revokes session');
+    $superCookies=[]; $superLogin['_csrf']=token($superCookies); $superLogin['password']='NewPass8!';
+    $superLogin['admincode']=$resetSuperCodeMatch[1];
+    expect_check((request('POST','/admin/index.php?controller=admin',$superCookies,$superLogin)['json']['status']??'')==='y',
+        'reset super administrator logs in with new four-digit code');
     $editorToken=token($editorCookies,true);
     $editorHome=request('GET','/admin/index.php',$editorCookies);
     expect_check($editorHome['status']===200 && str_contains($editorHome['body'],'<span>相关</span>') &&
@@ -269,12 +277,18 @@ try {
         'editor cannot delete accounts');
     $resetEditor=request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$editorId,'password'=>$editorPassword]);
-    expect_check($resetEditor['status']===200 && request('GET','/admin/index.php',$editorCookies)['status']===302,
+    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$resetEditor['body'],$resetEditorCodeMatch);
+    expect_check($resetEditor['status']===200 && isset($resetEditorCodeMatch[1]) &&
+        request('GET','/admin/index.php',$editorCookies)['status']===302,
         'credential reset revokes editor sessions');
+    $editorCookies=[]; $editorLogin['_csrf']=token($editorCookies); $editorLogin['admincode']=$resetEditorCodeMatch[1];
+    expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
+        'editor logs in with reset four-digit code');
     expect_check(request('POST','/admin/index.php?controller=account&operate=delete',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$editorId])['status']===303 &&
-        $db->query('SELECT id FROM f_manage WHERE id='.(int)$editorId)->num_rows===0,
-        'super administrator deletes editor account');
+        $db->query('SELECT id FROM f_manage WHERE id='.(int)$editorId)->num_rows===0 &&
+        request('GET','/admin/index.php',$editorCookies)['status']===302,
+        'super administrator deletes editor account and revokes session');
     $licensePage=request('GET','/admin/index.php?controller=home&operate=main',$cookies);
     expect_check($licensePage['status']===200 && str_contains($licensePage['body'],'MIT License') &&
         !str_contains($licensePage['body'],'非商业运用') && !str_contains($licensePage['body'],'必须在FengCms官方论坛首发'),
