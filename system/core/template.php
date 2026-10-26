@@ -193,6 +193,11 @@ class template{
         }
         $d = "<?php defined('TPL_INCLUDE') OR exit('Access Denied'); ?>\r\n";
         $s = $d.file_get_contents($tpl_file);
+        // Insert into template HTML before compilation: generated PHP contains closing delimiters
+        // inside action attributes, which is not the end of the form tag.
+        $s = preg_replace_callback('~<form\b(?:[^>\"\']|\"[^\"]*\"|\'[^\']*\')*>~i', static function ($m) {
+            return $m[0].'<input type="hidden" name="_csrf" value="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>">';
+        }, $s);
         $s = @preg_replace("/\<\!\-\-\s*\{(.+?)\}\s*\-\-\>/is", "", $s);
         $s = @preg_replace("/\{include\s+(.+?)\}/is", "<?php include Template::Tpl(\\1); ?>", $s);
         $s = @preg_replace("/\{([A-Z][A-Z0-9_]*)\}/s", "<?php if(defined('\\1')){echo \\1;}?>", $s);
@@ -212,10 +217,6 @@ class template{
             static fn($m) => '<?php } elseif ('.$m[1].') { ?>', $s);
         $s = preg_replace('/[\n\r\t]*\{else\}[\n\r\t]*/is', '<?php } else { ?>', $s);
         $s = preg_replace_callback('/\{raw\s+(\$[^}]+)\}/i', static fn($m) => '<?php echo '.$m[1].' ?? ""; ?>', $s);
-        // Keep CSRF protection compatible with existing site templates.
-        $s = preg_replace_callback('/<form\b[^>]*>/i', static function ($m) {
-            return $m[0].'<input type="hidden" name="_csrf" value="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>">';
-        }, $s);
         if (realpath(ABS_PATH) === realpath(ROOT_PATH.'/admin')) {
             $head = '<meta name="csrf-token" content="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>"><script src="/admin/js/security.js"></script>';
             $s = str_ireplace('</head>', $head.'</head>', $s);

@@ -8,3 +8,10 @@
 **/error/logs/
 /var/
 .DS_Store
+
+# Local editor metadata and temporary files
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~

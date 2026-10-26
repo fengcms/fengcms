@@ -41,14 +41,13 @@ $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
 if (!in_array($mime, $mimeTypes[$ext], true)) { cms_fail(400, '文件内容与扩展名不符。'); }
 if ($dir === 'image') {
     $size = @getimagesize($file['tmp_name']);
-    if (!$size || $size[0] * $size[1] > 20000000 || $size['mime'] !== $mime) {
+    if (!$size || $size[0] * $size[1] > 20000000 || !in_array($size['mime'], $mimeTypes[$ext], true)) {
         cms_fail(400, '图片不正确或尺寸过大。');
     }
 }
-// Reject server-side code even in files that would only be served as static data.
-if (preg_match('/<\?(?:php|=)|<%/i', file_get_contents($file['tmp_name']))) {
-    cms_fail(400, '文件包含不允许的内容。');
-}
+// Binary images/documents may legitimately contain PHP/ASP-looking byte sequences.
+// Security relies on the extension/MIME allowlists and a non-executable upload
+// directory (see docker/nginx/default.conf), not substring scanning binary data.
 $relative = $dir.'/'.date('Ymd');
 $path = dirname(__DIR__, 4).'/upload/'.$relative;
 if (!is_dir($path) && !mkdir($path, 0755, true)) { cms_fail(500, '无法创建上传目录。'); }

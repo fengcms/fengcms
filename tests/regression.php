@@ -110,6 +110,15 @@ try {
         $page=request('GET','/admin/index.php?controller='.$route,$cookies);
         expect_check($page['status']===200 && str_contains($page['body'],'<html'),'admin screen renders: '.$route);
     }
+    foreach (['add', 'update&id='.$articleId] as $operation) {
+        $formPage=request('GET','/admin/index.php?controller=module&project=article&operate='.$operation,$cookies);
+        preg_match('/<form\b[^>]*>/i', $formPage['body'], $formTag);
+        expect_check($formPage['status']===200 && isset($formTag[0]) &&
+            str_contains($formTag[0], 'action="?controller=module&project=article&operate=save"') &&
+            !str_contains($formTag[0], '<input'), 'article form action intact: '.$operation);
+        expect_check((bool)preg_match('/<form\b[^>]*>\s*<input type="hidden" name="_csrf" value="'.$newToken.'">/i', $formPage['body']),
+            'article CSRF field is inside form: '.$operation);
+    }
     $delete='/admin/index.php?controller=module&operate=deleteone&project=article&id=0';
     expect_check(request('GET',$delete,$cookies)['status']===405,'GET cannot delete');
     expect_check(request('POST',$delete,$cookies)['status']===403,'authenticated writes require CSRF');
@@ -125,6 +134,15 @@ try {
     expect_check(request('GET',$url,$cookies)['body']===$png,'uploaded image is served');
     expect_check(request('GET','/?controller=down&file='.rawurlencode(base64_encode($url)),$cookies)['body']===$png,'download preserves upload bytes');
     expect_check(request('GET','/?controller=down&file='.rawurlencode(base64_encode('/upload/../config.php')),$cookies)['status']===400,'download traversal rejected');
+    // A valid GIF comment can contain any bytes, including old script markers.
+    $gif=base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    $comment="binary <% <?= <?php marker";
+    $gif=substr($gif,0,-1)."\x21\xfe".chr(strlen($comment)).$comment."\x00\x3b";
+    $binaryUpload=upload($cookies,$newToken,'binary.gif',$gif);
+    expect_check($binaryUpload['status']===200 && ($binaryUpload['json']['error']??-1)===0,
+        'valid image containing script-like bytes is accepted');
+    $binaryUrl=$binaryUpload['json']['url']; $files[]=dirname(__DIR__).$binaryUrl;
+    expect_check(request('GET',$binaryUrl,$cookies)['body']===$gif, 'binary image is served unchanged as static data');
     $manager='/admin/public/htmledit/php/file_manager_json.php';
     expect_check(isset(request('GET',$manager,$cookies)['json']['file_list']),'template picker returns JSON');
     expect_check(request('GET',$manager.'?path=../',$cookies)['status']===400,'file manager traversal rejected');
