@@ -1,0 +1,52 @@
+/* Keep maintenance screens aligned with the existing FengCMS toolbar and tables. */
+.maintenance-page #article_ico dd { text-indent:0; margin-right:18px; }
+.maintenance-page #article_ico a,
+.maintenance-page #article_ico button {
+    display:block; box-sizing:border-box; width:auto; min-width:100px; height:39px;
+    padding:0 0 0 29px; border:0; border-radius:0; background-color:transparent;
+    background-image:url(../image/icon.png); background-repeat:no-repeat;
+    color:#295283; font:bold 14px/39px "微软雅黑","宋体",sans-serif;
+    text-decoration:none; white-space:nowrap; cursor:pointer; text-align:left;
+}
+.maintenance-page #article_ico a:hover,
+.maintenance-page #article_ico button:hover { color:#d35a0b; text-decoration:none; }
+.maintenance-page #article_ico a:focus-visible,
+.maintenance-page #article_ico button:focus-visible,
+.maintenance-page .maint-action:focus-visible { outline:2px solid #3a76b9; outline-offset:2px; }
+.maintenance-page #article_ico .art_ico_5 a { background-position:0 -152px; }
+.maintenance-page #article_ico .art_ico_6 a { background-position:0 -192px; }
+.maintenance-page #article_ico .art_ico_8 a,
+.maintenance-page #article_ico .art_ico_8 button { background-position:0 -552px; }
+.maintenance-page #article_ico .art_ico_9 a { background-position:0 -592px; }
+.maintenance-page .maint-intro { margin:2px 0 12px; color:#546678; line-height:1.7; }
+.maintenance-page .maint-note { margin-top:8px; color:#6a7785; line-height:1.6; }
+.maintenance-page .maint-form th { width:142px; }
+.maintenance-page .maint-form td { line-height:1.7; }
+.maintenance-page .maint-form .maint-heading { text-align:left; font:bold 14px/26px "微软雅黑","宋体"; color:#295283; }
+.maintenance-page .maint-form .inputxt { box-sizing:border-box; max-width:100%; }
+.maintenance-page .maint-fields { padding-left:20px; columns:2; max-width:620px; }
+.maintenance-page .maint-fields li { list-style:disc; break-inside:avoid; }
+.maintenance-page .maint-table { table-layout:fixed; }
+.maintenance-page #art_list .maint-table th { text-align:left; padding:4px 10px; }
+.maintenance-page #art_list .maint-table td {
+    text-align:left; padding:9px 10px; line-height:1.5; vertical-align:middle;
+    color:#37485a; overflow-wrap:anywhere;
+}
+.maintenance-page .maint-secondary { display:block; margin-top:3px; color:#8694a5; font-size:11px; }
+.maintenance-page .maint-hash { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:11px; color:#728395; }
+.maintenance-page .maint-actions { white-space:nowrap; }
+.maintenance-page .maint-actions form { display:inline; }
+.maintenance-page .maint-action {
+    border:0; background:transparent; padding:2px 4px; font:12px/22px "微软雅黑","宋体";
+    color:#295283; cursor:pointer;
+}
+.maintenance-page .maint-action:hover { color:#d35a0b; text-decoration:underline; }
+.maintenance-page .maint-action-danger { color:#a24444; }
+.maintenance-page .maint-separator { color:#aab7c6; }
+.maintenance-page .maint-primary {
+    padding:5px 15px; border:1px solid #7f9fc2; border-radius:2px;
+    background:#e8f0f9; color:#295283; font:bold 12px/22px "微软雅黑","宋体";
+    cursor:pointer;
+}
+.maintenance-page .maint-primary:hover { background:#d7e7f8; }
+.maintenance-page .maint-primary:disabled { opacity:.6; cursor:wait; }

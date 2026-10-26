@@ -16,12 +16,18 @@ class dbmanageController extends Controller
 
     public function dbmanages(): void
     {
-        $legacy = [];
-        foreach (glob(DBBACKUP_PATH.'*', GLOB_ONLYDIR) ?: [] as $path) {
-            $legacy[] = basename($path);
+        $backups = CmsBackup::all();
+        foreach ($backups as &$backup) {
+            $backup['created_label'] = date('Y-m-d H:i:s', strtotime($backup['created_at']));
+            $backup['size_label'] = $backup['bytes'] < 1024
+                ? $backup['bytes'].' B' : ($backup['bytes'] < 1048576
+                    ? round($backup['bytes']/1024, 1).' KB'
+                    : round($backup['bytes']/1048576, 1).' MB');
+            $backup['sha256_short'] = substr($backup['sha256'], 0, 16);
         }
+        unset($backup);
         $this->display('dbmanage/dbmanages.html', [
-            'backups'=>CmsBackup::all(), 'legacy'=>$legacy,
+            'backups'=>$backups,
         ]);
     }
 

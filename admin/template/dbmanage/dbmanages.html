@@ -2,38 +2,38 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>备份管理与下载</title>
+<title>备份列表</title>
 <link href="css/css.css" rel="stylesheet">
+<link href="css/maintenance.css" rel="stylesheet">
 </head>
-<body>
+<body class="maintenance-page">
 <div id="main">
     <div id="main_top"><dl id="article_ico">
         <dd class="art_ico_8"><a href="?controller=dbmanage&operate=dbbackup">创建备份</a></dd>
-        <dd class="art_ico_6"><a href="?controller=dbmanage&operate=dbmanages">备份管理与下载</a></dd>
+        <dd class="art_ico_6"><a href="?controller=dbmanage&operate=dbmanages">备份列表</a></dd>
     </dl></div>
     <div id="art_body"><div id="art_list">
-        <p>数据库备份包含敏感数据。下载后请妥善保管；恢复应在独立空库中验证。</p>
-        <table cellspacing="0">
-            <tr><th class="tal">创建时间 / 编号</th><th>大小</th><th>SHA-256</th><th>操作</th></tr>
+        <p class="maint-intro">已创建的数据库备份可在这里下载或删除。</p>
+        <table cellspacing="0" class="maint-table">
+            <colgroup><col style="width:30%"><col style="width:15%"><col style="width:34%"><col style="width:21%"></colgroup>
+            <tr><th>创建时间 / 编号</th><th>大小</th><th>SHA-256</th><th>操作</th></tr>
             {if count($backups)>0}
             {loop $backups $backup}
             <tr>
-                <td class="tal">{$backup['created_at']}<br><small>{$backup['id']}</small></td>
-                <td>{$backup['bytes']} 字节</td>
-                <td><small>{$backup['sha256']}</small></td>
-                <td>
-                    <form method="post" action="?controller=dbmanage&operate=download" style="display:inline"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit">下载</button></form>
-                    <form method="post" action="?controller=dbmanage&operate=delete" style="display:inline" onsubmit="return confirm('确定删除这份备份吗？')"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit">删除</button></form>
+                <td>{$backup['created_label']}<span class="maint-secondary">{$backup['id']}</span></td>
+                <td>{$backup['size_label']}</td>
+                <td><span class="maint-hash" title="{$backup['sha256']}">{$backup['sha256_short']}…</span></td>
+                <td class="maint-actions">
+                    <form method="post" action="?controller=dbmanage&operate=download"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit" class="maint-action">下载</button></form>
+                    <span class="maint-separator">|</span>
+                    <form method="post" action="?controller=dbmanage&operate=delete" onsubmit="return confirm('确定删除这份备份吗？')"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit" class="maint-action maint-action-danger">删除</button></form>
                 </td>
             </tr>
             {/loop}
             {else}
-            <tr><td class="tal" colspan="4">还没有新格式数据库备份</td></tr>
+            <tr><td colspan="4">暂无数据库备份</td></tr>
             {/if}
         </table>
-        {if count($legacy)>0}
-        <p>另有 {count($legacy)} 个旧格式备份目录，文件保持原样；旧格式未经验证，不能作为可靠恢复依据。</p>
-        {/if}
     </div></div>
 </div>
 </body>

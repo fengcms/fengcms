@@ -4,16 +4,17 @@
 <meta charset="utf-8">
 <title>导入模型</title>
 <link href="css/css.css" rel="stylesheet">
+<link href="css/maintenance.css" rel="stylesheet">
 </head>
-<body>
+<body class="maintenance-page">
 <div id="main">
     <form method="post" action="?controller=modulemanage&operate=preview" enctype="multipart/form-data">
         <div id="main_top"><dl id="article_ico">
             <dd class="art_ico_8"><button type="submit">预览模型</button></dd>
             <dd class="art_ico_9"><a href="?controller=modulemanage">返回</a></dd>
         </dl></div>
-        <div id="art_body"><table cellspacing="0" class="add_art">
-            <tr><th colspan="2" style="text-align:center;font-size:16px">导入模型</th></tr>
+        <div id="art_body"><table cellspacing="0" class="add_art maint-form">
+            <tr><th colspan="2" class="maint-heading">导入模型</th></tr>
             <tr><th>新模型表名：</th><td><input name="project" required pattern="[A-Za-z][A-Za-z0-9_]{0,29}" maxlength="30" class="inputxt"> 只能创建新模型，不覆盖已有模型。</td></tr>
             <tr><th>模型文件：</th><td><input type="file" name="package_file" accept=".json,.fengmodel.json,application/json"> 最大 1 MB。</td></tr>
             <tr><th>或粘贴模型 JSON：</th><td><textarea name="package_json" class="inputxt" style="width:520px;height:150px"></textarea></td></tr>

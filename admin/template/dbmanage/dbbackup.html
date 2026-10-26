@@ -4,22 +4,23 @@
 <meta charset="utf-8">
 <title>备份数据库</title>
 <link href="css/css.css" rel="stylesheet">
+<link href="css/maintenance.css" rel="stylesheet">
 </head>
-<body>
+<body class="maintenance-page">
 <div id="main">
     <div id="main_top"><dl id="article_ico">
         <dd class="art_ico_8"><a href="?controller=dbmanage&operate=dbbackup">创建备份</a></dd>
-        <dd class="art_ico_6"><a href="?controller=dbmanage&operate=dbmanages">备份管理与下载</a></dd>
+        <dd class="art_ico_6"><a href="?controller=dbmanage&operate=dbmanages">备份列表</a></dd>
     </dl></div>
     <div id="art_body">
-        <table cellspacing="0" cellpadding="0" class="add_art">
-            <tr><th colspan="2" style="text-align:center;font-size:16px">创建数据库备份</th></tr>
-            <tr><th style="width:300px">备份范围：</th><td>当前数据库的表、数据和视图。上传文件、网站源码及私有配置需要另外备份。</td></tr>
+        <table cellspacing="0" cellpadding="0" class="add_art maint-form">
+            <tr><th colspan="2" class="maint-heading">创建数据库备份</th></tr>
+            <tr><th>备份范围：</th><td>当前数据库的表、数据和视图。上传文件及网站配置请另外保存。</td></tr>
             <tr><th>一致性：</th><td>备份期间读取锁会暂时阻塞写入。建议选择低流量时段；缺少数据库读锁权限时会明确失败。</td></tr>
-            <tr><th>容量：</th><td>后台备份限制为 512 MB 和 120 秒；大型网站请使用虚拟主机提供的数据库备份工具。</td></tr>
+            <tr><th>容量：</th><td>后台备份限制为 512 MB 和 120 秒；数据量大时建议使用主机数据库工具。</td></tr>
             <tr><th>开始备份：</th><td>
                 <form method="post" action="?controller=dbmanage&operate=create">
-                    <button type="submit" class="p5_10" onclick="this.disabled=true;this.form.submit()">创建备份</button>
+                    <button type="submit" class="maint-primary" onclick="this.disabled=true;this.form.submit()">创建备份</button>
                 </form>
             </td></tr>
         </table>
