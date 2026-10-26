@@ -47,7 +47,7 @@ if (in_array(cms_required_setting('DB_PASS','db_pass'), ['123456','password'], t
 
 	define('DB_NAME', cms_required_setting('DB_NAME','db_name'));												//库名
 
-	define('DB_TYPE','mysqli');													//类型 支持mysql和mysqli的方式，默认安装为mysqli方式
+	define('DB_TYPE','mysqli');													// PHP 8 仅使用 mysqli 驱动
 
 	define('DB_PREFIX', getenv('DB_PREFIX') !== false ? getenv('DB_PREFIX') : ($localConfig['db_prefix'] ?? 'f_'));													//表扩展名 安装后请勿修改
 
