@@ -30,7 +30,7 @@ class messageModel{// extends model{
      */
 	public function reply($id){
 		if($id){
-			return D($this->d_name)->where('id="'.$id.'"')->getone();
+			return D($this->d_name)->where(['id'=>(int)$id])->getone();
 		}
 	}
 
@@ -41,7 +41,7 @@ class messageModel{// extends model{
      */
 	public function delete($id){
 		if($id){
-			return D($this->d_name)->where('id="'.$id.'"')->delete();
+			return D($this->d_name)->where(['id'=>(int)$id])->delete();
 		}else{
 			return false;	
 		}

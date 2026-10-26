@@ -38,7 +38,7 @@ class signupModel extends model{
      * @return array
      */
 	public function signupinfo($id){
-		return D($this->d_name)->where('id="'.$id.'"')->getone();
+		return D($this->d_name)->where(['id'=>(int)$id])->getone();
 	}
 
     /**
@@ -48,7 +48,7 @@ class signupModel extends model{
      */
 	public function detail($id){
 		if($id){
-			return D($this->d_name)->where('id="'.$id.'"')->getone();
+			return D($this->d_name)->where(['id'=>(int)$id])->getone();
 		}else{
 			return throwexce('Exception Error ID does not exist.');
 		}
@@ -61,7 +61,7 @@ class signupModel extends model{
      */
 	public function delete($id){
 		if($id){
-			return D($this->d_name)->where('id="'.$id.'"')->delete();
+			return D($this->d_name)->where(['id'=>(int)$id])->delete();
 		}else{
 			return false;	
 		}

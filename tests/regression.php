@@ -50,7 +50,7 @@ $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
 $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=null; $backupId=null;
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
-$editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=null;
+$editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
@@ -228,6 +228,38 @@ try {
     $editorArticleId=(int)($articleSave['json']['id']??0) ?: null;
     expect_check(($articleSave['json']['status']??'')==='y' && $editorArticleId!==null,
         'editor creates article content');
+    $invalidBatch=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$editorCookies,
+        ['_csrf'=>$editorToken,'method'=>'recover','parameter'=>'','record'=>(string)$editorArticleId]);
+    expect_check($invalidBatch['status']===400 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
+        'editor batch rejects scalar record without changing article');
+    $invalidRecords=[(string)$editorArticleId, [[$editorArticleId]], ['1 OR 1=1'], ['0'], array_fill(0,1001,(string)$editorArticleId)];
+    foreach ($invalidRecords as $record) {
+        $badBatch=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$editorCookies,
+            ['_csrf'=>$editorToken,'method'=>'recover','record'=>$record]);
+        expect_check($badBatch['status']===400 &&
+            (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
+            'invalid article batch record rejected without mutation');
+    }
+    $forgedAttribute=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$editorCookies,
+        ['_csrf'=>$editorToken,'method'=>'attrib','parameter'=>'status','record'=>[(string)$editorArticleId]]);
+    expect_check($forgedAttribute['status']===400 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
+        'batch attribute cannot address arbitrary columns');
+    $legalAttribute=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$editorCookies,
+        ['_csrf'=>$editorToken,'method'=>'attrib','parameter'=>'attrib_j','record'=>[(string)$editorArticleId]]);
+    expect_check(($legalAttribute['json']['status']??'')==='y' &&
+        (int)$db->query('SELECT attrib_j FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
+        'legal article batch attribute update succeeds');
+    $batchRecover=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$editorCookies,
+        ['_csrf'=>$editorToken,'method'=>'recover','record'=>[(string)$editorArticleId,(string)$editorArticleId]]);
+    expect_check(($batchRecover['json']['status']??'')==='y' &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===-1,
+        'legal article batch deduplicates IDs and moves only target to recycle bin');
+    expect_check(request('POST','/admin/index.php?controller=recover&project=article&operate=recoverone&id='.$editorArticleId,
+        $editorCookies,['_csrf'=>$editorToken])['status']===200 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
+        'article from batch operation restores successfully');
     $articleEdit=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'id'=>(string)$editorArticleId,'title'=>'editor_updated_'.$tag,
             'content'=>'<p>修改正文</p>','info'=>'修改导读']);
@@ -236,6 +268,15 @@ try {
         'editor updates article content');
     $db->query("INSERT INTO f_message (title,content,status,time) VALUES ('editor_msg_$tag','hello',0,UNIX_TIMESTAMP())");
     $editorMessageId=$db->insert_id;
+    foreach ([[$editorMessageId=>'x'], [[$editorMessageId]], ['1 OR 1=1'], ['0'], array_fill(0,1001,(string)$editorMessageId)] as $record) {
+        foreach ([['message',$editorCookies,$editorToken],['signup',$cookies,$newToken]] as [$controller,$actorCookies,$actorToken]) {
+            $badDelete=request('POST','/admin/index.php?controller='.$controller.'&operate=deletebatch',$actorCookies,
+                ['_csrf'=>$actorToken,'record'=>$record]);
+            expect_check($badDelete['status']===400 &&
+                $db->query('SELECT id FROM f_message WHERE id='.(int)$editorMessageId)->num_rows===1,
+                'invalid '.$controller.' batch record rejected without mutation');
+        }
+    }
     $reply=request('POST','/admin/index.php?controller=message&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'id'=>(string)$editorMessageId,'reply'=>'编辑回复','status'=>'1']);
     expect_check(($reply['json']['status']??'')==='y' &&
@@ -265,6 +306,14 @@ try {
         $db->query('SELECT id FROM f_message WHERE id='.(int)$editorMessageId)->num_rows===0,
         'editor deletes visitor message');
     $editorMessageId=null;
+    $db->query("INSERT INTO f_message (title,content,status,time) VALUES ('batch_msg_$tag','hello',0,UNIX_TIMESTAMP())");
+    $batchMessageId=$db->insert_id;
+    $batchDelete=request('POST','/admin/index.php?controller=message&operate=deletebatch',$editorCookies,
+        ['_csrf'=>$editorToken,'record'=>[(string)$batchMessageId]]);
+    expect_check(($batchDelete['json']['status']??'')==='y' &&
+        $db->query('SELECT id FROM f_message WHERE id='.(int)$batchMessageId)->num_rows===0,
+        'legal message batch deletes only selected record');
+    $batchMessageId=null;
     expect_check(request('POST','/admin/index.php?controller=module&project=tags&operate=deleteone&id='.$editorTagId,$editorCookies,
         ['_csrf'=>$editorToken])['status']===200 &&
         $db->query('SELECT id FROM f_tags WHERE id='.(int)$editorTagId)->num_rows===0,
@@ -882,6 +931,7 @@ try {
     if ($editorCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$editorCategoryId); }
     if ($editorTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$editorTagId); }
     if ($editorMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$editorMessageId); }
+    if ($batchMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$batchMessageId); }
     if ($messageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$messageId); }
     if ($fieldFixtureId) { $db->query('DELETE FROM f_module_field WHERE id='.(int)$fieldFixtureId); }
     $restore=$db->prepare('UPDATE f_base SET name=?,copyright=?'); $restore->bind_param('ss',$originalName,$originalBase['copyright']); $restore->execute();

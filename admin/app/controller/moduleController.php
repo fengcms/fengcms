@@ -152,11 +152,17 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function batch(){
-        if (!in_array($_POST['method'] ?? '', ['recover', 'thorough', 'attrib', 'attribc'], true)) { cms_fail(400, '批量操作不正确。'); }
+        $method=$_POST['method']??null;
+        if (!in_array($method, ['recover', 'thorough', 'attrib', 'attribc'], true)) { cms_fail(400, '批量操作不正确。'); }
+        $parameter=$_POST['parameter']??null;
+        if (($method==='attrib' || $method==='attribc') &&
+            (!is_string($parameter) || !in_array($parameter,['attrib_j','attrib_g','attrib_t','attrib_r','attrib_d','attrib_h'],true))) {
+            cms_fail(400,'文章属性不正确。');
+        }
 		if(!$_POST['record']){
 			echo json_encode(array('status' => 'a'));
 		}else{
-			if($this->{$_POST['method']}($_GET['project'],$_POST['record'],$_POST['parameter'])){
+			if($this->{$method}($_GET['project'],$_POST['record'],$parameter)){
 				echo json_encode(array('status' => 'y'));
 			}else{
 				echo json_encode(array('status' => 'n'));
@@ -196,7 +202,7 @@ class moduleController extends Controller{
      */
 	public function recover($project,$array){
 		foreach($array as $v){
-		if(!D($project)->where('id="'.$v.'"')->update(array(
+		if(!D($project)->where(['id'=>$v])->update(array(
 			"status"	=> "-1"
 		)))return false;
 		}
@@ -210,7 +216,7 @@ class moduleController extends Controller{
      */
 	public function thorough($project,$array){
 		foreach($array as $v){
-			if(!D($project)->where('id="'.$v.'"')->delete())return false;
+			if(!D($project)->where(['id'=>$v])->delete())return false;
 		}
 		return true;
 	}
@@ -222,7 +228,7 @@ class moduleController extends Controller{
      */
 	public function attrib($project,$array,$friend){
 		foreach($array as $v){
-		if(!D($project)->where('id="'.$v.'"')->update(array(
+		if(!D($project)->where(['id'=>$v])->update(array(
 			$friend	=> 1,
 			'time'	=> time()
 		)))return false;
@@ -237,7 +243,7 @@ class moduleController extends Controller{
      */
 	public function attribc($project,$array,$friend){
 		foreach($array as $v){
-		if(!D($project)->where('id="'.$v.'"')->update(array(
+		if(!D($project)->where(['id'=>$v])->update(array(
 			$friend	=> 0,
 			'time'	=> time()
 		)))return false;

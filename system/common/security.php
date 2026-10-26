@@ -356,7 +356,27 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
     if ($writable || ($admin && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST')) {
         cms_post_required();
     }
+    if ($admin && (($controller==='module' && $action==='batch') ||
+        (($controller==='message' || $controller==='signup') && $action==='deletebatch'))) {
+        // Keep this below PHP's usual max_input_vars (1000), so truncated oversized forms fail closed.
+        $_POST['record']=cms_id_list($_POST['record']??[], '记录编号', 500);
+    }
     unset($_POST['_csrf']);
+}
+
+function cms_id_list($value, string $label, int $max=1000): array
+{
+    if (!is_array($value) || !array_is_list($value) || count($value)>$max) {
+        cms_fail(400,$label.'不正确。');
+    }
+    $ids=[];
+    foreach ($value as $item) {
+        if (!is_string($item) || !preg_match('/^[1-9][0-9]{0,9}$/D',$item)) {
+            cms_fail(400,$label.'不正确。');
+        }
+        $ids[]=(int)$item;
+    }
+    return array_values(array_unique($ids));
 }
 
 function cms_sort_pairs($ids, $sorts): array
