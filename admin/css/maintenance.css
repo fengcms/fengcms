@@ -19,6 +19,7 @@
 .maintenance-page #article_ico .art_ico_8 button { background-position:0 -552px; }
 .maintenance-page #article_ico .art_ico_9 a { background-position:0 -592px; }
 .maintenance-page .maint-intro { margin:2px 0 12px; color:#546678; line-height:1.7; }
+.maintenance-page .maint-success { margin:2px 0 12px; padding:8px 10px; border:1px solid #b7d9bd; background:#edf7ef; color:#326b3e; }
 .maintenance-page .maint-note { margin-top:8px; color:#6a7785; line-height:1.6; }
 .maintenance-page .maint-form th { width:142px; }
 .maintenance-page .maint-form td { line-height:1.7; }

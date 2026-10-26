@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>确认导入数据库备份</title>
+<link href="css/css.css" rel="stylesheet">
+<link href="css/maintenance.css" rel="stylesheet">
+</head>
+<body class="maintenance-page">
+<div id="main">
+    <form method="post" action="?controller=dbmanage&operate=runimport">
+        <div id="main_top"><dl id="article_ico">
+            <dd class="art_ico_8"><button type="submit">确认导入</button></dd>
+            <dd class="art_ico_9"><a href="?controller=dbmanage&operate=dbimport">返回修改</a></dd>
+        </dl></div>
+        <input type="hidden" name="nonce" value="{$nonce}">
+        <div id="art_body"><table cellspacing="0" class="add_art maint-form">
+            <tr><th colspan="2" class="maint-heading">导入预览</th></tr>
+            <tr><th>备份来源：</th><td>{$source_label}</td></tr>
+            <tr><th>内容：</th><td>{$summary['table_count']} 张表、{$summary['view_count']} 个视图、{$summary['row_count']} 条记录</td></tr>
+            <tr><th>文件大小：</th><td>{$summary['bytes']} 字节</td></tr>
+            <tr><th>SHA-256：</th><td class="maint-hash">{$summary['sha256']}</td></tr>
+            <tr><th>确认：</th><td><label><input type="checkbox" name="confirm" value="1" required> 我确认用这份备份替换当前数据库记录。系统将先自动备份现有数据。</label></td></tr>
+            <tr><th>提示：</th><td>导入期间请暂停站点内容写入。大数据量建议使用主机数据库工具；上传文件和网站配置不包含在数据库备份中。</td></tr>
+        </table></div>
+    </form>
+</div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>导入数据库备份</title>
+<link href="css/css.css" rel="stylesheet">
+<link href="css/maintenance.css" rel="stylesheet">
+</head>
+<body class="maintenance-page">
+<div id="main">
+    <div id="main_top"><dl id="article_ico">
+        <dd class="art_ico_8"><button type="submit" form="import-backup">预览备份</button></dd>
+        <dd class="art_ico_9"><a href="?controller=dbmanage&operate=dbmanages">返回列表</a></dd>
+    </dl></div>
+    <div id="art_body">
+        <form id="import-backup" method="post" action="?controller=dbmanage&operate=previewimport" enctype="multipart/form-data">
+            <table cellspacing="0" class="add_art maint-form">
+                <tr><th colspan="2" class="maint-heading">导入数据库备份</th></tr>
+                <tr><th>选择文件：</th><td><input type="file" name="backup_file" accept=".sql" required> 本系统生成的 .sql 文件，最大 8 MB / 10,000 条记录。</td></tr>
+                <tr><th>导入方式：</th><td>先校验文件与当前数据库的表和列结构，再预览并确认。也可在备份列表中直接选择一份备份导入。</td></tr>
+                <tr><th>适用范围：</th><td>适合同版本、同模型结构的小型站点。导入会替换当前数据库记录，开始前自动创建一份备份。数据量大时建议使用主机数据库工具。</td></tr>
+            </table>
+        </form>
+    </div>
+</div>
+</body>
+</html>

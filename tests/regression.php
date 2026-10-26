@@ -565,6 +565,35 @@ try {
     $meta=json_decode(file_get_contents($newBackups[0]),true);
     expect_check(($meta['format']??0)===1 && count($meta['objects']??[])>=16 &&
         in_array($fixture,array_column($meta['objects'],'name'),true),'backup manifest includes tables and test fixture');
+    $importPreviewRoute=$backupRoute.'&operate=previewimport';
+    expect_check(request('GET',$importPreviewRoute,$cookies)['status']===405,'database import preview requires POST');
+    $importAnonymous=[];
+    expect_check(request('POST',$importPreviewRoute,$importAnonymous,['_csrf'=>$newToken,'backup_id'=>$backupId])['status']===401,
+        'anonymous database import preview rejected');
+    expect_check(request('POST',$importPreviewRoute,$cookies,['backup_id'=>$backupId])['status']===403,
+        'database import preview requires CSRF');
+    $importPreview=request('POST',$importPreviewRoute,$cookies,['_csrf'=>$newToken,'backup_id'=>$backupId]);
+    expect_check($importPreview['status']===200 && str_contains($importPreview['body'],'导入预览') &&
+        str_contains($importPreview['body'],'确认导入'),'verified backup can be previewed for import');
+    expect_check(request('POST',$backupRoute.'&operate=runimport',$cookies,
+        ['_csrf'=>$newToken,'nonce'=>'invalid','confirm'=>'1'])['status']===400,
+        'database import rejects an invalid preview nonce');
+    $beforeUploads=glob($backupDir.'/.import-*.sql') ?: [];
+    $uploadBoundary='fengcms'.bin2hex(random_bytes(8));
+    $uploadBody="--$uploadBoundary\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$newToken\r\n";
+    $uploadBody.="--$uploadBoundary\r\nContent-Disposition: form-data; name=\"backup_file\"; filename=\"backup.sql\"\r\nContent-Type: application/octet-stream\r\n\r\n";
+    $uploadBody.=file_get_contents($backupDir.'/'.$backupId.'.sql')."\r\n--$uploadBoundary--\r\n";
+    $uploadedPreview=request('POST',$importPreviewRoute,$cookies,$uploadBody,
+        ['Content-Type'=>'multipart/form-data; boundary='.$uploadBoundary]);
+    expect_check($uploadedPreview['status']===200 && str_contains($uploadedPreview['body'],'上传的 SQL 备份') &&
+        count(glob($backupDir.'/.import-*.sql') ?: [])===count($beforeUploads)+1,
+        'administrator can upload and preview a valid CMS SQL backup');
+    $boundary='fengcms'.bin2hex(random_bytes(8));
+    $multipart="--$boundary\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$newToken\r\n";
+    $multipart.="--$boundary\r\nContent-Disposition: form-data; name=\"backup_file\"; filename=\"bad.sql\"\r\nContent-Type: application/octet-stream\r\n\r\nDROP TABLE f_base;\r\n--$boundary--\r\n";
+    expect_check(request('POST',$importPreviewRoute,$cookies,$multipart,
+        ['Content-Type'=>'multipart/form-data; boundary='.$boundary])['status']===400 &&
+        (glob($backupDir.'/.import-*.sql') ?: [])===$beforeUploads,'arbitrary SQL upload rejected and cleaned');
     $anonymous=[];
     expect_check(request('POST',$backupRoute.'&operate=download',$anonymous,['_csrf'=>$newToken,'backup_id'=>$backupId])['status']===401,
         'anonymous backup download rejected');

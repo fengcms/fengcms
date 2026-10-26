@@ -11,11 +11,13 @@
     <div id="main_top"><dl id="article_ico">
         <dd class="art_ico_8"><a href="?controller=dbmanage&operate=dbbackup">创建备份</a></dd>
         <dd class="art_ico_6"><a href="?controller=dbmanage&operate=dbmanages">备份列表</a></dd>
+        <dd class="art_ico_5"><a href="?controller=dbmanage&operate=dbimport">导入备份</a></dd>
     </dl></div>
     <div id="art_body"><div id="art_list">
-        <p class="maint-intro">已创建的数据库备份可在这里下载或删除。</p>
+        {if isset($_GET['imported']) && $_GET['imported']=='1'}<p class="maint-success">数据库导入完成；导入前的数据库已自动另存为一份备份。</p>{/if}
+        <p class="maint-intro">已创建的数据库备份可在这里下载、导入或删除。</p>
         <table cellspacing="0" class="maint-table">
-            <colgroup><col style="width:30%"><col style="width:15%"><col style="width:34%"><col style="width:21%"></colgroup>
+            <colgroup><col style="width:29%"><col style="width:13%"><col style="width:32%"><col style="width:26%"></colgroup>
             <tr><th>创建时间 / 编号</th><th>大小</th><th>SHA-256</th><th>操作</th></tr>
             {if count($backups)>0}
             {loop $backups $backup}
@@ -25,6 +27,8 @@
                 <td><span class="maint-hash" title="{$backup['sha256']}">{$backup['sha256_short']}…</span></td>
                 <td class="maint-actions">
                     <form method="post" action="?controller=dbmanage&operate=download"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit" class="maint-action">下载</button></form>
+                    <span class="maint-separator">|</span>
+                    <form method="post" action="?controller=dbmanage&operate=previewimport"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit" class="maint-action">导入</button></form>
                     <span class="maint-separator">|</span>
                     <form method="post" action="?controller=dbmanage&operate=delete" onsubmit="return confirm('确定删除这份备份吗？')"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit" class="maint-action maint-action-danger">删除</button></form>
                 </td>

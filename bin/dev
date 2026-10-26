@@ -37,6 +37,7 @@ case "${1:-up}" in
     test)
         docker compose exec -T php php tests/driver-regression.php
         docker compose exec -T php php tests/regression.php
+        sh tests/backup-import-regression.sh
         ;;
     backup)
         umask 077
