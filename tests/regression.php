@@ -820,6 +820,11 @@ try {
         $page=request('GET','/admin/index.php?controller='.$route,$cookies);
         expect_check($page['status']===200 && str_contains($page['body'],'<html'),'admin screen renders: '.$route);
     }
+    $safeStarted=microtime(true);
+    $safePage=request('GET','/admin/index.php?controller=safe',$cookies);
+    expect_check($safePage['status']===200 && microtime(true)-$safeStarted<5 &&
+        str_contains($safePage['body'],'<div class="safe">'),
+        'online safety lookup has a bounded fallback response');
     $templateRoute='/admin/index.php?controller=tplmanage';
     $templateName='qa_template_'.$tag;
     $templateSource='<h1>模板回归 '.$tag.'</h1><p>{$title}</p><script>window.templateQA="'.$tag.'";</script>';
