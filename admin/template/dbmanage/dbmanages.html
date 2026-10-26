@@ -1,54 +1,40 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>数据备份管理</title>
-<link href="css/css.css" rel="stylesheet" type="text/css" />
-<link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
-<!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
-<!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
-<script src="js/tab.js"></script>
-<script src="public/jquery/validform/validform.js"></script>
-<script src="js/dbmanage.js"></script>
+<meta charset="utf-8">
+<title>备份管理与下载</title>
+<link href="css/css.css" rel="stylesheet">
 </head>
-
 <body>
-
 <div id="main">
-<form method="post" action="?controller=dbmanage&operate=save&type=1" class="form">
-	<div id="main_top">
-		<dl id="article_ico">
-			<dd class="art_ico_8"><a href="?controller=dbmanage&operate=dbbackup">备份数据</a></dd>
-			<dd class="art_ico_9"><a href="?controller=dbmanage&operate=dbregain">恢复数据</a></dd>
-			<dd class="art_ico_6"><a href="?controller=dbmanage&operate=dbmanages">管理备份</a></dd>
-		</dl>
-	</div>
-	<div id="art_body">
-		<div id="art_list">
-			<table cellspacing="0">
-				<tr>
-					<th class="tal">数据库备份</th>
-					<th width="100">管理选项</th>
-				</tr>
-				{if count($dblist)>0}
-				{loop $dblist $v}
-				<tr>
-					<td class="tal"><span class="art_title_txt">{$v}</span></td>
-					<td><a href="?controller=dbmanage&operate=delete&name={$v}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这个数据库备份吗？')">删除</a></td>
-				</tr>
-				{/loop}
-				{else}
-				<tr>
-					<td class="tal">暂时没有任何数据库备份</td>
-					<td></td>
-				</tr>
-				{/if}
-
-			</table>
-		</div>
-	</div>
+    <div id="main_top"><dl id="article_ico">
+        <dd class="art_ico_8"><a href="?controller=dbmanage&operate=dbbackup">创建备份</a></dd>
+        <dd class="art_ico_6"><a href="?controller=dbmanage&operate=dbmanages">备份管理与下载</a></dd>
+    </dl></div>
+    <div id="art_body"><div id="art_list">
+        <p>数据库备份包含敏感数据。下载后请妥善保管；恢复应在独立空库中验证。</p>
+        <table cellspacing="0">
+            <tr><th class="tal">创建时间 / 编号</th><th>大小</th><th>SHA-256</th><th>操作</th></tr>
+            {if count($backups)>0}
+            {loop $backups $backup}
+            <tr>
+                <td class="tal">{$backup['created_at']}<br><small>{$backup['id']}</small></td>
+                <td>{$backup['bytes']} 字节</td>
+                <td><small>{$backup['sha256']}</small></td>
+                <td>
+                    <form method="post" action="?controller=dbmanage&operate=download" style="display:inline"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit">下载</button></form>
+                    <form method="post" action="?controller=dbmanage&operate=delete" style="display:inline" onsubmit="return confirm('确定删除这份备份吗？')"><input type="hidden" name="backup_id" value="{$backup['id']}"><button type="submit">删除</button></form>
+                </td>
+            </tr>
+            {/loop}
+            {else}
+            <tr><td class="tal" colspan="4">还没有新格式数据库备份</td></tr>
+            {/if}
+        </table>
+        {if count($legacy)>0}
+        <p>另有 {count($legacy)} 个旧格式备份目录，文件保持原样；旧格式未经验证，不能作为可靠恢复依据。</p>
+        {/if}
+    </div></div>
 </div>
-</form>
-
 </body>
 </html>

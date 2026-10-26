@@ -11,7 +11,7 @@
 1. 在主机面板启用 HTTPS，选择 PHP 8.3 或 8.4，并启用 `mysqli`、`mbstring`、`gd`、`fileinfo`、`json`。数据库用户需要对目标库建表、建视图、写入数据的权限。
 2. 在面板中创建 MySQL 或 MariaDB 数据库及专用用户，记下主机名、库名、用户名和密码。安装器不会替你创建数据库。
 3. 将正式发布包上传到网站根目录。Apache/LiteSpeed 需要允许 `.htaccess` 生效；Nginx 需要由主机管理员配置与 [Nginx 示例](../docker/nginx/default.conf)等效的访问限制。不能确认访问限制时，请先联系主机商配置。
-4. 让 PHP 进程能创建根目录中的 `config.local.php`，并能写入 `upload/`、`app/cache/`、`admin/app/cache/`、`admin/app/dbbackup/`、`var/runtime/`。优先调整文件属主和最小必要权限，**不要使用 777**。
+4. 让 PHP 进程能创建根目录中的 `config.local.php`，并能写入 `upload/`、`app/cache/`、`admin/app/cache/`、`admin/app/dbbackup/`、`var/runtime/`。优先调整文件属主和最小必要权限，**不要使用 777**。后台一致性备份需要数据库账号对当前库拥有 `SELECT` 和 `LOCK TABLES` 权限；若主机不提供该权限，请使用主机面板的数据库备份功能。
 
 安装前，通过浏览器确认 `/install/install.sql`、`/install/authorize.example.php`、`/config.php`、`/system/common/install_schema.php` 不能下载；上传目录中的 PHP 文件也不能执行。Nginx 示例只供配置参考，本地 Docker 环境另有安装器禁用开关，不能直接当作共享主机配置。
 

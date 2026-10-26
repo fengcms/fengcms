@@ -133,7 +133,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         'message' => 'index reply execution',
         'signup' => 'index signup detail signupinfo execution',
         'recover' => 'index execution', 'tplmanage' => 'index add update execution',
-		'dbmanage' => 'index dbbackup dbregain dbmanages', 'safe' => 'index',
+			'dbmanage' => 'index dbbackup dbmanages', 'safe' => 'index',
     ] : [
         'home' => 'index vccore validate', 'classify' => 'index', 'content' => 'index',
         'down' => 'index', 'map' => 'index', 'message' => 'index add',
@@ -147,7 +147,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         'modulemanage' => 'disabled delete save elicit loading',
         'message' => 'deleteone deletebatch save', 'signup' => 'deleteone deletebatch save',
         'recover' => 'recoverone delete batch', 'tplmanage' => 'delete save',
-        'dbmanage' => 'delete save', 'cache' => 'index',
+		'dbmanage' => 'create download delete', 'cache' => 'index',
     ] : ['message' => 'save'];
     $readable = in_array($action, explode(' ', $read[$controller] ?? ''), true);
     $writable = in_array($action, explode(' ', $write[$controller] ?? ''), true);

@@ -48,7 +48,7 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
-$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null;
+$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null; $backupId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
@@ -466,13 +466,45 @@ try {
     $replyResult=request('GET','/admin/index.php?controller=message&operate=execution&re=1&id='.$replySave['json']['id'],$cookies);
     expect_check($replyResult['status']===200 && str_contains($replyResult['body'],'操作成功'),'message reply result URL accepts its returned record ID');
     expect_check((request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData)['json']['status']??'')==='y','saving an unchanged message reply is successful');
-    $db->query("CREATE TABLE `$fixture` (id int AUTO_INCREMENT PRIMARY KEY,name varchar(255),note text) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->query("CREATE TABLE `$fixture` (id int AUTO_INCREMENT PRIMARY KEY,name varchar(255),note text,payload blob) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $text="单引号' 双引号\" 反斜杠\\ 1e10 ; DROP TABLE test";
-    $id=D(substr($fixture,2))->insert(['name'=>$text,'note'=>null]);
+    $binary="\x00\xff\x0a<?php";
+    $id=D(substr($fixture,2))->insert(['name'=>$text,'note'=>null,'payload'=>$binary]);
     $row=D(substr($fixture,2))->where(['name'=>$text])->getone();
-    expect_check($row && $row['name']===$text && $row['note']===null,'prepared insert/where preserve quotes, Unicode and NULL');
+    expect_check($row && $row['name']===$text && $row['note']===null && $row['payload']===$binary,'prepared insert/where preserve quotes, Unicode, binary and NULL');
     D(substr($fixture,2))->where(['id'=>$id])->update(['note'=>$text]);
     expect_check(D(substr($fixture,2))->where(['id'=>$id])->getone()['note']===$text,'prepared update binds values and conditions');
+    $backupRoute='/admin/index.php?controller=dbmanage';
+    $backupDir=dirname(__DIR__).'/admin/app/dbbackup';
+    $before=glob($backupDir.'/*.json') ?: [];
+    expect_check(request('GET',$backupRoute.'&operate=dbregain',$cookies)['status']===404,'unsafe web restore is unavailable');
+    expect_check(request('GET',$backupRoute.'&operate=create',$cookies)['status']===405,'backup creation requires POST');
+    expect_check(request('POST',$backupRoute.'&operate=create',$cookies)['status']===403,'backup creation requires CSRF');
+    $backupCreated=request('POST',$backupRoute.'&operate=create',$cookies,['_csrf'=>$newToken]);
+    $after=glob($backupDir.'/*.json') ?: [];
+    $newBackups=array_values(array_diff($after,$before));
+    $backupId=count($newBackups)===1 ? basename($newBackups[0],'.json') : null;
+    expect_check($backupCreated['status']===303 && $backupId!==null,'administrator creates one complete database backup');
+    $meta=json_decode(file_get_contents($newBackups[0]),true);
+    expect_check(($meta['format']??0)===1 && count($meta['objects']??[])>=16 &&
+        in_array($fixture,array_column($meta['objects'],'name'),true),'backup manifest includes tables and test fixture');
+    $anonymous=[];
+    expect_check(request('POST',$backupRoute.'&operate=download',$anonymous,['_csrf'=>$newToken,'backup_id'=>$backupId])['status']===401,
+        'anonymous backup download rejected');
+    expect_check(request('POST',$backupRoute.'&operate=download',$cookies,['backup_id'=>$backupId])['status']===403,
+        'backup download requires CSRF');
+    expect_check(request('POST',$backupRoute.'&operate=download',$cookies,['_csrf'=>$newToken,'backup_id'=>'../config'])['status']===400,
+        'backup download rejects traversal');
+    $download=request('POST',$backupRoute.'&operate=download',$cookies,['_csrf'=>$newToken,'backup_id'=>$backupId]);
+    expect_check($download['status']===200 && hash('sha256',$download['body'])===$meta['sha256'] &&
+        strlen($download['body'])===$meta['bytes'] && str_contains($download['body'],' VIEW `') &&
+        str_contains($download['body'],'0x'.bin2hex($binary)) &&
+        str_contains($download['body'],$fixture),'backup download matches manifest and includes view');
+    expect_check(request('GET','/admin/app/dbbackup/'.$backupId.'.sql',$cookies)['status']===404,
+        'backup file is not publicly reachable');
+    expect_check(request('POST',$backupRoute.'&operate=delete',$cookies,['_csrf'=>$newToken,'backup_id'=>$backupId])['status']===303 &&
+        !is_file($newBackups[0]),'administrator deletes selected new backup');
+    $backupId=null;
     $rejected=false; try { D('manage;DROP'); } catch (InvalidArgumentException $e) { $rejected=true; }
     expect_check($rejected,'SQL table identifier injection rejected');
     $legacyCookies=[]; $legacyToken=token($legacyCookies);
@@ -494,6 +526,12 @@ try {
     expect_check($rate['status']===429,'login rate limit enforced');
     echo "All $passed regression checks passed.\n";
 } finally {
+    if ($backupId !== null) {
+        foreach (['sql','json'] as $extension) {
+            $file=dirname(__DIR__).'/admin/app/dbbackup/'.$backupId.'.'.$extension;
+            if (is_file($file)) { unlink($file); }
+        }
+    }
     foreach ($categoryIds as $categoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$categoryId); }
     if ($moduleFixtureId) {
         $db->query('DELETE FROM f_module_field WHERE module_id='.(int)$moduleFixtureId);
