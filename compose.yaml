@@ -17,6 +17,7 @@ x-php: &php
     APP_KEY: ${APP_KEY:?Run ./bin/dev up first}
     APP_DEBUG: "0"
     APP_RUNTIME_PATH: /var/lib/fengcms
+    FENGCMS_DISABLE_INSTALL: "1"
   volumes:
     - .:/var/www/html:ro
     # Only front-end templates and styles are editable through the CMS.

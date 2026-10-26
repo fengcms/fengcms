@@ -1,171 +1,255 @@
 <?php
-if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
-/*******************************************************************
- * @authors FengCms 
- * @web     http://www.fengcms.com
- * @email   web@fengcms.com
- * @date    2013-10-30 16:00:12
- * @version FengCms Beta 1.0
- * @copy    Copyright © 2013-2018 Powered by DiFang Web Studio  
- *******************************************************************/
-//
-
-header("Content-type:text/html;charset=utf-8");
-
-define("TPL_INCLUDE",1);
-
-// 定义当前路径
-define('ABS_PATH',dirname(__FILE__));
-define('ROOT_PATH',dirname(ABS_PATH));
-
-if(!$_GET['step'])$_GET['step']=1;
-
-$config_file=ROOT_PATH.'/config.php';
-$install_file=ABS_PATH.'/install.sql';
-
-if(file_exists(ROOT_PATH.'/upload/INSTALL')){
-  echo '<script type="text/javascript">alert("系统已安装，如需要重新安装，请手工删除upload目录下的INSTALL文件！");</script>';
-  echo '<meta http-equiv="refresh" content="0;url=/">';
+// One-time, shared-host web installer. Development containers disable this endpoint.
+$root = dirname(__DIR__);
+if (getenv('FENGCMS_DISABLE_INSTALL') === '1' || is_file($root.'/config.local.php')) {
+    http_response_code(404);
+    exit;
 }
 
-switch($_GET['step']){
+header('Content-Type: text/html; charset=UTF-8');
+header('Cache-Control: no-store, private');
+header('Pragma: no-cache');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 
-    case '1': //安装许可协议
-
-		include ABS_PATH."/step/step1.php";
-
-	break;
-
-
-    case '2': //检查安装环境是否满足要求
-
-		$PHP_GD  = '';
-		if(extension_loaded('gd')) {
-			if(function_exists('imagepng')) $PHP_GD .= 'png';
-			if(function_exists('imagejpeg')) $PHP_GD .= ' jpg';
-			if(function_exists('imagegif')) $PHP_GD .= ' gif';
-		}
-		$PHP_JSON = '0';
-		if(extension_loaded('json')) {
-			if(function_exists('json_decode') && function_exists('json_encode')) $PHP_JSON = '1';
-		}
-		//新加fsockopen 函数判断,此函数影响安装后会员注册及登录操作。
-		if(function_exists('fsockopen')) {
-			$PHP_FSOCKOPEN = '1';
-		}
-		$PHP_DNS = preg_match("/^[0-9.]{7,15}$/", @gethostbyname('www.baidu.cn')) ? 1 : 0;
-
-		//是否满足FengCms安装需求
-
-		$is_right = (phpversion() >= '5.2.0' && extension_loaded('mysql') && $PHP_JSON && $PHP_GD && $PHP_FSOCKOPEN) ? 1 : 0;
-
-		//配置文件是否存在和可写
-
-		$is_config = (is_readable($config_file) && is_writable($config_file)) ? 1 : 0;
-
-		//上传目录是否可写
-		$is_upload = (dir_writeable(ROOT_PATH."/upload")) ? 1 : 0;
-		
-		//模块导出目录是否可写
-		$is_module = (dir_writeable(ROOT_PATH."/upload/module")) ? 1 : 0;
-
-		//前台缓存目录是否可写
-		$is_cache = (dir_writeable(ROOT_PATH."/app/cache")) ? 1 : 0;
-
-		include ABS_PATH."/step/step2.php";
-
-	break;
-
-    case '3': //填写数据库信息
-
-		include ABS_PATH."/step/step3.php";
-
-	break;
-
-    case '4': //正在安装
-
-		$conn=@mysql_connect($_GET['host'],$_GET['user'],$_GET['password']);
-
-		if(!$conn){
-
-				echo '<script type="text/javascript">alert("链接主机失败，请检查主机地址、用户名和密码是否正确！");history.go(-1);</script>';
-				exit();  
-		}elseif(intval(mysql_get_server_info($conn))<5){
-
-				echo '<script type="text/javascript">alert("您的MYSQL版本为'. mysql_get_server_info($conn).'，版本太低，不能安装FengCms!");history.go(-1);</script>';
-				exit();  
-
-		}else{  
-
-			if(!mysql_select_db($_GET['dbname'],$conn)){   //如果数据库不存在，我们就进行创建。
-
-				if (!mysql_query("CREATE DATABASE ". $_GET['dbname'] ." default character set utf8;",$conn))
-
-					{
-					
-						echo '<script type="text/javascript">alert("数据库不存在，创建不成功");history.go(-1);</script>';
-
-					}else{
-
-						if(!mysql_select_db($_GET['dbname'],$conn)){
-							
-							echo '<script type="text/javascript">alert("链接数据库失败，请检查数据库是否正确！");history.go(-1);</script>';
-
-						}else{
-
-							include "data.php";
-
-					}
-
-				}
-
-			}else{
-
-				include "data.php";
-
-		   }
-		}
-	break;
-
-    case '5': //安装完成
-
-		include ABS_PATH."/step/step5.php";
-		$in = fopen(ROOT_PATH.'/upload/INSTALL','w');
-		fclose ($in);
-	break;
-/****
-    case '6': //删除安装目录
-
-		if(rmdirs(ROOT_PATH.'/install') or rmdir(ROOT_PATH.'/install')){
-
-			  echo '<script type="text/javascript">alert("删除成功！");close();</script>';
-			  exit();
-
-		}else{
-			  echo '<script type="text/javascript">alert("删除失败，请手工删除网站根目录下install目录！");close();</script>';
-			  exit();
-		}
-
-	break;
-***/
+function installer_escape($value)
+{
+    return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-function dir_writeable($dir) { 
-    /** 
-     * $dir如果不是目录将创建一个可读写的目录 
-     */ 
-    if(!is_dir($dir)) { 
-        @mkdir($dir, 0777); 
-    } 
-    if(is_dir($dir)) {  //如果目录已存在 
-        if($fp = @fopen("$dir/test.test", 'w')) {    //创建一个名为test.test的文件来测试 
-            @fclose($fp);             //关闭文件流             
-            @unlink("$dir/test.test");    //删除测试文件 
-            $writeable = 1;            //能创建则说明可读取，返回值为 1 
-        } else { 
-            $writeable = 0;          //不能创建，返回值为 0  
-        } 
-    } 
-    return $writeable;              //返回值 
+function installer_page($title, $body)
+{
+    echo '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+    echo '<title>'.installer_escape($title).' · FengCMS 安装</title>';
+    echo '<style>body{margin:0;background:#f4f6fa;color:#243044;font:16px/1.6 system-ui,sans-serif}.wrap{max-width:700px;margin:6vh auto;padding:30px;background:#fff;border-radius:12px;box-shadow:0 8px 30px #18263d12}h1{margin:0 0 8px;font-size:28px}h2{font-size:20px}p{margin:12px 0}.note{background:#edf4ff;padding:14px;border-radius:8px}.error{background:#fff0ef;color:#9b2727;padding:14px;border-radius:8px}label{display:block;margin:16px 0 5px;font-weight:600}input{box-sizing:border-box;width:100%;padding:10px;border:1px solid #b9c5d4;border-radius:6px;font:inherit}button{margin-top:20px;background:#265b9d;color:#fff;border:0;border-radius:6px;padding:10px 22px;font:inherit;cursor:pointer}button:disabled{opacity:.5}code{background:#f1f3f6;padding:2px 4px;overflow-wrap:anywhere}.small{color:#53657a;font-size:14px}li{margin:5px 0}a{color:#265b9d}</style></head><body><main class="wrap">';
+    echo '<h1>FengCMS 首次安装</h1><p class="small">仅用于新站点。已有站点请按迁移文档升级。</p>';
+    echo '<h2>'.installer_escape($title).'</h2>'.$body.'</main></body></html>';
 }
-?>
+
+function installer_post_value($name, $trim = true)
+{
+    $value = $_POST[$name] ?? '';
+    return is_string($value) ? ($trim ? trim($value) : $value) : '';
+}
+
+function installer_requirements($root, $https)
+{
+    $problems = [];
+    if (!$https) { $problems[] = '请先为站点启用 HTTPS，再提交任何密码。'; }
+    if (PHP_VERSION_ID < 80300 || PHP_VERSION_ID >= 80500) {
+        $problems[] = '当前 PHP 版本为 '.PHP_VERSION.'；本版安装器要求 PHP 8.3 或 8.4。';
+    }
+    foreach (['mysqli', 'mbstring', 'gd', 'fileinfo', 'json'] as $extension) {
+        if (!extension_loaded($extension)) { $problems[] = '缺少 PHP 扩展：'.$extension; }
+    }
+    if (!is_writable($root)) { $problems[] = '站点根目录不可写，无法创建私有配置文件；请在主机面板调整属主或最小必要权限。'; }
+    foreach (['upload', 'app/cache', 'admin/app/cache', 'admin/app/dbbackup', 'var/runtime'] as $relative) {
+        $path = $root.'/'.$relative;
+        $parent = dirname($path);
+        while (!is_dir($parent) && $parent !== dirname($parent)) { $parent = dirname($parent); }
+        if (is_dir($path) ? !is_writable($path) : !is_writable($parent)) {
+            $problems[] = $relative.' 不可写或无法创建；不要使用 777 权限。';
+        }
+    }
+    return $problems;
+}
+
+function installer_make_directories($root)
+{
+    foreach (['upload', 'app/cache', 'admin/app/cache', 'admin/app/dbbackup', 'var/runtime'] as $relative) {
+        $path = $root.'/'.$relative;
+        if (!is_dir($path) && !mkdir($path, 0750, true) && !is_dir($path)) {
+            throw new RuntimeException('Unable to create a required directory.');
+        }
+        if (!is_writable($path)) { throw new RuntimeException('A required directory is not writable.'); }
+    }
+}
+
+function installer_prepare_config($root, $values)
+{
+    $temporary = $root.'/.config.local.'.bin2hex(random_bytes(8)).'.tmp';
+    $contents = "<?php\n// Private FengCMS installation settings. Do not publish or commit this file.\nreturn ".var_export($values, true).";\n";
+    $previousUmask = umask(0077);
+    $handle = fopen($temporary, 'x');
+    umask($previousUmask);
+    if ($handle === false) { throw new RuntimeException('Unable to create private configuration.'); }
+    if (!chmod($temporary, 0600)) {
+        fclose($handle);
+        unlink($temporary);
+        throw new RuntimeException('Unable to protect private configuration.');
+    }
+    try {
+        $length = strlen($contents);
+        for ($offset = 0; $offset < $length;) {
+            $written = fwrite($handle, substr($contents, $offset));
+            if ($written === false || $written === 0) { throw new RuntimeException('Unable to write private configuration.'); }
+            $offset += $written;
+        }
+        fflush($handle);
+    } catch (Throwable $error) {
+        fclose($handle);
+        unlink($temporary);
+        throw $error;
+    }
+    fclose($handle);
+    return $temporary;
+}
+
+$transportSecure = !empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off';
+$https = $transportSecure;
+if (getenv('FENGCMS_INSTALL_ALLOW_HTTP') === '1') { $https = true; } // Isolated test environments only.
+$secretFile = __DIR__.'/authorize.php';
+$secret = is_file($secretFile) ? require $secretFile : null;
+$secretReady = is_string($secret) && preg_match('/^[A-Za-z0-9_-]{32,128}$/D', $secret) && strpos($secret, 'REPLACE_WITH_') !== 0;
+if (!$secretReady) {
+    http_response_code(503);
+    installer_page('等待站长授权', '<p>请先通过主机文件管理器或 SFTP，将 <code>install/authorize.example.php</code> 复制为 <code>install/authorize.php</code>，把占位符改成你自己生成的至少 32 位随机密钥，再刷新此页。安装完成后删除该文件。</p><p class="note">此操作确认你拥有站点文件的写入权限，防止访客抢先安装。</p>');
+    exit;
+}
+
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+session_name('fengcms_install');
+session_set_cookie_params(['lifetime' => 0, 'path' => '/install/', 'secure' => $transportSecure, 'httponly' => true, 'samesite' => 'Strict']);
+session_start();
+if (empty($_SESSION['csrf'])) { $_SESSION['csrf'] = bin2hex(random_bytes(32)); }
+$csrf = installer_escape($_SESSION['csrf']);
+$error = '';
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method !== 'GET' && $method !== 'POST') {
+    header('Allow: GET, POST');
+    http_response_code(405);
+    exit;
+}
+
+if ($method === 'POST') {
+    $submitted = installer_post_value('_csrf', false);
+    if (!hash_equals($_SESSION['csrf'], $submitted)) {
+        http_response_code(403);
+        installer_page('请求被拒绝', '<p class="error">请求校验失败，请刷新安装页面后重试。</p>');
+        exit;
+    }
+    if (installer_post_value('action') === 'unlock' && $https) {
+        $attempts = (int)($_SESSION['attempts'] ?? 0);
+        $blockedUntil = (int)($_SESSION['blocked_until'] ?? 0);
+        if ($blockedUntil > time()) {
+            $error = '密钥尝试次数过多，请稍后再试。';
+        } elseif (hash_equals($secret, installer_post_value('install_key', false))) {
+            session_regenerate_id(true);
+            $_SESSION['authorized'] = true;
+            $_SESSION['csrf'] = bin2hex(random_bytes(32));
+            $_SESSION['attempts'] = 0;
+            header('Location: index.php', true, 303);
+            exit;
+        } else {
+            $_SESSION['attempts'] = $attempts + 1;
+            if ($_SESSION['attempts'] >= 5) { $_SESSION['blocked_until'] = time() + 900; }
+            $error = '安装密钥不正确。';
+        }
+    }
+}
+
+if (empty($_SESSION['authorized'])) {
+    if (!$https) {
+        http_response_code(403);
+        installer_page('需要 HTTPS', '<p class="error">安装器只接受 HTTPS 连接。请在主机面板为站点启用 HTTPS 后重新访问。</p>');
+        exit;
+    }
+    $message = $error ? '<p class="error">'.installer_escape($error).'</p>' : '';
+    installer_page('验证站长身份', $message.'<p>输入你刚在 <code>install/authorize.php</code> 中设置的一次性安装密钥。</p><form method="post" action="index.php"><input type="hidden" name="_csrf" value="'.$csrf.'"><input type="hidden" name="action" value="unlock"><label for="install_key">安装密钥</label><input id="install_key" name="install_key" type="password" required autocomplete="off" maxlength="128"><button type="submit">继续</button></form>');
+    exit;
+}
+
+$problems = installer_requirements($root, $https);
+if ($method === 'POST' && installer_post_value('action') === 'install') {
+    $host = installer_post_value('db_host');
+    $user = installer_post_value('db_user');
+    $password = installer_post_value('db_pass', false);
+    $database = installer_post_value('db_name');
+    $prefix = installer_post_value('db_prefix');
+    $admin = installer_post_value('admin_user');
+    $adminPassword = installer_post_value('admin_pass', false);
+    $confirm = installer_post_value('admin_confirm', false);
+    if ($problems) {
+        $error = '安装环境不满足要求，请先处理下列问题。';
+    } elseif (!preg_match('/^[A-Za-z0-9._:-]{1,200}$/D', $host) || !is_string($user) || strlen($user) < 1 || strlen($user) > 128 || preg_match('/[\x00-\x1f\x7f]/', $user) ||
+        strlen($password) > 512 || !preg_match('/^[A-Za-z0-9_]{1,64}$/D', $database) ||
+        !preg_match('/^[A-Za-z][A-Za-z0-9_]{0,29}$/D', $prefix) ||
+        !preg_match('/^[A-Za-z][A-Za-z0-9_.-]{2,63}$/D', $admin) ||
+        strlen($adminPassword) < 12 || strlen($adminPassword) > 72 || $adminPassword !== $confirm) {
+        $error = '输入不符合要求：请检查数据库信息、表前缀及管理员密码（12 至 72 字节，两次一致）。';
+    } else {
+        $db = null;
+        $lockFile = null;
+        $databaseLock = null;
+        $temporary = null;
+        $schemaStarted = false;
+        try {
+            installer_make_directories($root);
+            $lockFile = fopen($root.'/var/runtime/install.lock', 'c');
+            if (!$lockFile || !flock($lockFile, LOCK_EX | LOCK_NB)) { throw new RuntimeException('Another installation is running.'); }
+            if (!chmod($root.'/var/runtime/install.lock', 0600)) { throw new RuntimeException('Unable to protect installation lock.'); }
+            if (is_file($root.'/config.local.php')) { throw new RuntimeException('Site is already installed.'); }
+            mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+            $db = new mysqli($host, $user, $password, $database);
+            $db->set_charset('utf8mb4');
+            define('FENGCMS_INSTALLER', true);
+            require_once $root.'/system/common/install_schema.php';
+            $databaseLock = cms_install_lock($db, $prefix);
+            if (!cms_install_prefix_available($db, $prefix)) { throw new RuntimeException('The selected table prefix is already in use.'); }
+            $adminCode = sprintf('%04d', random_int(0, 9999));
+            $config = ['db_host' => $host, 'db_user' => $user, 'db_pass' => $password, 'db_name' => $database,
+                'db_prefix' => $prefix, 'admin_code' => $adminCode, 'app_key' => bin2hex(random_bytes(32)), 'url_type' => 0];
+            $temporary = installer_prepare_config($root, $config);
+            $schemaStarted = true;
+            cms_install_schema($db, $prefix);
+            cms_install_admin($db, $prefix, $admin, $adminPassword);
+            if (is_file($root.'/config.local.php') || !rename($temporary, $root.'/config.local.php')) {
+                throw new RuntimeException('Unable to publish private configuration.');
+            }
+            $temporary = null;
+            @unlink($secretFile);
+            unset($_SESSION['authorized']);
+            installer_page('安装完成', '<p class="note">站点已完成首次安装。管理员用户名：<strong>'.installer_escape($admin).'</strong>；后台认证码：<strong>'.installer_escape($adminCode).'</strong>。请妥善保存认证码，勿公开管理员密码。</p><p>请确认 <code>install/authorize.php</code> 已删除，并通过 <a href="/admin/login.php">后台登录页</a>登录。后续版本更新请使用 GitHub Releases 的手动升级说明。</p>');
+            exit;
+        } catch (Throwable $failure) {
+            error_log('FengCMS installation failed: '.get_class($failure));
+            $error = $schemaStarted
+                ? '安装未完成。目标表前缀可能已有部分对象；请先检查本次创建的对象并恢复备份，不要直接重试或覆盖现有数据。'
+                : '安装未开始写入数据库。请核对连接信息、目标前缀和目录权限后重试。';
+        } finally {
+            if ($temporary && is_file($temporary)) { @unlink($temporary); }
+            if ($databaseLock && $db instanceof mysqli) { try { cms_install_unlock($db, $databaseLock); } catch (Throwable $ignored) {} }
+            if ($db instanceof mysqli) { $db->close(); }
+            if (is_resource($lockFile)) { flock($lockFile, LOCK_UN); fclose($lockFile); }
+        }
+    }
+}
+
+$body = $error ? '<p class="error">'.installer_escape($error).'</p>' : '';
+if ($problems) {
+    $body .= '<p class="error">环境检查未通过：</p><ul>';
+    foreach ($problems as $problem) { $body .= '<li>'.installer_escape($problem).'</li>'; }
+    $body .= '</ul>';
+} else {
+    $body .= '<p class="note">环境检查通过。数据库必须由主机面板预先创建；目标表前缀不能已有表或视图。安装器不会删除现有数据。</p>';
+}
+$body .= '<form method="post" action="index.php"><input type="hidden" name="_csrf" value="'.installer_escape($_SESSION['csrf']).'"><input type="hidden" name="action" value="install">';
+$fields = [
+    ['db_host', '数据库主机', 'text', 'localhost'],
+    ['db_user', '数据库用户名', 'text', ''],
+    ['db_pass', '数据库密码', 'password', ''],
+    ['db_name', '数据库名称', 'text', ''],
+    ['db_prefix', '数据表前缀', 'text', 'f_'],
+    ['admin_user', '管理员用户名', 'text', 'admin'],
+    ['admin_pass', '管理员密码（12 至 72 字节）', 'password', ''],
+    ['admin_confirm', '再次输入管理员密码', 'password', ''],
+];
+foreach ($fields as $field) {
+    [$name, $label, $type, $placeholder] = $field;
+    $body .= '<label for="'.$name.'">'.installer_escape($label).'</label><input id="'.$name.'" name="'.$name.'" type="'.$type.'" placeholder="'.installer_escape($placeholder).'" required autocomplete="off" maxlength="512">';
+}
+$body .= '<button type="submit"'.($problems ? ' disabled' : '').'>安装 FengCMS</button></form><p class="small">安装失败时不会自动删除数据库中的部分对象。请勿对现有站点使用本向导。</p>';
+installer_page('环境检查与安装信息', $body);

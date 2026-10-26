@@ -1,0 +1,7 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule !^index\.php$ - [F,L]
+</IfModule>
+<FilesMatch "^(?!index\.php$).+">
+    Require all denied
+</FilesMatch>

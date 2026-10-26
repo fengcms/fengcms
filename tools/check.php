@@ -5,7 +5,7 @@ $failed = [];
 $count = 0;
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)) as $file) {
     $path = $file->getPathname();
-    if ($file->getExtension() !== 'php' || str_contains($path, '/.git/') || str_contains($path, '/cache/') || str_contains($path, '/upload/')) { continue; }
+    if ($file->getExtension() !== 'php' || str_contains($path, '/.git/') || str_contains($path, '/cache/') || str_contains($path, '/upload/') || str_starts_with($path, $root.'/var/')) { continue; }
     exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($path).' 2>&1', $output, $status);
     $count++;
     if ($status !== 0) { $failed[] = implode("\n", $output); }

@@ -1,6 +1,15 @@
 RewriteEngine On
 RewriteBase /
 
+# Shared-host protection. The installer is the only public file under /install/.
+RewriteRule (^|/)\. - [F,L]
+RewriteRule ^(?:system|app|template|_doc|docker|tools|tests|bin|docs|var)(?:/|$) - [F,L,NC]
+RewriteRule ^admin/(?:app|template)(?:/|$) - [F,L,NC]
+RewriteRule ^install/(?!index\.php$) - [F,L,NC]
+RewriteRule ^(?:config(?:\.local)?(?:\..*)?|compose.*|LICENSE)$ - [F,L,NC]
+RewriteRule ^upload/.*\.(?:php[0-9]*|phtml|phar|html?|svg|shtml|js)(?:/|$) - [F,L,NC]
+RewriteRule \.(?:sql|log|ini|ya?ml|env|bak|md|conf)$ - [F,L,NC]
+
 RewriteRule ^index.html index.php?controller=home&operate=index
 
 RewriteRule ^tags\.html$ index.php?controller=tags [L,QSA]
