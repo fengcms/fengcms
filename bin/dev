@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+
+if [ ! -f .env ]; then
+    umask 077
+    secret() { openssl rand -hex 24; }
+    {
+        echo 'HTTP_PORT=18080'
+        echo "DB_PASSWORD=$(secret)"
+        echo "DB_ROOT_PASSWORD=$(secret)"
+        echo "ADMIN_CODE=$(openssl rand -hex 2)"
+        echo "APP_KEY=$(secret)"
+        echo "FENGCMS_ADMIN_PASSWORD=$(secret)"
+    } > .env
+fi
+
+case "${1:-up}" in
+    up)
+        mkdir -p upload app/cache admin/app/cache admin/app/dbbackup
+        docker compose build php
+        docker compose up -d --wait db
+        docker compose run --rm setup
+        docker compose up -d --wait php web
+        echo 'Development site: http://127.0.0.1:'"$(sed -n 's/^HTTP_PORT=//p' .env)"
+        echo 'Admin user: admin. Password and admin code are in .env (FENGCMS_ADMIN_PASSWORD / ADMIN_CODE).'
+        ;;
+    down) docker compose down ;;
+    status) docker compose ps ;;
+    logs) docker compose logs --tail=100 "${2:-php}" ;;
+    check) docker compose exec -T php php tools/check.php ;;
+    test) docker compose exec -T php php tests/regression.php ;;
+    backup)
+        umask 077
+        mkdir -p var/backups
+        backup="var/backups/fengcms-$(date +%Y%m%d-%H%M%S).sql"
+        trap 'rm -f "$backup.tmp"' EXIT HUP INT TERM
+        docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -u root --lock-all-tables --no-tablespaces --set-gtid-purged=OFF "$MYSQL_DATABASE"' > "$backup.tmp"
+        mv "$backup.tmp" "$backup"
+        echo "Database backup: $backup"
+        ;;
+    *) echo 'Usage: ./bin/dev [up|down|status|logs|check|test|backup]' >&2; exit 2 ;;
+esac

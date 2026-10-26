@@ -102,7 +102,7 @@ DROP TABLE IF EXISTS `#prefix_manage`;
 CREATE TABLE `#prefix_manage` (
   `id` int(11) NOT NULL auto_increment,
   `admin` varchar(255) default NULL COMMENT '用户名',
-  `password` varchar(32) default NULL COMMENT '密码',
+  `password` varchar(255) default NULL COMMENT '密码',
   `datetime` datetime default NULL COMMENT '登录时间',
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT COMMENT='管理员';

@@ -66,7 +66,7 @@ class classifyModel extends model{
 
 		$arr=D($this->d_name)->field('id,classid,name,html')->where('id = "'.$id.'"')->getone();
 
-		$array.=' '.$str.' <a href="'.url($arr['html']).'">'.$arr['name'].'</a>,';
+		$array.=' '.$str.' <a href="'.cms_escape(cms_safe_url(url($arr['html']))).'">'.cms_escape($arr['name']).'</a>,';
 
 		if($arr['classid']>0){
 
@@ -104,7 +104,7 @@ class classifyModel extends model{
 
 		foreach($arr as $v){
 
-		$array.='<li><a href="'.url($v['html']).'">'.$v['name'].'</a>';
+		$array.='<li><a href="'.cms_escape(cms_safe_url(url($v['html']))).'">'.cms_escape($v['name']).'</a>';
 
 			if(D($this->d_name)->field('id')->where('classid="'.$v['id'].'"')->getcount()>0){
 				$array.="<ul>".$this->map($v['id'])."</ul></li>";

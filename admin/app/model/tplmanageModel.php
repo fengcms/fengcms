@@ -13,18 +13,11 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 class tplmanageModel extends model{
 
 
-	public function pathset($name,$type){
-		if($type=='tpl')	{ $files=ROOT_PATH.'/template/'.lib_replace_end_tag($name).'.html';}
-		if($type=='css')	{ $files=ROOT_PATH.'/css/'.lib_replace_end_tag($name).'.css';}
-		if($type=='scrap')	{ $files=ROOT_PATH.'/template/scrap/'.lib_replace_end_tag($name).'.html';}
-		if($type=='inc')	{ $files=ROOT_PATH.'/template/inc/'.lib_replace_end_tag($name).'.html';}
-		if($type=='show')	{ $files=ROOT_PATH.'/template/show/'.lib_replace_end_tag($name).'.html';}
-		if(!file_exists($files)){
-		echo '<script type="text/javascript">alert("文件不存在！");</script>';
-		echo '<meta http-equiv="refresh" content="0;url=?controller=tplmanage">';
-		}
-		return $files;
-	}
+    public function pathset($name, $type){
+        $roots = ['tpl'=>'template','css'=>'css','scrap'=>'template/scrap','inc'=>'template/inc','show'=>'template/show'];
+        if (!is_string($name) || !is_string($type) || !isset($roots[$type])) { cms_fail(400, '模板参数不正确。'); }
+        return cms_path_within(ROOT_PATH.'/'.$roots[$type], $name.($type === 'css' ? '.css' : '.html'), false);
+    }
 
 
 	public function deletefile($array){

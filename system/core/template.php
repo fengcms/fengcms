@@ -133,7 +133,7 @@ class template{
             if(!file_exists($dir_list))
             {
                 @mkdir($dir_list);
-                @chmod($dir_list,0777);
+                @chmod($dir_list,0770);
             }
         }
         return $path;
@@ -143,26 +143,19 @@ class template{
      * 写文件
      */
     private static function wfile($file_path, $str, $mode='w'){
-        $oldmask = @umask(0);
-        $fp = @fopen($file_path, $mode);
-        @flock($fp, 3);
-        if(!$fp){
-            return false;
-        }else{
-            @fwrite($fp,$str);
-            @fclose($fp);
-            @umask($oldmask);
-            return true;
-        }
+        $temp = $file_path.'.'.bin2hex(random_bytes(8)).'.tmp';
+        if (file_put_contents($temp, $str, LOCK_EX) === false) { return false; }
+        chmod($temp, 0600);
+        if (!rename($temp, $file_path)) { unlink($temp); return false; }
+        return true;
     }
 
     /**
      * 生成文件
      */
     private static function createfile($tpl_path){
-        if(!file_exists($tpl_path)){
-				throwexce(sprintf('Template file does not exist!'));
-        }
+        $tpl_path = cms_path_within(self::gettpldir(), substr($tpl_path, strlen(self::gettpldir())));
+        if (strtolower(pathinfo($tpl_path, PATHINFO_EXTENSION)) !== 'html') { cms_fail(400, '模板类型不正确。'); }
         /**/
         $cpl_dir = self::getcpldir();// 取编译目录
         $tpl_dir = self::gettpldir();// 取模板目录
@@ -184,7 +177,7 @@ class template{
         $cpl_file = $cpl_file_dir."/".$file_pure_name.".".$cpl_file_postfix;
 
         // 判断文件是否存在，不存在或过期就创建一个
-        if(!file_exists($cpl_file) || (@filemtime($tpl_path) > filemtime($cpl_file))){
+        if(!file_exists($cpl_file) || (max(filemtime($tpl_path), filemtime(__FILE__)) >= filemtime($cpl_file))){
 			$parsed_str = self::parse($tpl_path);
             self::wfile($cpl_file, $parsed_str, 'w');
         }
@@ -203,20 +196,30 @@ class template{
         $s = @preg_replace("/\<\!\-\-\s*\{(.+?)\}\s*\-\-\>/is", "", $s);
         $s = @preg_replace("/\{include\s+(.+?)\}/is", "<?php include Template::Tpl(\\1); ?>", $s);
         $s = @preg_replace("/\{([A-Z][A-Z0-9_]*)\}/s", "<?php if(defined('\\1')){echo \\1;}?>", $s);
-		$s = @preg_replace("/\{(\\\$[a-zA-Z0-9_\[\]\'\"\$\x7f-\xff]+)\}/is", "<?php if((\\1)){echo \\1;}?>", $s);
+        $s = preg_replace_callback('/\{(\$[a-zA-Z0-9_\[\]\'"\$\x7f-\xff]+)\}/i',
+            static fn($m) => '<?php echo cms_escape('.$m[1].' ?? null); ?>', $s);
 		$s = @preg_replace("/\{\\\$(.+?)\}/is", "<?php if(($\\1)){ $\\1;}?>", $s);
         $s = @preg_replace("/\{([@&\\\$a-zA-Z0-9_]+)\(([ ,\?\.=&%-\:a-zA-Z0-9_\[\]\'\"\\\$\x7f-\xff\(\)]*)\)\}/is", "<?php echo \\1(\\2);?>", $s);
-        for($i = 0; $i <= 5; $i++){
-            $s = @preg_replace("/[\n\r\t]*\{loop\s+(\S+)\s+(\S+)\}\s*(.+?)\s*\{\/loop\}[\n\r\t]*/ies",
-                "template::strip('<?php if((\\1) && is_array(\\1)) { foreach(\\1 as \\2) { ?>','\\3<?php }} ?>')", $s);
-            $s = @preg_replace("/[\n\r\t]*\{loop\s+(\S+)\s+(\S+)\s+(\S+)\}\s*(.+?)\s*\{\/loop\}[\n\r\t]*/ies",
-                "template::strip('<?php if((\\1) && is_array(\\1)) { foreach(\\1 as \\2 => \\3) { ?>','\\4<?php }} ?>')", $s);
-            $s = @preg_replace("/[\n\r\t]*\{if\s+(.+?)\}(\s*)(.+?)(\s*)\{\/if\}[\n\r\t]*/ies",
-                "template::strip('<?php if(\\1){?>\\2','\\3\\4<?php }?>')", $s);
+        for ($i = 0; $i <= 5; $i++) {
+            $s = preg_replace_callback('/[\n\r\t]*\{loop\s+(\S+)\s+(\S+)\}\s*(.+?)\s*\{\/loop\}[\n\r\t]*/is',
+                static fn($m) => '<?php if (is_array('.$m[1].' ?? null)) { foreach ('.$m[1].' as '.$m[2].') { ?>'.$m[3].'<?php }} ?>', $s);
+            $s = preg_replace_callback('/[\n\r\t]*\{loop\s+(\S+)\s+(\S+)\s+(\S+)\}\s*(.+?)\s*\{\/loop\}[\n\r\t]*/is',
+                static fn($m) => '<?php if (is_array('.$m[1].' ?? null)) { foreach ('.$m[1].' as '.$m[2].' => '.$m[3].') { ?>'.$m[4].'<?php }} ?>', $s);
+            $s = preg_replace_callback('/[\n\r\t]*\{if\s+(.+?)\}(\s*)(.+?)(\s*)\{\/if\}[\n\r\t]*/is',
+                static fn($m) => '<?php if ('.$m[1].') { ?>'.$m[2].$m[3].$m[4].'<?php } ?>', $s);
         }
-        $s = @preg_replace("/[\n\r\t]*\{elseif\s+(.+?)\}[\n\r\t]*/ies",
-            "template::strip('<?php }elseif(\\1) { ?>','')", $s);
-        $s = @preg_replace("/[\n\r\t]*\{else\}[\n\r\t]*/is", "<?php } else { ?>", $s);
+        $s = preg_replace_callback('/[\n\r\t]*\{elseif\s+(.+?)\}[\n\r\t]*/is',
+            static fn($m) => '<?php } elseif ('.$m[1].') { ?>', $s);
+        $s = preg_replace('/[\n\r\t]*\{else\}[\n\r\t]*/is', '<?php } else { ?>', $s);
+        $s = preg_replace_callback('/\{raw\s+(\$[^}]+)\}/i', static fn($m) => '<?php echo '.$m[1].' ?? ""; ?>', $s);
+        // Keep CSRF protection compatible with existing site templates.
+        $s = preg_replace_callback('/<form\b[^>]*>/i', static function ($m) {
+            return $m[0].'<input type="hidden" name="_csrf" value="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>">';
+        }, $s);
+        if (realpath(ABS_PATH) === realpath(ROOT_PATH.'/admin')) {
+            $head = '<meta name="csrf-token" content="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>"><script src="/admin/js/security.js"></script>';
+            $s = str_ireplace('</head>', $head.'</head>', $s);
+        }
 
         return $s;
     }

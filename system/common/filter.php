@@ -10,7 +10,7 @@
 //过滤函数
 
 	function stripslashes_array(&$array) { 
-		while(list($key,$var) = each($array)) { 
+		foreach ($array as $key => $var) {
 			if ($key != 'argc' && $key != 'argv' && (strtoupper($key) != $key || ''.intval($key) == "$key")) { 
 				if (is_string($var)){ 
 					$array[$key] = stripslashes($var); 
@@ -327,7 +327,7 @@
 	
 	//post数据转义   add by hxl 
 	function addslashes_array(&$data) {
-	    if(!get_magic_quotes_gpc()){
+	    if (true) {
 	        if(is_array($data)){
 	            foreach($data as $n=>$v){
 	                $b[addslashes($n)]=addslashes_array($v);

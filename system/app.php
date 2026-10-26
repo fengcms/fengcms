@@ -17,7 +17,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 // 项目版本
 define('VERSION', '2.0');
 // 设置错误等级
-error_reporting(E_ALL ^ E_NOTICE ^ E_WARNING); 
+error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED);
 // 脚本开始时间
 define('__BEGIN__', microtime(true));
 // 设置编码
@@ -25,13 +25,14 @@ header("Content-Type:text/html;charset=UTF-8");
 // 设置时区
 date_default_timezone_set("PRC");
 // 设置程序运行时间
-ini_set('max_execution_time','0');
+ini_set('max_execution_time','30');
 // 打开绝对刷新
 ob_start();ob_implicit_flush();
 // 设置页面时间
-set_time_limit(0);
+set_time_limit(30);
 // 打开SESSION
-session_start();
+require_once __DIR__.'/common/security.php';
+cms_session_start();
 
 /*------------------ 路径定义 ------------------*/
 
@@ -85,12 +86,6 @@ include_once COMMON_PATH.'waf.php';
 import('core.*');
 
  /*------------------ 过滤 ------------------*/
-//php 批量过滤post,get敏感数据 
-if (get_magic_quotes_gpc()) { 
-	$_GET	= stripslashes_array($_GET); 
-	$_POST	= stripslashes_array($_POST); 
-}
-
 final class app {
 
 	static protected $_instance = NULL;
@@ -105,32 +100,25 @@ final class app {
 
 		global $_WORKER;
 
-		$_WORKER['controller']=($_GET['controller']?$_GET['controller']:'home').'Controller';
-		$_WORKER['operate']=($_GET['operate']?$_GET['operate']:'index');
-
-		spl_autoload_register(array('app', '__autoload'));
-
-		try {
-
-			// 类名不存在，使用默认类名
-			if(class_exists($_WORKER['controller'])){
-
-                $object = new $_WORKER['controller'];
-
-				//方法不存在，使用默认方法
-			   if(method_exists($object, $_WORKER['operate'])){	
-					
-					return $object->$_WORKER['operate']();
-
-				}else{
-					throwexce(sprintf('%s is not found in the %s!',$_WORKER['operate'], $_WORKER['controller']));
-				}
-			}else{
-				throwexce(sprintf('%s Object does not exist!', $_WORKER['controller']));
-			}
-
-        } catch (exceptions $e) {
-			
+        $controller = $_GET['controller'] ?? 'home';
+        $action = $_GET['operate'] ?? 'index';
+        if (!is_string($controller) || !is_string($action) ||
+            !preg_match('/^[a-z][a-z0-9]*$/D', $controller) ||
+            !preg_match('/^[a-z][a-z0-9]*$/D', $action)) {
+            cms_fail(400, '路由参数不正确。');
+        }
+        $admin = realpath(ABS_PATH) === realpath(ROOT_PATH.'/admin');
+        cms_route_guard($controller, $action, $admin);
+        $_WORKER['controller'] = $controller.'Controller';
+        $_WORKER['operate'] = $action;
+        spl_autoload_register(['app', 'loadController']);
+        try {
+            $class = $_WORKER['controller'];
+            if (!class_exists($class)) { cms_fail(404, '页面不存在。'); }
+            $object = new $class;
+            if (!is_callable([$object, $action])) { cms_fail(404, '页面不存在。'); }
+            return $object->$action();
+        } catch (Throwable $e) {
             systemerror($e);
         }
 
@@ -144,12 +132,12 @@ final class app {
 	 * @static
 	 * @return void
 	 */
-    final private static function _header() {
+    private static function _header() {
 			// 程序必须开启缓冲区
 			ob_start();
             header('X-Powered-By: Worker/'. VERSION . ' (AirPHP)');
             header('X-Run-Period: '.(microtime(true) - __BEGIN__));
-			session_start();
+			cms_session_start();
             // 清理缓冲区，输出到浏览器
             ob_end_flush(); flush();
 
@@ -163,7 +151,7 @@ final class app {
 	 * @param	string	$class_name
 	 * @return	string
 	 */
-    final public static function __autoload($class_name) {
+    final public static function loadController($class_name) {
 
 		//控制器文件调用
 		$controller_file = CONTROLLER_PATH.$class_name.'.php';

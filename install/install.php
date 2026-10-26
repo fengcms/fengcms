@@ -1,4 +1,5 @@
-<?php  
+<?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 header("Content-type:text/html;charset=utf-8"); //看你用的是什么编码，要保持一致。  
 define("TPL_INCLUDE",1);
 

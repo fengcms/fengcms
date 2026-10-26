@@ -1,6 +1,6 @@
 {$base=M('base')->findone()}
 {$version=M('base')->version()}
-{$manage=D('manage')->getone()}
+{$manage=D('manage')->where(array('id'=>$_SESSION['manage_id']))->getone()}
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -12,7 +12,7 @@
 <script src="js/tab.js"></script>
 <script>
 	$(document).ready(function() {
-		$("#safe").load('?controller=safe');
+		// Remote security widgets are not loaded in the administration session.
 		//$("#version").load('?controller=safe&operate=serverversion');
 	});
 </script>
@@ -40,7 +40,7 @@
 				<td>
 					<div class="main_box">
 						<div class="main_box_h3"><h3>网站安全信息</h3></div>
-						<div class="main_box_con" id="safe"></div>
+						<div class="main_box_con" id="safe">安全更新与验证记录请查看项目 docs/SECURITY_UPGRADE.md。</div>
 					</div>
 				</td>
 			</tr>
@@ -51,7 +51,7 @@
 						<div class="main_box_con">
 							<ul id="copyinfo">
 								<li><em>程序版本:</em> {$version}</li>
-								<li><em>最新版本:</em> <span id="version"><script type="text/javascript" src="http://www.fengcms.com/version.js"></script></span></li>
+								<li><em>最新版本:</em> <span id="version">请查看项目更新记录</span></li>
 								<li><em>升级提示:</em> 如果程序版本低于最新版本，请及时更新。</li>
 								<li><em>开发团队:</em> <strong><a href="http://www.hezewangzhan.com">地方网络工作室</a></strong> FengCms开发团队</li>
 								<li><em>官方网站:</em> <a href="http://www.fengcms.com" target="_blank">www.fengcms.com</a></li>

@@ -33,8 +33,8 @@ class manageController extends Controller{
      */
 	public function save(){
 			if(M($this->model)->findcount($_POST)>0){
-				unset($_SESSION['manage']);
-				echo json_encode(M($this->model)->save(lib_replace_end_tag_array($_POST)));
+
+				echo json_encode(M($this->model)->save($_POST));
 			}else{
 				echo json_encode(array('status' => 'n'));
 			}
@@ -46,7 +46,9 @@ class manageController extends Controller{
      * @return url
      */
 	public function quit(){
-		$_SESSION['manage']="";
+		$_SESSION = [];
+        session_regenerate_id(true);
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 		echo '<meta http-equiv="refresh" content="0;url=/">';
 	}
 }

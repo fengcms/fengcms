@@ -50,7 +50,7 @@ class dbmanageModel extends model{
 
 	public function deletefile($array){
 
-		$dir=DBBACKUP_PATH.str_replace('/', "",$array['name']).'/';
+		$dir=cms_path_within(DBBACKUP_PATH, $array['name']).'/';
 		
 		if(file_exists($dir)){
 

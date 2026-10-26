@@ -23,8 +23,8 @@ class messageController extends Controller{
 	}
 
 	public function save(){
-		$_POST=removexss_array($_POST);
-		echo json_encode(M($this->model)->save(lib_replace_end_tag_array($_POST)));
+
+		echo json_encode(M($this->model)->save($_POST));
 	}
 }
 

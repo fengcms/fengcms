@@ -1,44 +1,56 @@
 <?php
-/*******************************************************************
- * @authors FengCms 
- * @web     http://www.fengcms.com
- * @email   web@fengcms.com
- * @date    2013-10-30 16:00:12
- * @version FengCms Beta 1.0
- * @copy    Copyright © 2013-2018 Powered by DiFang Web Studio  
- *******************************************************************/
-// 
-defined('TPL_INCLUDE') or die( 'Restricted access'); 
+defined('TPL_INCLUDE') or die('Restricted access');
 
-class adminController extends Controller{
-
-
-    /**
-     * 登录验证
-     * @access public
-     * @return json
-     */
-	public function index(){
-		$_POST=lib_replace_end_tag_array($_POST);
-		if($_POST['admincode']==ADMIN_CODE){
-			if(D("manage")->where('admin="'.$_POST['user'].'" and password="'.md5(md5(md5($_POST['password']))).'"')->getcount()>0){
-				$_SESSION['manage']=$_POST['user'];			
-				echo json_encode(array('status' => 'y'));
-			}else{
-				echo json_encode(array('status' => 'n'));
-			}
-		}else{
-			echo json_encode(array('status' => 'c'));
-		}
-
-	}
-
+class adminController extends Controller
+{
+    public function index()
+    {
+        $user = $_POST['user'] ?? '';
+        $password = $_POST['password'] ?? '';
+        $code = $_POST['admincode'] ?? '';
+        if (!is_string($user) || !is_string($password) || !is_string($code) ||
+            strlen($user) > 255 || strlen($password) > 1024 || strlen($code) > 32) {
+            cms_fail(400, '登录参数不正确。');
+        }
+        $db = new db_mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        $attempts = model::identifier(DB_PREFIX.'login_attempts');
+        $now = time();
+        $expires = $now + 900;
+        $buckets = [
+            hash_hmac('sha256', 'ip:'.($_SERVER['REMOTE_ADDR'] ?? ''), KEYS) => 60,
+            hash_hmac('sha256', 'user:'.mb_strtolower($user, 'UTF-8'), KEYS) => 10,
+        ];
+        foreach ($buckets as $bucket => $limit) {
+            $db->query("INSERT INTO $attempts (bucket, attempts, expires_at) VALUES (?,1,?)
+                ON DUPLICATE KEY UPDATE attempts=IF(expires_at<=?,1,attempts+1),
+                expires_at=IF(expires_at<=?,VALUES(expires_at),expires_at)", [$bucket, $expires, $now, $now]);
+            $row = $db->assoc($db->query("SELECT attempts FROM $attempts WHERE bucket=?", [$bucket]));
+            if ($row['attempts'] > $limit) {
+                header('Retry-After: 900');
+                cms_fail(429, '登录尝试过多，请稍后重试。');
+            }
+        }
+        $db->query("DELETE FROM $attempts WHERE expires_at<?", [$now]);
+        $table = model::identifier(DB_PREFIX.'manage');
+        $account = $db->assoc($db->query("SELECT id,admin,password FROM $table WHERE admin=? LIMIT 1", [$user]));
+        $valid = cms_password_verify($password, $account['password'] ?? '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.');
+        if (!$account || !$valid || !hash_equals((string)ADMIN_CODE, $code)) {
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode(['status' => 'n']);
+            return;
+        }
+        if (password_needs_rehash($account['password'], PASSWORD_DEFAULT)) {
+            $db->query("UPDATE $table SET password=? WHERE id=?", [password_hash($password, PASSWORD_DEFAULT), (int)$account['id']]);
+        }
+        foreach ($buckets as $bucket => $limit) {
+            $db->query("DELETE FROM $attempts WHERE bucket=?", [$bucket]);
+        }
+        session_regenerate_id(true);
+        $_SESSION['manage'] = $account['admin'];
+        $_SESSION['manage_id'] = (int)$account['id'];
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+        echo json_encode(['status' => 'y']);
+    }
 }
-
-
-
-
-
-
-
-?>

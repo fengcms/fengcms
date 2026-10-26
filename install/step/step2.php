@@ -26,7 +26,8 @@
 			  </tr>
 			  <tr>
 				<td>操作系统</td>
-				<td><?php echo php_uname();?></td>
+				<td><?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; } echo php_uname();?></td>
 				<td>Windows_NT/Linux/Freebsd</td>
 				<td><span><img src="images/correct.gif" /></span></td>
 			  </tr>

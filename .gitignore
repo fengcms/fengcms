@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+/upload/
+/app/cache/
+/admin/app/cache/
+/admin/app/dbbackup/
+**/error/logs/
+/var/
+.DS_Store

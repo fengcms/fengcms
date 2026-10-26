@@ -67,10 +67,11 @@ class recoverController extends Controller{
 
 
 	public function batch(){
+        if (!in_array($_POST['method'] ?? '', ['recovers', 'thorough'], true)) { cms_fail(400, '批量操作不正确。'); }
 		if(!$_POST['article']){
 			echo json_encode(array('status' => 'a'));
 		}else{
-			if($this->$_POST['method']($_POST['article'],$_POST['parameter'])){
+			if($this->{$_POST['method']}($_POST['article'],$_POST['parameter'])){
 				echo json_encode(array('status' => 'y'));
 			}else{
 				echo json_encode(array('status' => 'n'));

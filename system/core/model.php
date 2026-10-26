@@ -15,6 +15,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 
 include_once DRIVER_PATH.'db_'.DB_TYPE.'.php';
 
+#[AllowDynamicProperties]
 class model{
 
 	private	 $db = "";
@@ -52,7 +53,9 @@ class model{
         }
         
 
-		// 数据库初始化
+		// Reject table identifiers before they can reach SQL.
+        foreach (explode(',', $this->name) as $table) { self::identifier($table); }
+        // 数据库初始化
 		$classname='db_'.DB_TYPE;
 		if(!is_object($classname)){
 			$this->db=new $classname(DB_HOST,DB_USER,DB_PASS,DB_NAME);
@@ -80,7 +83,7 @@ class model{
      * @return array
      */
     public function getall(){
-        return $this->db->fetch($this->db->query($this->buildselectsql())); 
+        return $this->db->fetch($this->db->query($this->buildselectsql(), $this->options['params'] ?? []));
 	}
 
     /**
@@ -89,7 +92,7 @@ class model{
      * @return array
      */
     public function getone(){
-        return $this->db->assoc($this->db->query($this->buildselectsql())); 
+        return $this->db->assoc($this->db->query($this->buildselectsql(), $this->options['params'] ?? []));
 	}
  
     /**
@@ -99,7 +102,7 @@ class model{
      */
     public function getcount(){
 		$this ->options['field']=$this ->options['field']?"count(".$this ->options['field'].")":"count(id)";
-        $result = $this->db->fetch($this->db->query($this->buildselectsql()));
+        $result = $this->db->fetch($this->db->query($this->buildselectsql(), $this->options['params'] ?? []));
 		return $result[0][$this ->options['field']]; 
     }
 
@@ -109,22 +112,16 @@ class model{
      * @param array $row
 	 * @return bool|void
      */
-    public function insert($row){ 
-        if (!is_array($row)) { 
-            return false; 
-        } 
+    public function insert($row){
+        if (!is_array($row)) { return false; }
+        unset($row['_csrf']);
+        if (!$row) { return false; }
+        $cols = array_map([self::class, 'identifier'], array_keys($row));
+        $sql = 'INSERT INTO `'.$this->name.'` ('.implode(',', $cols).') VALUES ('.implode(',', array_fill(0, count($row), '?')).')';
+        $this->db->query($sql, array_values($row));
+        return $this->lastinsertid();
+    }
 
-        foreach ($row as $key => $value) { 
-            $cols[] = htmlencode($key); 
-            $vals[] = $this->db->escape($value); 
-        } 
-
-        $col = join('`,`', $cols); 
-        $val = join(',', $vals);
-
-		$this->db->query('insert into `'.$this->name.'` (`'.$col.'`) values ('.$val.')');
-		return $this->lastinsertid();		
-    } 
 
 	/**
      * 修改数据
@@ -133,19 +130,18 @@ class model{
 	 * @return bool|void
      */
     public function update($row){
+        $params = [];
+        if (is_array($row)) {
+            unset($row['_csrf']);
+            if (!$row) { return false; }
+            $vals = [];
+            foreach ($row as $key => $value) { $vals[] = self::identifier($key).' = ?'; $params[] = $value; }
+            $values = implode(',', $vals);
+        } else { $values = $row; }
+        $this->db->query('UPDATE '.$this->name.' SET '.$values.($this->options['where'] ?? ''), array_merge($params, $this->options['params'] ?? []));
+        return $this->affected_num();
+    }
 
-        if (!is_array($row)) { 
-			$values=$row;
-        }else{ 
-        foreach ($row as $key => $value) { 
-            $vals[] = '`'.$key.'` = '.$this->db->escape($value); 
-        } 
-        $values = join(',', $vals); 
-		}
-        $this->db->query('update '.$this->name.' set '.$values.$this->options['where']);
-		return $this->affected_num();		
-    } 
-	
 
     /**
      * 删除记录
@@ -153,7 +149,7 @@ class model{
 	 * @return bool|void
      */
     public function delete(){ 
-        $this->db->query('delete from '.$this->name.$this->options['where']);
+        $this->db->query('delete from '.$this->name.($this->options['where'] ?? ''), $this->options['params'] ?? []);
 		return $this->db->affected_rows();		
     }
 
@@ -217,8 +213,9 @@ class model{
      * @param string $where
      * @return string
      */
-    public function where($where=""){
+    public function where($where="", array $params = []){
 		 $this->options['where'] =   isset($where)?$this->formatwhere($where):"";
+        if (!is_array($where)) { $this->options['params'] = $params; }
         return $this;
 	}
 
@@ -290,15 +287,27 @@ class model{
      * @param string $array|$where
      * @return array|string
      */
-    public function formatwhere($where){ 
-        if (is_array($where)) { 
-            foreach ($where as $key => $value) { 
-                $join[] = $key.' = '.$this->db->escape($value); 
-            } 
-            return ' where '.join(' and ', $join); 
-        } 
-        return $where ? ' where '.$where : ''; 
+    public function formatwhere($where){
+        $this->options['params'] = [];
+        if (is_array($where)) {
+            $join = [];
+            foreach ($where as $key => $value) {
+                $join[] = self::identifier($key).' = ?';
+                $this->options['params'][] = $value;
+            }
+            return $join ? ' WHERE '.implode(' AND ', $join) : '';
+        }
+        return $where ? ' WHERE '.$where : '';
     }
+
+    public static function identifier($name){
+        if (!is_string($name) || !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/D', $name)) {
+            throw new InvalidArgumentException('Invalid SQL identifier.');
+        }
+        return '`'.$name.'`';
+    }
+
+
 	/*
 	 * 生成查询SQL
 	 */
@@ -333,8 +342,8 @@ class model{
      * @param string $sql
 	 * @return bool
 	 */
-	 public function excsql($sql){
-        return $this->db->fetch($this->db->query($sql)); 
+	 public function excsql($sql, array $params = []){
+        return $this->db->fetch($this->db->query($sql, $params));
 	 }
 
 	/**
@@ -343,8 +352,8 @@ class model{
      * @param string $sql
 	 * @return bool
 	 */
-	 public function query($sql){
-		if($this->db->query($sql)){
+	 public function query($sql, array $params = []){
+		if($this->db->query($sql, $params)){
 			return true;
 		}else{
 			return false;
@@ -458,13 +467,14 @@ class model{
      */
 	public function dbregain($fname) {
 
-		$array=getFile(DBBACKUP_PATH.$fname);
+		$directory = cms_path_within(DBBACKUP_PATH, $fname);
+        $array = array_filter(getFile($directory) ?? [], static fn($name) => is_string($name) && preg_match('/^[0-9]+\.sql$/D', $name));
 		
 		asort($array);
 
 		foreach($array as $files){
 
-			 $sql_contents = file(DBBACKUP_PATH.$fname.'/'.$files);
+			 $sql_contents = file(cms_path_within($directory, $files));
 
 				foreach ($sql_contents as $line) {
 					$sql_str .= $line;

@@ -67,18 +67,13 @@ class baseModel extends model{
      */
 
     private function url_type($url_type){
-        $config_file=ROOT_PATH.'/config.php';
-        $config=file_get_contents($config_file);
-        if($url_type=="1"){
-            $config=str_replace("define('URL_TYPE', ".URL_TYPE.");","define('URL_TYPE', 1);",$config);
-        }elseif($url_type=="0"){
-            $config=str_replace("define('URL_TYPE', ".URL_TYPE.");","define('URL_TYPE', 0);",$config);
-        }
-        if(file_put_contents($config_file,$config)){
-            return true;
-        }else{
-            return false;
-        }
+        if (!in_array((string)$url_type, ['0','1'], true)) { return false; }
+        $root = getenv('APP_RUNTIME_PATH') ?: ROOT_PATH.'/var/runtime';
+        if (!is_dir($root) && !mkdir($root, 0750, true)) { return false; }
+        $temp = $root.'/site.'.bin2hex(random_bytes(8)).'.tmp';
+        if (file_put_contents($temp, json_encode(['url_type'=>(int)$url_type]), LOCK_EX) === false) { return false; }
+        chmod($temp, 0600);
+        return rename($temp, $root.'/site.json');
     }
 
 }

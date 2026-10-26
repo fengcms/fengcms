@@ -1,8 +1,9 @@
 <?php
-session_start();
+require_once __DIR__.'/system/common/security.php';
+cms_session_start();
 define('ROOT_PATH',dirname(__FILE__));
-require ROOT_PATH.'/system/core/validatecode.php';  //ÏÈ°ÑÀà°üº¬½øÀ´£¬Êµ¼ÊÂ·¾¶¸ù¾ÝÊµ¼ÊÇé¿ö½øÐÐÐÞ¸Ä¡£
-$_vc = new validatecode();		//ÊµÀý»¯Ò»¸ö¶ÔÏó
+require ROOT_PATH.'/system/core/validatecode.php';  //ï¿½È°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸Ä¡ï¿½
+$_vc = new validatecode();		//Êµï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 $_vc->doimg();		
-$_SESSION['authnum'] = $_vc->getcode();//ÑéÖ¤Âë±£´æµ½SESSIONÖÐ
+$_SESSION['authnum'] = $_vc->getcode();//ï¿½ï¿½Ö¤ï¿½ë±£ï¿½æµ½SESSIONï¿½ï¿½
 ?>

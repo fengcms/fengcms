@@ -25,10 +25,10 @@ class exceptions extends Exception{
      * @return void
      */
 	public function __construct($message = null, $code = 0){
-        if (is_numeric($data)) {
-            $this->code = $data;
+        if (is_numeric($code)) {
+            $this->code = (int)$code;
         } else {
-            $this->eval = $data;
+            $this->eval = '';
         }
         parent::__construct($message, $this->code);
     }
@@ -108,21 +108,12 @@ class exceptions extends Exception{
      * @param object &$e
      * @return void
 	 */
-	function systemerror(&$e){
-		$path=ERROR_INFO_PATH.$path;
-
-		if(DEBUGS){
-			$trace = $e->getTrace(); $error = $trace[0];
-			$Message=$e->getMessage();$File=replpath($error['file']);$Line=$error['line'];
-			$log = sprintf("[Message]:\r\n\t%s\r\n", $e->getMessage());
-			$log.= sprintf("[File]:\r\n\t%s (%d)\r\n", $error['file'], $error['line']);
-			$log.= sprintf("[Trace]:\r\n%s\r\n", $e->getStackTrace());
-			error_log($log, 3, $path.'logs/'.date('Y-m-d').'_error.log');
-			include_once $path. '/error.php';
-		}else{
-			include_once $path. '/500.html';
-		}
-	}
+    function systemerror($e){
+        http_response_code(500);
+        error_log(get_class($e).': '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo DEBUGS ? (string)$e : '系统暂时无法处理请求，请联系管理员。';
+    }
 
 	/**
 	 * 异常信息抛出

@@ -39,7 +39,7 @@ class classifyController extends Controller{
 			}
 		}elseif($this->classify['type']=="single"){
 
-			$array=D("single")->where('classid="'.$this->classify['id'].'"')->getone();
+			$array=D('single')->where(['classid'=>(int)$this->classify['id'],'status'=>1])->getone();
 
 			if($array['id']){
 

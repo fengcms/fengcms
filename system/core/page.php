@@ -65,7 +65,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
         $this->total = $itemtotal;  //记录总数
         $this->pageper = ($pageper>0) ? $pageper : 10; //每页记录数
         $this->pagetag = !empty($this->pagetag) ? $this->pagetag : 'page';   //分页参数名称                
-        $this->pagenum = ceil($this->total / $pageper); //计算总页数        
+        $this->pagenum = max(1, (int)ceil($this->total / $this->pageper)); //计算总页数
         //校验当前页
         $this->curpage = ($this->curpage<=0) ? 1 : (($this->curpage > $this->pagenum) ? $this->pagenum : $this->curpage);
         $this->url = $this->geturl();  //得到分页URL
@@ -373,62 +373,18 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
      * @param string model 1(地址中带page=**参数) 0(地址中不带page=**参数)
      * return string
      */
-    public function geturl($page=null ,$mode = 1) {
-        $page = !isset($page) ? $this->curpage : $page;
-        if((!empty($_SERVER['REQUEST_URI']) || !empty($_SERVER['REDIRECT_STATUS'])) 
-            && !empty($this->rewrite_rules) 
-            && strpos($_SERVER['REQUEST_URI'], '.html') !== true){
-                return $this->getstaticurl($page);
-        } else {
-            $url = !empty($_SERVER['REDIRECT_URL']) ? $_SERVER['REDIRECT_URL'] : $_SERVER['PHP_SELF'];    
+    public function geturl($page=null, $mode=1) {
+        $page = max(1, (int)($page ?? $this->curpage));
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/index.php', PHP_URL_PATH);
+        if (URL_TYPE == 1 && str_ends_with($path, '.html')) {
+            if (isset($_GET['page'])) { $path = preg_replace('/_[0-9]+\.html$/', '.html', $path); }
+            return htmlspecialchars(substr($path, 0, -5).'_'.$page.'.html', ENT_QUOTES, 'UTF-8');
         }
-
-        $gets = $_GET;    
-        if($mode){
-            $gets[$this->pagetag] = (isset($page)&&intval($page)>0)?intval($page):1;
-        }else{
-            unset($gets[$this->pagetag]);
-        }
-
-		$gets = $_GET;
-		if($mode){
-			$gets[$this->pagetag] = (isset($page)&&intval($page)>0)?intval($page):1;
-		}else{
-			unset($gets[$this->pagetag]);
-		}
-		$server=explode("/",$_SERVER['SERVER_SOFTWARE']);
-		if($server[0]=="Apache"){
-			$r=explode(".html",$_SERVER['REQUEST_URI']);
-		}elseif($server[0]=="Microsoft-IIS"){
-			$r=explode(".html",$_SERVER['HTTP_X_REWRITE_URL']);
-		}
-		//$uls=(URL_TYPE==0)?'1':'0';
-        if(count($r)>1){
-			if(!$_GET['page']){
-				$url=$r[0]."_".$page.".html";
-			}else{
-				$p=explode("_",$r[0]);
-				unset($p[(count($p)-1)]);
-				foreach($p as $v){
-					$l.=$v.'_';
-				}
-				$url=$l.$page.".html";
-
-			}
-		}else{
-			if(!empty($gets)){
-					$url .= '?';
-					$comma = '';
-					foreach($gets as $key=>$get){
-						$url .= $comma.$key.'='.$get;
-						$comma = '&amp;';
-					}
-			}
-			
-		}
-	
-        return $url;
+        $gets = $_GET;
+        if ($mode) { $gets[$this->pagetag] = $page; } else { unset($gets[$this->pagetag]); }
+        return htmlspecialchars(($_SERVER['PHP_SELF'] ?? '/index.php').($gets ? '?'.http_build_query($gets, '', '&', PHP_QUERY_RFC3986) : ''), ENT_QUOTES, 'UTF-8');
     }
+
 }
 
 

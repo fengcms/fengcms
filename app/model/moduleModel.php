@@ -188,29 +188,23 @@ class moduleModel extends model{
 	/*
 	搜索函数
 	*/
-	public function search($arrays,$field="",$num="20"){
-
-		$arrays['project']=preg_replace("/(%7E|%60|%21|%40|%23|%24|%25|%5E|%26|%27|%2A|%28|%29|%2B|%7C|%5C|%3D|\-|_|%5B|%5D|%7D|%7B|%3B|%22|%3A|%3F|%3E|%3C|%2C|\.|%2F|%A3%BF|%A1%B7|%A1%B6|%A1%A2|%A1%A3|%A3%AC|%7D|%A1%B0|%A3%BA|%A3%BB|%A1%AE|%A1%AF|%A1%B1|%A3%FC|%A3%BD|%A1%AA|%A3%A9|%A3%A8|%A1%AD|%A3%A4|%A1%A4|%A3%A1|%E3%80%82|%EF%BC%81|%EF%BC%8C|%EF%BC%9B|%EF%BC%9F|%EF%BC%9A|%E3%80%81|%E2%80%A6%E2%80%A6|%E2%80%9D|%E2%80%9C|%E2%80%98|%E2%80%99)+/",'',$arrays['project']);
-
-		if($arrays['project']){
-
-			$sql='select * from `'.DB_PREFIX.$arrays['project'].'` where title like "%'.$arrays['tags'].'%" or tags like "%'.$arrays['tags'].'%"';
-
-			return arraypage(D($this->d_name)->excsql($sql.' order by id desc'),$num);
-
-		}else{
-			$arr=D($this->d_name)->field("project")->where("type=1&&search=1")->getall();
-			if(count($arr)>1)$union="union";
-			foreach($arr as $k => $v){
-				if($this->attrib($v['project'],'tags')){
-					$array[]='select '.$this->fieldhandle($field).'id,title,html,time from `'.DB_PREFIX.$v['project'].'` where title like "%'.$arrays['tags'].'%" or tags like "%'.$arrays['tags'].'%" and status=1';
-				}else{
-					$array[]='select '.$this->fieldhandle($field).'id,title,html,time from `'.DB_PREFIX.$v['project'].'` where title like "%'.$arrays['tags'].'%" and status=1';
-				}
-			}
-			return arraypage(D($this->d_name)->excsql("select  * from (".implode(" union ",$array).") h order by time desc"),$num);
-		}
-	}
+    public function search($arrays, $field="", $num=20){
+        $needle = '%'.($arrays['tags'] ?? '').'%';
+        $project = $arrays['project'] ?? '';
+        $modules = D('module')->where(['type'=>1,'search'=>1,'status'=>1])->getall();
+        $queries = []; $params = [];
+        foreach ($modules as $module) {
+            if ($project !== '' && $project !== $module['project']) { continue; }
+            $table = model::identifier(DB_PREFIX.$module['project']);
+            $hasTags = $this->attrib($module['project'], 'tags');
+            $columns = $project !== '' ? '*' : $this->fieldhandle($field).'id,title,html,time';
+            $queries[] = 'SELECT '.$columns.' FROM '.$table.' WHERE status=1 AND (title LIKE ?'.($hasTags ? ' OR tags LIKE ?' : '').')';
+            $params[] = $needle;
+            if ($hasTags) { $params[] = $needle; }
+        }
+        if (!$queries) { return arraypage([], $num); }
+        return arraypage(D($this->d_name)->excsql('SELECT * FROM ('.implode(' UNION ', $queries).') search_results ORDER BY time DESC', $params), $num);
+    }
 
 	/*
 	记录分页
@@ -225,13 +219,14 @@ class moduleModel extends model{
 	*/
 	public function content($table,$id){
 
-		$arr=D($table)->where('id="'.$id.'"')->getone();
+		$arr=D($table)->where(['id'=>(int)$id,'status'=>1])->getone();
+        if (!$arr) { cms_fail(404, '内容不存在。'); }
 		
 		if($table!="single"){
 
 			if($this->attrib($table,"hits")){
 
-				D($table)->where('id="'.$id.'"')->update("hits=hits+1");
+				D($table)->where(['id'=>(int)$id])->update("hits=hits+1");
 			}
 			
 			$arr['classname']=M("classify")->classname($arr['classid']);
@@ -249,22 +244,22 @@ class moduleModel extends model{
 	}
 
 	private function aurl($table,$string){
-		$aurl=D($table)->where('name="'.$string.'"')->getone();
+		$aurl=D($table)->where(['name'=>$string])->getone();
 		if($aurl['url']){
-			return '<a href="'.$aurl['url'].'" target="_blank">'.$aurl['name'].'</a>';
+			return '<a href="'.cms_escape(cms_safe_url($aurl['url'])).'" target="_blank" rel="noopener">'.cms_escape($aurl['name']).'</a>';
 		}else{
-			return $string;
+			return cms_escape($string);
 		}
 	}
 
 	private function atags($string){
 		$arr=explode(",",$string);
 		foreach($arr as $v){
-			if(D("tags")->where('name="'.$v.'"')->getcount()>0){
-				$atags=D("tags")->where('name="'.$v.'"')->getone();
-				$array[]='<a href="/?controller=search&tags='.$atags['name'].'" target="_blank">'.$atags['name'].'</a>';
+			if(D("tags")->where(['name'=>$v])->getcount()>0){
+				$atags=D("tags")->where(['name'=>$v])->getone();
+				$array[]='<a href="/?controller=search&amp;tags='.rawurlencode($atags['name']).'" target="_blank">'.cms_escape($atags['name']).'</a>';
 			}else{
-				$array[]=$v;
+				$array[]=cms_escape($v);
 			}
 		}
 		return implode(",",$array);
@@ -347,19 +342,15 @@ class moduleModel extends model{
 	/*
 	相关文章
 	*/
-	public function related($table,$string,$num=10,$field=""){
-
-		$arr=explode(",",$string);
-		
-		if(is_array($arr)){
-
-			foreach($arr as $v){
-				$array[]='title like "%'.$v.'%" or tags like "%'.$v.'%"';
-			}
-			
-			return D($table)->field($this->fieldhandle($field)."id,title,html")->where(implode(" or ",$array))->limit($num)->getall();
-		}
-	}
+    public function related($table, $string, $num=10, $field=""){
+        $where = []; $params = [];
+        foreach (array_filter(explode(',', $string)) as $tag) {
+            $where[] = '(title LIKE ? OR tags LIKE ?)';
+            $params[] = '%'.$tag.'%'; $params[] = '%'.$tag.'%';
+        }
+        if (!$where) { return []; }
+        return D($table)->field($this->fieldhandle($field).'id,title,html')->where('status=1 AND ('.implode(' OR ', $where).')', $params)->limit($num)->getall();
+    }
 
 	/*
 	位置

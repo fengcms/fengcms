@@ -30,7 +30,7 @@ class controller{
 		}else{
 			$tpl= new template();
 			if(!empty($data)){
-				extract($data,EXTR_OVERWRITE);
+				extract($data,EXTR_SKIP);
 			}
 			include template::tpl($path);
 		}
