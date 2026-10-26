@@ -4,16 +4,29 @@
     const instances = new Map();
     let pending = 0;
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
-    async function upload(file, dir = 'image') {
-        if (file.size > 10 * 1024 * 1024) throw new Error('文件不能超过 10MB');
+    async function upload(file, dir = 'image', onProgress = () => {}, signal) {
+        if (file.size <= 0 || file.size > 10 * 1024 * 1024) throw new Error('文件必须大于 0 且不能超过 10MB');
         const data = new FormData();
         data.append('imgFile', file); data.append('_csrf', csrf());
         pending++;
         try {
-            const response = await fetch('/admin/api/upload.php?dir=' + dir, {method:'POST', body:data, credentials:'same-origin'});
-            const result = await response.json();
-            if (!response.ok || result.error !== 0) throw new Error(result.message || '上传失败');
-            return result.url;
+            return await new Promise((resolve,reject) => {
+                const xhr = new XMLHttpRequest();
+                const abort=()=>xhr.abort();
+                const cleanup=()=>signal?.removeEventListener('abort',abort);
+                xhr.open('POST','/admin/api/upload.php?dir='+encodeURIComponent(dir));
+                xhr.timeout=120000;
+                xhr.upload.onprogress=event=>{if(event.lengthComputable)onProgress(Math.round(event.loaded/event.total*100));};
+                xhr.onload=()=>{cleanup();try{const result=JSON.parse(xhr.responseText);
+                    if(xhr.status<200 || xhr.status>=300 || result.error!==0)throw new Error(result.message || '上传失败');
+                    resolve(result.url);
+                }catch(error){reject(error instanceof SyntaxError?new Error('服务器返回异常，请重试'):error);}};
+                xhr.onerror=()=>{cleanup();reject(new Error('网络连接失败，请重试'));};
+                xhr.ontimeout=()=>{cleanup();reject(new Error('上传超时，请重试'));};
+                xhr.onabort=()=>{cleanup();reject(new DOMException('上传已取消','AbortError'));};
+                if(signal?.aborted){reject(new DOMException('上传已取消','AbortError'));return;}
+                signal?.addEventListener('abort',abort,{once:true});xhr.send(data);
+            });
         } finally { pending--; }
     }
     function sync() { instances.forEach((editor, textarea) => { textarea.value = editor.isEmpty() ? '' : editor.getHtml(); }); }
@@ -72,54 +85,11 @@
     }
     function setField(id, urls, multiple) {
         const field = document.getElementById(id); if (!field) return;
-        field.value = multiple ? urls.join(',') + ',' : urls[0];
+        field.value = multiple ? (urls.length ? urls.join(',') + ',' : '') : (urls[0] || '');
         field.dispatchEvent(new Event('change', {bubbles:true}));
     }
     function picker(button) {
-        const dir = button.dataset.cmsKind || 'image', target = button.dataset.cmsTarget;
-        const multiple = button.hasAttribute('data-cms-multiple');
-        const dialog = document.createElement('dialog'); dialog.className = 'cms-picker';
-        const heading = document.createElement('h3'); heading.textContent = dir === 'template' ? '选择模板' : '上传或选择文件';
-        const close = document.createElement('button'); close.type='button'; close.textContent='关闭'; close.onclick=()=>dialog.close();
-        const status=document.createElement('p'); status.setAttribute('role','status');
-        const list=document.createElement('div'); list.className='cms-file-list';
-        const selected=new Set();
-        const select=(url)=>{ if(multiple) { selected.add(url); status.textContent='已选择 '+selected.size+' 个文件'; }
-            else {setField(target,[url],false);dialog.close();} };
-        dialog.append(heading,close);
-        if (dir !== 'template') {
-            const input=document.createElement('input'); input.type='file'; input.multiple=multiple;
-            input.setAttribute('aria-label','上传文件');
-            if(dir==='image')input.accept='image/jpeg,image/png,image/gif,image/bmp';
-            input.onchange=async()=>{
-                input.disabled=true; status.textContent='正在上传…';
-                try { const urls=[]; for(const file of input.files) urls.push(await upload(file,dir));
-                    urls.forEach(select); if(multiple) await load('');
-                } catch(error){status.textContent=error.message;} finally {input.disabled=false;input.value='';}
-            }; dialog.append(input);
-        }
-        dialog.append(status,list);
-        if(multiple){const done=document.createElement('button');done.type='button';done.textContent='使用所选文件';
-            done.onclick=()=>{if(selected.size){setField(target,Array.from(selected),true);dialog.close();}};dialog.append(done);}
-        let sequence=0;
-        async function load(path){
-            const current=++sequence;
-            try{
-                const query=new URLSearchParams({dir:dir==='template'?'':dir,path});
-                const response=await fetch('/admin/api/files.php?'+query,{credentials:'same-origin'});
-                const result=await response.json();if(!response.ok)throw new Error(result.message || '读取失败');
-                if(current!==sequence || !dialog.open)return;
-                list.replaceChildren();
-                if(path){const up=document.createElement('button');up.type='button';up.textContent='上一级';up.onclick=()=>load(result.moveup_dir_path);list.append(up);}
-                result.file_list.forEach(file=>{
-                    const item=document.createElement('button');item.type='button';item.textContent=(file.is_dir?'📁 ':'')+file.filename;
-                    item.onclick=()=>file.is_dir?load(result.current_dir_path+file.filename+'/'):select(dir==='template' ? result.current_url+file.filename : result.current_url.split('/').map(encodeURIComponent).join('/')+encodeURIComponent(file.filename));
-                    list.append(item);
-                });
-            }catch(error){status.textContent=error.message;}
-        }
-        dialog.addEventListener('close',()=>{sequence++;dialog.remove();});
-        document.body.append(dialog);dialog.showModal();load('');
+        window.FengResourcePicker.open(button, {upload, onSelect:urls=>setField(button.dataset.cmsTarget,urls,button.hasAttribute('data-cms-multiple'))});
     }
     document.addEventListener('click',function(event){
         const pick=event.target.closest('[data-cms-target]');if(pick){event.preventDefault();picker(pick);return;}

@@ -48,7 +48,7 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
-$files=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null;
+$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $originalBase=$db->query('SELECT name,copyright FROM f_base LIMIT 1')->fetch_assoc();
 $originalName=$originalBase['name'];
@@ -170,6 +170,32 @@ try {
     $manager='/admin/api/files.php';
     expect_check(isset(request('GET',$manager,$cookies)['json']['file_list']),'template picker returns JSON');
     expect_check(request('GET',$manager.'?path=../',$cookies)['status']===400,'file manager traversal rejected');
+    foreach (['page[]=1','page=0','limit=1000','order[]=name','direction=unknown','q[]=x'] as $invalid) {
+        expect_check(request('GET',$manager.'?'.$invalid,$cookies)['status']===400,'resource query validation: '.$invalid);
+    }
+    $resourceDir=dirname(__DIR__).'/upload/image/qa_'.$tag;
+    mkdir($resourceDir); $directories[]=$resourceDir;
+    $canvas=imagecreatetruecolor(640,480); imagefill($canvas,0,0,imagecolorallocate($canvas,40,90,150));
+    foreach (['alpha.png','beta.png','gamma.png','quote"name.png'] as $imageName) {
+        imagepng($canvas,$resourceDir.'/'.$imageName);$files[]=$resourceDir.'/'.$imageName;
+    }
+    imagedestroy($canvas);
+    $baseQuery=$manager.'?dir=image&path=qa_'.$tag.'/&order=name&direction=asc&limit=2';
+    $first=request('GET',$baseQuery,$cookies)['json'];$second=request('GET',$baseQuery.'&page=2',$cookies)['json'];
+    expect_check($first['total_count']===4 && $first['page_count']===2 && count($first['file_list'])===2 && $second['page']===2,'resource listing paginates on the server');
+    expect_check($first['file_list'][0]['filename']==='alpha.png' && $second['file_list'][0]['filename']==='gamma.png','resource ordering is stable across pages');
+    $filtered=request('GET',$baseQuery.'&q=beta',$cookies)['json'];
+    expect_check($filtered['total_count']===1 && $filtered['file_list'][0]['filename']==='beta.png','resource search filters current directory');
+    expect_check($first['file_list'][0]['width']===640 && $first['file_list'][0]['height']===480,'image metadata is returned for current page');
+    $quoted=request('GET',$baseQuery.'&q=quote',$cookies)['json']['file_list'][0];
+    expect_check(str_contains($quoted['url'],'%22') && $quoted['filename']==='quote"name.png','resource URLs encode special file names');
+    $thumbUrl=$first['file_list'][0]['thumbnail_url'];$anonymous=[];
+    expect_check(request('GET',$thumbUrl,$anonymous)['status']===401,'thumbnail requires authentication');
+    $thumb=request('GET',$thumbUrl,$cookies);$thumbSize=getimagesizefromstring($thumb['body']);
+    expect_check($thumb['status']===200 && $thumbSize[0]===320 && $thumbSize[1]===240 && str_contains(strtolower($thumb['headers']),'content-type: image/png'),'thumbnail resizes image within bounds');
+    expect_check(request('GET','/admin/api/thumbnail.php?path=../config.php',$cookies)['status']===400,'thumbnail path traversal rejected');
+    expect_check(request('GET','/admin/api/thumbnail.php?path[]=a',$cookies)['status']===400,'thumbnail array path rejected');
+
     expect_check(request('GET','/admin/index.php?controller=tplmanage&operate=update&project=tpl&name=../../config',$cookies)['status']===400,'template editor traversal rejected');
     expect_check(request('POST','/admin/index.php?controller=dbmanage&operate=delete&name=..',$cookies,['_csrf'=>$newToken])['status']===400,'backup deletion traversal rejected');
     $executable=dirname(__DIR__).'/upload/test_'.$tag.'.php'; file_put_contents($executable,'<?php echo "executed";'); $files[]=$executable;
@@ -246,6 +272,7 @@ try {
     echo "All $passed regression checks passed.\n";
 } finally {
     foreach ($files as $file) { if (is_file($file)) { unlink($file); } }
+    foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }
     foreach ([$testId,$legacyId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
     foreach ($articleIds as $id) { $db->query('DELETE FROM f_article WHERE id='.(int)$id); }
     if ($messageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$messageId); }
