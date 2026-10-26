@@ -15,6 +15,11 @@ if [ ! -f .env ]; then
     } > .env
 fi
 
+# Match the FPM worker to the checkout owner without opening file permissions.
+if [ -z "$(sed -n '/^LOCAL_UID=/p' .env)" ]; then
+    printf '\nLOCAL_UID=%s\n' "$(id -u)" >> .env
+fi
+
 case "${1:-up}" in
     up)
         mkdir -p upload app/cache admin/app/cache admin/app/dbbackup

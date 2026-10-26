@@ -1,7 +1,10 @@
 name: fengcms-dev
 
 x-php: &php
-  build: ./docker/php
+  build:
+    context: ./docker/php
+    args:
+      LOCAL_UID: ${LOCAL_UID:-1000}
   image: fengcms-dev-php:8.4
   working_dir: /var/www/html
   environment: &app-env
@@ -16,6 +19,9 @@ x-php: &php
     APP_RUNTIME_PATH: /var/lib/fengcms
   volumes:
     - .:/var/www/html:ro
+    # Only front-end templates and styles are editable through the CMS.
+    - ./template:/var/www/html/template
+    - ./css:/var/www/html/css
     - frontend-cache:/var/www/html/app/cache
     - backend-cache:/var/www/html/admin/app/cache
     - backups:/var/www/html/admin/app/dbbackup

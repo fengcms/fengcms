@@ -8,4 +8,10 @@ RUN apt-get update \
 
 COPY php.ini /usr/local/etc/php/conf.d/fengcms.ini
 RUN mkdir -p /var/lib/fengcms && chown www-data:www-data /var/lib/fengcms
+ARG LOCAL_UID=1000
+RUN test "$LOCAL_UID" -gt 0 && usermod -u "$LOCAL_UID" www-data
+COPY entrypoint.sh /usr/local/bin/fengcms-entrypoint
+RUN chmod 0755 /usr/local/bin/fengcms-entrypoint
+ENTRYPOINT ["fengcms-entrypoint"]
+CMD ["php-fpm"]
 WORKDIR /var/www/html
