@@ -278,11 +278,11 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
                     $jumpStr .= "<option value=\"".$i."\">".$tmp_str."</option>";
                 }
                 $jumpStr .= '</select>';
-                $jumpStr .= "<anchor title=\"".$this->pagestyle['submit']."\">".$this->pagestyle['submit']."<go method=\"get\" href=\"$jump_url\"><postfield name=\"page\" value=\"$(page)\"/>";
+                $jumpStr .= "<anchor title=\"".$this->pagestyle['submit']."\">".$this->pagestyle['submit']."<go method=\"get\" href=\"".cms_escape($jump_url)."\"><postfield name=\"page\" value=\"$(page)\"/>";
                 if(!empty($gets)){
                     unset($gets[$this->pagetag]);
                     foreach($gets as $key=>$val){
-                        $jumpStr .= "<postfield name=\"$key\" value=\"$val\"/>";
+                        $jumpStr .= '<postfield name="'.cms_escape($key).'" value="'.cms_escape($val).'"/>';
                     }
                 }
                 $jumpStr .= "</go></anchor>";
@@ -301,11 +301,11 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
             }
         }elseif($mode == 'input'){    
             if($this->pagestyle['pagetype']=='wap'){
-                $jumpStr = "<input type=\"text\" name=\"page\" format=\"4n\" size=\"2\" value=\"".$this->curpage."\"/><anchor title=\"".$this->pagestyle['submit']."\">".$this->pagestyle['submit']."<go method=\"get\" href=\"$jump_url\"><postfield name=\"page\" value=\"$(page)\"/>";
+                $jumpStr = "<input type=\"text\" name=\"page\" format=\"4n\" size=\"2\" value=\"".$this->curpage."\"/><anchor title=\"".$this->pagestyle['submit']."\">".$this->pagestyle['submit']."<go method=\"get\" href=\"".cms_escape($jump_url)."\"><postfield name=\"page\" value=\"$(page)\"/>";
                 if(!empty($gets)){
                     unset($gets[$this->pagetag]);
                     foreach($gets as $key=>$val){
-                        $jumpStr .= "<postfield name=\"$key\" value=\"$val\"/>";
+                        $jumpStr .= '<postfield name="'.cms_escape($key).'" value="'.cms_escape($val).'"/>';
                     }
                 }
                 $jumpStr .= "</go></anchor>";

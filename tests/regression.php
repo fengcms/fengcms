@@ -989,6 +989,20 @@ try {
     expect_check(str_contains(cms_template_output($untrusted['fy']),'&lt;script&gt;') &&
         str_contains(cms_template_output($untrusted['content']),'&lt;img'), 'HTML trust is not inferred from variable names');
     expect_check(cms_template_output(cms_html('<p>trusted</p>'))==='<p>trusted</p>', 'explicit renderer HTML retains markup');
+    $ipBefore=$_SERVER['REMOTE_ADDR']??null; $forwardedBefore=$_SERVER['HTTP_X_FORWARDED_FOR']??null;
+    $_SERVER['REMOTE_ADDR']='192.0.2.10'; $_SERVER['HTTP_X_FORWARDED_FOR']='198.51.100.99';
+    $reportedIp=getIP();
+    if($ipBefore===null){unset($_SERVER['REMOTE_ADDR']);}else{$_SERVER['REMOTE_ADDR']=$ipBefore;}
+    if($forwardedBefore===null){unset($_SERVER['HTTP_X_FORWARDED_FOR']);}else{$_SERVER['HTTP_X_FORWARDED_FOR']=$forwardedBefore;}
+    expect_check($reportedIp==='192.0.2.10','IP helper ignores untrusted forwarded headers');
+    $queryBefore=$_GET; $selfBefore=$_SERVER['PHP_SELF']??null;
+    $_GET=['page'=>'1','probe'=>'x" onfocus="alert(1)']; $_SERVER['PHP_SELF']='/index.php';
+    $wapPage=new page(20,10,['pagetype'=>'wap']);
+    $wapJump=(new ReflectionMethod(page::class,'getjumpstr'))->invoke($wapPage,'input');
+    $_GET=$queryBefore;
+    if($selfBefore===null){unset($_SERVER['PHP_SELF']);}else{$_SERVER['PHP_SELF']=$selfBefore;}
+    expect_check(str_contains($wapJump,'&quot;') && !str_contains($wapJump,'value="x" onfocus='),
+        'WAP page jump fields escape query values');
     foreach (['template','admin/template'] as $directory) {
         $legacySyntax=true;
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(ROOT_PATH.'/'.$directory)) as $file) {
