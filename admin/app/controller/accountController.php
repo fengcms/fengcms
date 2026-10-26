@@ -30,6 +30,11 @@ class accountController extends Controller
         $this->show();
     }
 
+    public function add(): void
+    {
+        $this->display('account/add.html');
+    }
+
     public function create(): void
     {
         $name=$_POST['username']??null;
@@ -55,12 +60,18 @@ class accountController extends Controller
             throw $e;
         } finally { $db->close(); }
         error_log('Admin account created: id='.$id.' role='.$role.' by admin id='.(int)$_SESSION['manage_id']);
-        $this->show($code,'账号已创建。请立即保存并单独交付下方认证码；页面关闭后无法再次查看。');
+        header('Cache-Control: no-store');
+        $this->display('account/created.html',['name'=>$name,'role'=>$role,'newCode'=>$code]);
     }
 
     private function newCode(): string
     {
-        return sprintf('%04d',random_int(0,9999));
+        $alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        do {
+            $code='';
+            for ($i=0;$i<4;$i++) { $code.=$alphabet[random_int(0,strlen($alphabet)-1)]; }
+        } while (!preg_match('/[A-Z]/',$code) || !preg_match('/[2-9]/',$code));
+        return $code;
     }
 
     private function accountId(): int

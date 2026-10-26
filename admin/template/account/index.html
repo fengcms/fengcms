@@ -19,19 +19,12 @@
 <body>
 <div id="main">
     <div id="main_top"><dl id="article_ico">
-        <dd class="art_ico_8"><a href="#" onclick="document.getElementById('account-create').requestSubmit();return false;">创建账号</a></dd>
+        <dd class="art_ico_8"><a href="?controller=account&operate=add">创建账号</a></dd>
         <dd class="art_ico_9"><a href="?controller=account">刷新列表</a></dd>
     </dl></div>
     <div id="art_body">
         {if $message}<p class="account-notice">{$message}</p>{/if}
         {if $newCode}<p class="account-notice">本次生成的认证码：<strong>{$newCode}</strong><br>只显示这一次。登录时需同时输入用户名、密码和认证码。</p>{/if}
-        <form id="account-create" method="post" action="?controller=account&operate=create" class="form">
-            <table cellspacing="0" class="add_art">
-                <tr><th>用户名：</th><td><input class="inputxt" name="username" required minlength="5" maxlength="64" pattern="[A-Za-z][A-Za-z0-9_.-]{4,63}" autocomplete="off" style="width:300px"></td></tr>
-                <tr><th>初始密码：</th><td><input class="inputxt" name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password" style="width:300px"> <span class="color999">至少 8 个字符，最多 72 字节</span></td></tr>
-                <tr><th>账号类型：</th><td><select class="inputxt" name="role" required style="width:312px"><option value="editor">编辑</option><option value="super_admin">超级管理员</option></select> <span class="color999">超级管理员可以管理后台全部功能和账号</span></td></tr>
-            </table>
-        </form>
         <div id="art_list">
             <table cellspacing="0">
                 <tr><th>用户名</th><th>角色</th><th>状态</th><th>操作</th></tr>

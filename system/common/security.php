@@ -289,7 +289,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
     }
     $read = $admin ? [
         'home' => 'index main execution', 'base' => 'index execution',
-        'manage' => 'password', 'account' => 'index', 'module' => 'index add batchadd update execution',
+        'manage' => 'password', 'account' => 'index add', 'module' => 'index add batchadd update execution',
         'classify' => 'index add shift sorts update classify type tps genre execution',
         'fieldmanage' => 'index system add update execution',
         'modulemanage' => 'index add update load execution elicit',

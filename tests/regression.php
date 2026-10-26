@@ -101,8 +101,13 @@ try {
     expect_check($sid!==$cookies['fengcms_session'],'session ID rotates');
     $newToken=token($cookies,true); expect_check($newToken!==$csrf,'CSRF rotates');
     $accountPage=request('GET','/admin/index.php?controller=account',$cookies);
-    expect_check($accountPage['status']===200 && str_contains($accountPage['body'],'系统账号管理'),
-        'super administrator can open editor account management');
+    expect_check($accountPage['status']===200 && str_contains($accountPage['body'],'系统账号管理') &&
+        str_contains($accountPage['body'],'operate=add') && !str_contains($accountPage['body'],'id="account-create"'),
+        'account list links to a separate creation page');
+    $accountAdd=request('GET','/admin/index.php?controller=account&operate=add',$cookies);
+    expect_check($accountAdd['status']===200 && str_contains($accountAdd['body'],'id="account-create"') &&
+        str_contains($accountAdd['body'],'name="role"') && !str_contains($accountAdd['body'],'id="art_list"'),
+        'account creation has its own form page');
     $systemMenu=request('GET','/admin/index.php',$cookies);
     expect_check(str_contains($systemMenu['body'],'系统账号管理') &&
         !str_contains($systemMenu['body'],'>编辑账号</a>'),
@@ -115,21 +120,23 @@ try {
     expect_check($badRole['status']===400,'account creation accepts only fixed roles');
     $createdEditor=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
         ['_csrf'=>$newToken,'username'=>$editorUser,'password'=>$editorPassword,'role'=>'editor']);
-    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$createdEditor['body'],$editorCodeMatch);
+    preg_match('/本次生成的认证码：<strong[^>]*>([A-HJ-NP-Z2-9]{4})<\/strong>/',$createdEditor['body'],$editorCodeMatch);
     $editorId=$db->query("SELECT id FROM f_manage WHERE admin='".$editorUser."'")->fetch_row()[0]??null;
-    expect_check($createdEditor['status']===200 && isset($editorCodeMatch[1]) && $editorId!==null,
-        'super administrator creates editor with a one-time code');
+    expect_check($createdEditor['status']===200 && isset($editorCodeMatch[1]) && $editorId!==null &&
+        preg_match('/[A-Z]/',$editorCodeMatch[1]) && preg_match('/[2-9]/',$editorCodeMatch[1]) &&
+        !str_contains($createdEditor['body'],'id="art_list"'),
+        'super administrator creates editor with a one-time alphanumeric code');
     $editorCode=$editorCodeMatch[1];
     $editorCookies=[]; $editorCsrf=token($editorCookies);
-    $editorLogin=['_csrf'=>$editorCsrf,'user'=>$editorUser,'password'=>$editorPassword,'admincode'=>$editorCode];
+    $editorLogin=['_csrf'=>$editorCsrf,'user'=>$editorUser,'password'=>$editorPassword,'admincode'=>strtolower($editorCode)];
     $wrongCode=$editorLogin; $wrongCode['admincode']=sprintf('%04d',((int)$editorCode+1)%10000);
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$wrongCode)['json']['status']??'')==='n',
         'sitewide code cannot log in as editor');
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
-        'editor logs in with independent code');
+        'editor logs in with case-insensitive alphanumeric code');
     $createdSuper=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
         ['_csrf'=>$newToken,'username'=>$extraSuperUser,'password'=>$editorPassword,'role'=>'super_admin']);
-    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$createdSuper['body'],$superCodeMatch);
+    preg_match('/本次生成的认证码：<strong[^>]*>([A-HJ-NP-Z2-9]{4})<\/strong>/',$createdSuper['body'],$superCodeMatch);
     $extraSuperId=$db->query("SELECT id FROM f_manage WHERE admin='".$extraSuperUser."'")->fetch_row()[0]??null;
     expect_check($createdSuper['status']===200 && isset($superCodeMatch[1]) && $extraSuperId!==null &&
         $db->query('SELECT role FROM f_manage WHERE id='.(int)$extraSuperId)->fetch_row()[0]==='super_admin',
@@ -153,14 +160,14 @@ try {
         'another super administrator reset rejects incorrect operator password');
     $resetSuper=request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$extraSuperId,'password'=>'NewPass8!','operator_password'=>$password]);
-    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$resetSuper['body'],$resetSuperCodeMatch);
+    preg_match('/本次生成的认证码：<strong[^>]*>([A-HJ-NP-Z2-9]{4})<\/strong>/',$resetSuper['body'],$resetSuperCodeMatch);
     expect_check($resetSuper['status']===200 && isset($resetSuperCodeMatch[1]) &&
         request('GET','/admin/index.php',$superCookies)['status']===302,
         'operator password permits super administrator reset and revokes session');
     $superCookies=[]; $superLogin['_csrf']=token($superCookies); $superLogin['password']='NewPass8!';
     $superLogin['admincode']=$resetSuperCodeMatch[1];
     expect_check((request('POST','/admin/index.php?controller=admin',$superCookies,$superLogin)['json']['status']??'')==='y',
-        'reset super administrator logs in with new four-digit code');
+        'reset super administrator logs in with new four-character code');
     $editorToken=token($editorCookies,true);
     $editorHome=request('GET','/admin/index.php',$editorCookies);
     expect_check($editorHome['status']===200 && str_contains($editorHome['body'],'<span>相关</span>') &&
@@ -181,6 +188,8 @@ try {
         expect_check(request('GET','/admin/index.php?controller='.$denied,$editorCookies)['status']===403,
             'editor system route denied: '.$denied);
     }
+    expect_check(request('GET','/admin/index.php?controller=account&operate=add',$editorCookies)['status']===403,
+        'editor cannot open account creation page');
     expect_check(request('POST','/admin/index.php?controller=dbmanage&operate=download',$editorCookies,
         ['_csrf'=>$editorToken,'backup_id'=>str_repeat('0',32)])['status']===403,
         'editor cannot request backup download by direct POST');
@@ -277,13 +286,13 @@ try {
         'editor cannot delete accounts');
     $resetEditor=request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$editorId,'password'=>$editorPassword]);
-    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$resetEditor['body'],$resetEditorCodeMatch);
+    preg_match('/本次生成的认证码：<strong[^>]*>([A-HJ-NP-Z2-9]{4})<\/strong>/',$resetEditor['body'],$resetEditorCodeMatch);
     expect_check($resetEditor['status']===200 && isset($resetEditorCodeMatch[1]) &&
         request('GET','/admin/index.php',$editorCookies)['status']===302,
         'credential reset revokes editor sessions');
     $editorCookies=[]; $editorLogin['_csrf']=token($editorCookies); $editorLogin['admincode']=$resetEditorCodeMatch[1];
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
-        'editor logs in with reset four-digit code');
+        'editor logs in with reset four-character code');
     expect_check(request('POST','/admin/index.php?controller=account&operate=delete',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$editorId])['status']===303 &&
         $db->query('SELECT id FROM f_manage WHERE id='.(int)$editorId)->num_rows===0 &&
@@ -376,6 +385,11 @@ try {
         ($package['source_project']??'')===$moduleProject && count($package['fields'])>=10,
         'model export returns structured portable definition');
     $modelRoute='/admin/index.php?controller=modulemanage';
+    $modelLoad=request('GET',$modelRoute.'&operate=load',$cookies);
+    expect_check($modelLoad['status']===200 && str_contains($modelLoad['body'],'public/jquery/validform/css.css') &&
+        str_contains($modelLoad['body'],'enctype="multipart/form-data" class="form"') &&
+        str_contains($modelLoad['body'],'name="package_json" class="inputxt"'),
+        'model import form uses common admin input styles');
     expect_check(request('GET',$modelRoute.'&operate=preview',$cookies)['status']===405,'model preview requires POST');
     $badPackage=$package;$badPackage['columns'][1]['name']='title`; DROP TABLE f_manage; --';
     $invalidPreview=request('POST',$modelRoute.'&operate=preview',$cookies,['_csrf'=>$newToken,'project'=>$importProject,'package_json'=>json_encode($badPackage)]);

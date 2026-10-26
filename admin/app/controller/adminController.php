@@ -35,7 +35,7 @@ class adminController extends Controller
         $account = $db->assoc($db->query("SELECT id,admin,password,role,enabled,auth_version,login_code_hash FROM $table WHERE admin=? LIMIT 1", [$user]));
         $valid = cms_password_verify($password, $account['password'] ?? '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.');
         $codeValid = $account && !empty($account['login_code_hash'])
-            ? password_verify($code, $account['login_code_hash'])
+            ? password_verify(strlen($code)===4 ? strtoupper($code) : $code, $account['login_code_hash'])
             : ($account && $account['role']==='super_admin' && hash_equals((string)ADMIN_CODE, $code));
         if (!$account || !$valid || !$codeValid || (int)$account['enabled']!==1 ||
             !in_array($account['role'], ['super_admin','editor'], true)) {

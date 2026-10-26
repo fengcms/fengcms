@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>账号创建成功</title>
+<link href="css/css.css" rel="stylesheet">
+<link href="css/maintenance.css" rel="stylesheet">
+<style>.account-code { font:bold 22px/1.5 ui-monospace,monospace; letter-spacing:3px; color:#295283; }</style>
+</head>
+<body class="maintenance-page">
+<div id="main">
+    <div id="main_top"><dl id="article_ico">
+        <dd class="art_ico_9"><a href="?controller=account">返回列表</a></dd>
+    </dl></div>
+    <div id="art_body">
+        <p class="maint-success">账号已创建。请立即保存认证码；关闭页面后无法再次查看。</p>
+        <table cellspacing="0" class="add_art maint-form">
+            <tr><th>用户名：</th><td>{$name}</td></tr>
+            <tr><th>账号类型：</th><td>{if $role=='super_admin'}超级管理员{else}编辑{/if}</td></tr>
+            <tr><th>认证码：</th><td>本次生成的认证码：<strong class="account-code">{$newCode}</strong></td></tr>
+            <tr><th>登录提示：</th><td>登录时需同时输入用户名、密码和认证码。认证码中的字母不区分大小写。</td></tr>
+        </table>
+    </div>
+</div>
+</body>
+</html>
