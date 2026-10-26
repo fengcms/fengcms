@@ -20,7 +20,7 @@ header('Cache-Control: no-store');
 .login_box dl { padding:160px 0 0 158px;width: auto;overflow: hidden;} 
 .login_box dl dd { height:36px; width:180px; float:left;}
 .login_box dl .input { border:none; background:none; width:150px; height:30px; font:bold 18px/30px Arial, Helvetica, sans-serif; display:block; float:left;}
-.login_box dl .yzm { width:65px;}
+.login_box dl .yzm { width:150px; font-size:12px;}
 .login_box dl dt { float:right; width:160px;  height:120px;}
 .login_box dl dt input { display:block;width:160px;  height:120px; float:right;border:none; background:none; text-indent:-99999em; cursor:pointer;}
 #bodyie6 {_background: #000;}
@@ -66,7 +66,7 @@ $(function(){
         	<dt><input type="button" id="login" value="登录" /></dt>
         	<dd><input type="text" name="user" id="user" class="input inputxt" datatype="*5-255" nullmsg="请输入用户名" errormsg="用户名至少5个字符！" /></dd>
             <dd><input type="password" name="password" id="password" class="input inputxt" datatype="*3-255" errormsg="密码至少5个字符！"/><em></em></dd>
-            <dd><input type="text" name="admincode" id="admincode" class="input yzm inputxt" maxlength="4" datatype="*4-4" errormsg="密码至少5个字符！" /></dd>
+            <dd><input type="text" name="admincode" id="admincode" class="input yzm inputxt" maxlength="128" datatype="*4-128" autocomplete="off" title="后台认证码" errormsg="请输入后台认证码！" /></dd>
         </dl>
     </div>
 </div>

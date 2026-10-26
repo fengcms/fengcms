@@ -75,14 +75,17 @@ class classifyController extends Controller{
      */
 	public function classify(){
 		$where='type="module"';
-		if($_GET['p']){
+		$params=[];
+		if(!empty($_GET['p'])){
+			if (!is_string($_GET['p']) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D',$_GET['p'])) { cms_fail(400,'模型名称不正确。'); }
 			if($where)$where.=' and ';
-			$where.='project="'.$_GET['p'].'"';
+			$where.='project=?';
+			$params[]=$_GET['p'];
 		}
 
-			return $this->display('classify/classify.html',array(
-			'classifyselect'	=>	M($this->model)->procoption(M($this->model)->classifytree(M($this->model)->findall($where))),0,false)
-		);
+			return $this->display('classify/classify.html',[
+				'classifyselect'=>M($this->model)->procoption(M($this->model)->classifytree(D('classify')->where($where,$params)->sort('sort,id')->getall()),0,false),
+			]);
 	}
 
     /**
@@ -91,6 +94,7 @@ class classifyController extends Controller{
      * @return template,array
      */
 	public function type(){
+		if (!in_array($_GET['t']??null,['module','single','url'],true)) { cms_fail(400,'栏目类型不正确。'); }
 		return $this->display('classify/type_'.$_GET['t'].'.html');
 	}
 
@@ -112,6 +116,7 @@ class classifyController extends Controller{
      * @return template,array
      */
 	public function genre(){
+		if (!in_array($_GET['f']??null,['one','batch'],true)) { cms_fail(400,'栏目方式不正确。'); }
 		return $this->display('classify/type_module_'.$_GET['f'].'.html');
 	}
 

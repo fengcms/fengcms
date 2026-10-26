@@ -17,6 +17,7 @@ function swap_tab(n)
  for(var i=1;i<=4;i++){
   var curC=document.getElementById("tab_"+i);
   var curB=document.getElementById("tab_t"+i);
+  if(!curC || !curB) continue;
   if(n==i){
    curC.style.display="block";
    curB.className="active"
@@ -66,4 +67,4 @@ function Gotonew(url){
 	window.location = url;   //url为你要跳转的页面的url
 }
 
-window.onerror=function(){return true;} 
+window.onerror=function(){return true;}

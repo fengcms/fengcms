@@ -9,7 +9,7 @@ class adminController extends Controller
         $password = $_POST['password'] ?? '';
         $code = $_POST['admincode'] ?? '';
         if (!is_string($user) || !is_string($password) || !is_string($code) ||
-            strlen($user) > 255 || strlen($password) > 1024 || strlen($code) > 32) {
+            strlen($user) > 255 || strlen($password) > 1024 || strlen($code) > 128) {
             cms_fail(400, '登录参数不正确。');
         }
         $db = new db_mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -32,9 +32,13 @@ class adminController extends Controller
         }
         $db->query("DELETE FROM $attempts WHERE expires_at<?", [$now]);
         $table = model::identifier(DB_PREFIX.'manage');
-        $account = $db->assoc($db->query("SELECT id,admin,password FROM $table WHERE admin=? LIMIT 1", [$user]));
+        $account = $db->assoc($db->query("SELECT id,admin,password,role,enabled,auth_version,login_code_hash FROM $table WHERE admin=? LIMIT 1", [$user]));
         $valid = cms_password_verify($password, $account['password'] ?? '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.');
-        if (!$account || !$valid || !hash_equals((string)ADMIN_CODE, $code)) {
+        $codeValid = $account && !empty($account['login_code_hash'])
+            ? password_verify($code, $account['login_code_hash'])
+            : ($account && $account['role']==='super_admin' && hash_equals((string)ADMIN_CODE, $code));
+        if (!$account || !$valid || !$codeValid || (int)$account['enabled']!==1 ||
+            !in_array($account['role'], ['super_admin','editor'], true)) {
             header('Content-Type: application/json; charset=UTF-8');
             echo json_encode(['status' => 'n']);
             return;
@@ -48,11 +52,12 @@ class adminController extends Controller
         }
         session_regenerate_id(true);
         $_SESSION['manage'] = $account['admin'];
+        $_SESSION['manage_role'] = $account['role'];
         $_SESSION['manage_id'] = (int)$account['id'];
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         $_SESSION['auth_at'] = time();
         $_SESSION['last_seen'] = time();
-        $_SESSION['auth_fingerprint'] = hash_hmac('sha256',$account['password'],KEYS);
+        $_SESSION['auth_fingerprint'] = cms_admin_fingerprint($account);
         header('Content-Type: application/json; charset=UTF-8');
         header('Cache-Control: no-store');
         echo json_encode(['status' => 'y']);

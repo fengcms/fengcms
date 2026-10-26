@@ -16,8 +16,16 @@
 <body>
 
 <div id="main">
-	<div id="main_top"><span class="colorf60">{$manage['admin']}</span>，你好，你已经进入到《<span class="colorf60">{$base['name']}</span>》管理后台。 你的身份：<span class="colorf60">超级管理员</span>。</div>
+	<div id="main_top"><span class="colorf60">{$manage['admin']}</span>，你好，你已经进入到《<span class="colorf60">{$base['name']}</span>》管理后台。你的身份：<span class="colorf60">{if $_SESSION['manage_role']=='super_admin'}超级管理员{else}编辑{/if}</span>。</div>
 	<div id="main_body">
+		{if $_SESSION['manage_role']=='editor'}
+		<div class="main_box"><div class="main_box_h3"><h3>内容维护</h3></div>
+			<div class="main_box_con" style="height:auto;min-height:100px;line-height:2">
+				<p>请从左侧“内容”管理文章、商品、频道栏目和回收站；从“相关”维护基础信息并回复留言。</p>
+				<p>账号密码可以通过右上角“修改密码”更新。</p>
+			</div>
+		</div>
+		{else}
 		<table cellspacing="20" id="main_table">
 			<tr>
 				<td>
@@ -64,6 +72,7 @@
 				</td>
 			</tr>
 		</table>
+		{/if}
 	</div>
 </div>
 </body>

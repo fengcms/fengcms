@@ -45,10 +45,17 @@ class moduleController extends Controller{
 	public function record($project,$array){
 
 		$where="status>=0";
+		$params=[];
 		
-		if($array['title']){
+		if(!empty($array['title'])){
+			if (!is_string($array['title']) || strlen($array['title'])>200 ||
+				!is_string($array['field']??null) ||
+				!D('view_field')->where(['project'=>$project,'name'=>$array['field'],'search'=>1])->getone()) {
+				cms_fail(400,'搜索字段不正确。');
+			}
 			if($where)$where.=" and ";
-			$where.='`'.$array['field'].'` like "%'.$array['title'].'%"';
+			$where.=model::identifier($array['field']).' LIKE ?';
+			$params[]='%'.$array['title'].'%';
 		}
 
 		if($array['attrib_j']==1){
@@ -82,7 +89,7 @@ class moduleController extends Controller{
 		}
 
 
-		return sqlpage($project,"20","*",$where,"id desc");
+		return sqlpage($project,"20","*",$where,"id desc",$params);
 	}
 
     /**

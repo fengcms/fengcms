@@ -408,13 +408,13 @@ function arraypage($arr,$page_per){
  * @program $page_per int
  * @return string
  */
-function sqlpage($table,$page_per=20,$find='*',$where="",$order="id desc"){
-	$item_count = D($table)->field("id")->where($where)->getcount(); //总记录数
-	$sql=D($table)->field($find)->where($where)->sort($order)->buildselectsql();
+function sqlpage($table,$page_per=20,$find='*',$where="",$order="id desc",array $params=[]){
+	$item_count = D($table)->field("id")->where($where,$params)->getcount(); //总记录数
+	$sql=D($table)->field($find)->where($where,$params)->sort($order)->buildselectsql();
 	$page = new page($item_count,$page_per); 
 	$sql = $page->handlesql($sql);
 
-	$arr['list']	=	D($table)->excsql($sql);
+	$arr['list']	=	D($table)->excsql($sql,$params);
 	$arr['fy']		=	$page->getpage();
 	$arr['total']	=	$page ->gettotal();
 	return $arr;

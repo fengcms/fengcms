@@ -48,7 +48,9 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
-$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=null; $backupId=null;
+$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=null; $backupId=null;
+$editorUser='editor_'.$tag; $editorPassword=bin2hex(random_bytes(16));
+$editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
@@ -82,7 +84,7 @@ try {
     $page=request('GET','/admin/login.php',$cookies);
     expect_check(!str_contains($page['body'],'cnzz.com') && str_contains(strtolower($page['headers']),'cache-control: no-store'),'login has no tracker and is not cached');
     $hash=password_hash($password,PASSWORD_DEFAULT);
-    $stmt=$db->prepare('INSERT INTO f_manage (admin,password,datetime) VALUES (?,?,NOW())');
+    $stmt=$db->prepare("INSERT INTO f_manage (admin,password,role,datetime) VALUES (?,?,'super_admin',NOW())");
     $stmt->bind_param('ss',$user,$hash); $stmt->execute(); $testId=$db->insert_id;
     $legacyHash=md5(md5(md5(lib_replace_end_tag($legacyPassword))));
     $stmt->bind_param('ss',$legacyUser,$legacyHash); $stmt->execute(); $legacyId=$db->insert_id;
@@ -93,6 +95,133 @@ try {
     expect_check((request('POST','/admin/index.php?controller=admin',$cookies,$login)['json']['status']??'')==='y','modern login succeeds');
     expect_check($sid!==$cookies['fengcms_session'],'session ID rotates');
     $newToken=token($cookies,true); expect_check($newToken!==$csrf,'CSRF rotates');
+    $accountPage=request('GET','/admin/index.php?controller=account',$cookies);
+    expect_check($accountPage['status']===200 && str_contains($accountPage['body'],'新建编辑账号'),
+        'super administrator can open editor account management');
+    $createdEditor=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
+        ['_csrf'=>$newToken,'username'=>$editorUser,'password'=>$editorPassword]);
+    preg_match('/本次生成的认证码：<strong[^>]*>([a-f0-9]{32})<\/strong>/',$createdEditor['body'],$editorCodeMatch);
+    $editorId=$db->query("SELECT id FROM f_manage WHERE admin='".$editorUser."'")->fetch_row()[0]??null;
+    expect_check($createdEditor['status']===200 && isset($editorCodeMatch[1]) && $editorId!==null,
+        'super administrator creates editor with a one-time code');
+    $editorCode=$editorCodeMatch[1];
+    $editorCookies=[]; $editorCsrf=token($editorCookies);
+    $editorLogin=['_csrf'=>$editorCsrf,'user'=>$editorUser,'password'=>$editorPassword,'admincode'=>$editorCode];
+    $wrongCode=$editorLogin; $wrongCode['admincode']=getenv('ADMIN_CODE');
+    expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$wrongCode)['json']['status']??'')==='n',
+        'sitewide code cannot log in as editor');
+    expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
+        'editor logs in with independent code');
+    $editorToken=token($editorCookies,true);
+    $editorHome=request('GET','/admin/index.php',$editorCookies);
+    expect_check($editorHome['status']===200 && str_contains($editorHome['body'],'<span>相关</span>') &&
+        !str_contains($editorHome['body'],'<span>系统</span>') && !str_contains($editorHome['body'],'<span>模块</span>') &&
+        !str_contains($editorHome['body'],'controller=cache'), 'editor menu contains business tabs only');
+    $editorMain=request('GET','/admin/index.php?controller=home&operate=main',$editorCookies);
+    expect_check($editorMain['status']===200 && str_contains($editorMain['body'],'你的身份：<span class="colorf60">编辑</span>') &&
+        !str_contains($editorMain['body'],'网站安全信息'), 'editor dashboard omits system information');
+    foreach (['module&project=article','module&project=tags','module&project=single','classify','recover','message','manage&operate=password'] as $allowed) {
+        expect_check(request('GET','/admin/index.php?controller='.$allowed,$editorCookies)['status']===200,
+            'editor business route allowed: '.$allowed);
+    }
+    foreach (['base','modulemanage','fieldmanage&project=article','tplmanage','dbmanage&operate=dbbackup','safe','cache','signup','account'] as $denied) {
+        expect_check(request('GET','/admin/index.php?controller='.$denied,$editorCookies)['status']===403,
+            'editor system route denied: '.$denied);
+    }
+    expect_check(request('POST','/admin/index.php?controller=dbmanage&operate=download',$editorCookies,
+        ['_csrf'=>$editorToken,'backup_id'=>str_repeat('0',32)])['status']===403,
+        'editor cannot request backup download by direct POST');
+    expect_check(request('GET','/admin/index.php?controller=recover&project=tags',$editorCookies)['status']===403,
+        'editor cannot use recycle bin with related system model');
+    expect_check(request('GET','/admin/index.php?controller=module&project=manage',$editorCookies)['status']===404,
+        'editor cannot address administrator table as content model');
+    expect_check(request('GET','/admin/api/files.php?dir=image',$editorCookies)['status']===200 &&
+        request('GET','/admin/api/files.php?dir=',$editorCookies)['status']===200,
+        'editor can select media and read template filenames');
+    $tagSave=request('POST','/admin/index.php?controller=module&project=tags&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'name'=>'editor_tag_'.$tag,'status'=>'1']);
+    $editorTagId=(int)($tagSave['json']['id']??0) ?: null;
+    expect_check(($tagSave['json']['status']??'')==='y' && $editorTagId!==null,
+        'editor creates related keyword');
+    $tagEdit=request('POST','/admin/index.php?controller=module&project=tags&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'id'=>(string)$editorTagId,'name'=>'editor_tag_updated_'.$tag]);
+    expect_check(($tagEdit['json']['status']??'')==='y' &&
+        $db->query('SELECT name FROM f_tags WHERE id='.(int)$editorTagId)->fetch_row()[0]==='editor_tag_updated_'.$tag,
+        'editor updates related keyword');
+    $categorySave=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'type'=>'url','project'=>'article','name'=>'编辑外链'.$tag,
+            'enname'=>'editor_'.$tag,'classid'=>'0','html'=>'https://example.test/','nav'=>'0','genre'=>'one']);
+    $editorCategoryId=(int)($categorySave['json']['id']??0) ?: null;
+    expect_check(($categorySave['json']['status']??'')==='y' && $editorCategoryId!==null,
+        'editor creates an external-link category');
+    $tamperedCategory=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'id'=>(string)$editorCategoryId,'type'=>'module','project'=>'manage','name'=>'bad']);
+    expect_check($tamperedCategory['status']===403 &&
+        $db->query('SELECT project FROM f_classify WHERE id='.(int)$editorCategoryId)->fetch_row()[0]==='article',
+        'editor cannot retarget category at administrator table');
+    $articleSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'title'=>'editor_article_'.$tag,'content'=>'<p>编辑正文</p>','info'=>'编辑导读',
+            'status'=>'1','classid'=>'0','template'=>'/article_content.html','time'=>(string)time(),
+            'date'=>date('Y-m-d'),'tags'=>'','author'=>'','inputer'=>'','origin'=>'']);
+    $editorArticleId=(int)($articleSave['json']['id']??0) ?: null;
+    expect_check(($articleSave['json']['status']??'')==='y' && $editorArticleId!==null,
+        'editor creates article content');
+    $articleEdit=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'id'=>(string)$editorArticleId,'title'=>'editor_updated_'.$tag,
+            'content'=>'<p>修改正文</p>','info'=>'修改导读']);
+    expect_check(($articleEdit['json']['status']??'')==='y' &&
+        $db->query('SELECT title FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]==='editor_updated_'.$tag,
+        'editor updates article content');
+    $db->query("INSERT INTO f_message (title,content,status,time) VALUES ('editor_msg_$tag','hello',0,UNIX_TIMESTAMP())");
+    $editorMessageId=$db->insert_id;
+    $reply=request('POST','/admin/index.php?controller=message&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'id'=>(string)$editorMessageId,'reply'=>'编辑回复','status'=>'1']);
+    expect_check(($reply['json']['status']??'')==='y' &&
+        $db->query('SELECT reply FROM f_message WHERE id='.(int)$editorMessageId)->fetch_row()[0]==='编辑回复',
+        'editor replies to visitor message');
+    expect_check(request('POST','/admin/index.php?controller=module&project=article&operate=recoverone&id='.$editorArticleId,
+        $editorCookies,['_csrf'=>$editorToken])['status']===200 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===-1,
+        'editor moves article to recycle bin');
+    expect_check(request('POST','/admin/index.php?controller=recover&project=article&operate=recoverone&id='.$editorArticleId,
+        $editorCookies,['_csrf'=>$editorToken])['status']===200 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
+        'editor restores article from recycle bin');
+    $picture=imagecreatetruecolor(2,2); ob_start(); imagepng($picture); $imageBytes=ob_get_clean(); imagedestroy($picture);
+    $editorUpload=upload($editorCookies,$editorToken,'editor.png',$imageBytes);
+    expect_check($editorUpload['status']===200 && ($editorUpload['json']['error']??null)===0 &&
+        str_starts_with($editorUpload['json']['url']??'','/upload/image/'),
+        'editor uploads content image');
+    $files[]=dirname(__DIR__).$editorUpload['json']['url'];
+    expect_check(request('POST','/admin/index.php?controller=classify&operate=delete&id='.$editorCategoryId,
+        $editorCookies,['_csrf'=>$editorToken])['status']===200 &&
+        $db->query('SELECT id FROM f_classify WHERE id='.(int)$editorCategoryId)->num_rows===0,
+        'editor deletes external-link category');
+    $editorCategoryId=null;
+    expect_check(request('POST','/admin/index.php?controller=message&operate=deleteone&id='.$editorMessageId,
+        $editorCookies,['_csrf'=>$editorToken])['status']===200 &&
+        $db->query('SELECT id FROM f_message WHERE id='.(int)$editorMessageId)->num_rows===0,
+        'editor deletes visitor message');
+    $editorMessageId=null;
+    expect_check(request('POST','/admin/index.php?controller=module&project=tags&operate=deleteone&id='.$editorTagId,$editorCookies,
+        ['_csrf'=>$editorToken])['status']===200 &&
+        $db->query('SELECT id FROM f_tags WHERE id='.(int)$editorTagId)->num_rows===0,
+        'editor deletes related keyword');
+    $editorTagId=null;
+    expect_check(request('POST','/admin/index.php?controller=account&operate=toggle',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$editorId,'enabled'=>'0'])['status']===303 &&
+        request('GET','/admin/index.php',$editorCookies)['status']===302,
+        'disabling editor revokes active session');
+    expect_check(request('POST','/admin/index.php?controller=account&operate=toggle',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$editorId,'enabled'=>'1'])['status']===303,
+        'super administrator re-enables editor');
+    $editorCookies=[]; $editorLogin['_csrf']=token($editorCookies);
+    expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
+        're-enabled editor can log in again');
+    $resetEditor=request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$editorId,'password'=>$editorPassword]);
+    expect_check($resetEditor['status']===200 && request('GET','/admin/index.php',$editorCookies)['status']===302,
+        'credential reset revokes editor sessions');
     $licensePage=request('GET','/admin/index.php?controller=home&operate=main',$cookies);
     expect_check($licensePage['status']===200 && str_contains($licensePage['body'],'MIT License') &&
         !str_contains($licensePage['body'],'非商业运用') && !str_contains($licensePage['body'],'必须在FengCms官方论坛首发'),
@@ -666,14 +795,18 @@ try {
     $db->query("DROP TABLE IF EXISTS `f_$moduleProject`");
     foreach ($files as $file) { if (is_file($file)) { unlink($file); } }
     foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }
-    foreach ([$testId,$legacyId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
+    foreach ([$testId,$legacyId,$editorId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
     foreach ($articleIds as $id) { $db->query('DELETE FROM f_article WHERE id='.(int)$id); }
+    if ($editorArticleId) { $db->query('DELETE FROM f_article WHERE id='.(int)$editorArticleId); }
+    if ($editorCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$editorCategoryId); }
+    if ($editorTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$editorTagId); }
+    if ($editorMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$editorMessageId); }
     if ($messageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$messageId); }
     if ($fieldFixtureId) { $db->query('DELETE FROM f_module_field WHERE id='.(int)$fieldFixtureId); }
     $restore=$db->prepare('UPDATE f_base SET name=?,copyright=?'); $restore->bind_param('ss',$originalName,$originalBase['copyright']); $restore->execute();
     if ($originalSettings===null) { if (is_file($settingsPath)) { unlink($settingsPath); } }
     else { file_put_contents($settingsPath,$originalSettings); }
-    foreach ([$user,$legacyUser,'absent_'.$tag,'admin" OR 1=1 #'] as $name) {
+    foreach ([$user,$legacyUser,$editorUser,'absent_'.$tag,'admin" OR 1=1 #'] as $name) {
         $bucket=hash_hmac('sha256','user:'.mb_strtolower($name,'UTF-8'),getenv('APP_KEY'));
         $stmt=$db->prepare('DELETE FROM f_login_attempts WHERE bucket=?'); $stmt->bind_param('s',$bucket); $stmt->execute();
     }

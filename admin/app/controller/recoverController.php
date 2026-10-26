@@ -16,7 +16,8 @@ class recoverController extends Controller{
 
     function __construct(){
 		if($_GET['project']==""){
-		$array=M("module")->findone("type=1");
+		$array=M("module")->findone("type=1 AND recover=1 AND status=1");
+		if (!$array) { cms_fail(404, '没有可用的回收站。'); }
 		$_GET['project']=$array['project'];
 		}
 		$this->model=$_GET['project'];
@@ -30,13 +31,20 @@ class recoverController extends Controller{
      */
 	public function index(){
 		$where='status="-1"';
+		$params=[];
 		
-		if($_GET['title']){
+		if(!empty($_GET['title'])){
+			if (!is_string($_GET['title']) || strlen($_GET['title'])>200 ||
+				!is_string($_GET['field']??null) ||
+				!D('view_field')->where(['project'=>$this->model,'name'=>$_GET['field'],'search'=>1])->getone()) {
+				cms_fail(400,'搜索字段不正确。');
+			}
 			if($where)$where.=" and ";
-			$where.='`'.$_GET['field'].'` like "%'.$_GET['title'].'%"';
+			$where.=model::identifier($_GET['field']).' LIKE ?';
+			$params[]='%'.$_GET['title'].'%';
 		}
 
-		return $this->display('recover/index.html',(D("module")->where("type=1")->getcount()>0)?sqlpage($this->model,'20','*',$where):"");
+		return $this->display('recover/index.html',(D("module")->where("type=1 AND recover=1 AND status=1")->getcount()>0)?sqlpage($this->model,'20','*',$where,'id desc',$params):"");
 	}
 
 	public function recoverone(){
