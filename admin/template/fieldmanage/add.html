@@ -19,11 +19,11 @@ $(function(){
 		tiptype:2,
 		callback:function(data){
 			if(data.status=="y"){
-				location.href =	"?controller=fieldmanage&project={$_GET['project']}&operate=execution&type=save&re=1&id="+data.id;
+				location.href =	FengAdmin.executionURL('fieldmanage',data);
 			}else if(data.status=="e"){
 				alert("字段已存在！")
 			}else{
-				location.href =	"?controller=fieldmanage&project={$_GET['project']}&operate=execution&type=save&re=0&id="+data.id;
+				location.href =	FengAdmin.executionURL('fieldmanage',data);
 
 			}
 		}

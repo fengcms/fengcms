@@ -22,9 +22,9 @@ $(function(){
 		tiptype:2,
 		callback:function(data){
 			if(data.status=="y"){
-				location.href =	"?controller=message&operate=execution&re=1&id="+data.id;
+				location.href =	FengAdmin.executionURL('message',data,{includeId:false});
 			}else{
-				location.href =	"?controller=message&operate=execution&re=0&id="+data.id;
+				location.href =	FengAdmin.executionURL('message',data,{includeId:false});
 			}
 		}
 	});

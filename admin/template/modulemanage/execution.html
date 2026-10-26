@@ -43,7 +43,7 @@
             	<th colspan="2">
 				{if $_GET['type']=="save"}
 				【<a href="?controller=modulemanage&operate=add">继续添加</a>】
-				【<a href="?controller=modulemanage&operate=update&id={$_GET['id']}">继续修改</a>】
+				{if !empty($_GET['id'])}【<a href="?controller=modulemanage&operate=update&id={$_GET['id']}">继续修改</a>】{/if}
 				{/if}
 				【<a href="?controller=modulemanage">返回模块管理</a>】
 				</th>

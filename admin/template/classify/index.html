@@ -19,7 +19,7 @@
 	<div id="main_top">
 		<dl id="article_ico">
 			<dd class="art_ico_1"><a href="?controller=classify&operate=add">添加栏目</a></dd>
-			<dd class="art_ico_2"><a href="?controller=classify&operate=sorts&classid={$_GET['id']}">栏目排序</a></dd>
+			<dd class="art_ico_2"><a href="?controller=classify&operate=sorts&classid={intval($_GET['id'])}">栏目排序</a></dd>
 			<dd class="art_ico_3"><a href="#" id="delete">删除栏目</a></dd>
 			{if $_GET['id']}
 				{$up=M("classify")->findone("id=".$_GET['id'])}

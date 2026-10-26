@@ -106,15 +106,17 @@ class classifyModel extends model{
      *
      * @return array
      */
-	public function order($array){
-		foreach($array['id'] as $k => $v){
-			if(!D("classify")->where('id="'.$v.'"')->update(array(
-				'sort'	=>  $array['sort'][$k],
-				'time'	=>  time()
-			)))return array('status' => 'n');
-		}
-		return array('status' => 'y');
-	}
+    public function order($array){
+        $pairs=cms_sort_pairs($array['id']??null,$array['sort']??null);
+        if(!$pairs){return ['status'=>'a'];}
+        foreach($pairs as [$id,$sort]){
+            if(!D($this->d_name)->where(['id'=>$id])->getone()){return ['status'=>'n'];}
+        }
+        foreach($pairs as [$id,$sort]){
+            D($this->d_name)->where(['id'=>$id])->update(['sort'=>$sort,'time'=>time()]);
+        }
+        return ['status'=>'y'];
+    }
 
     /**
      * 获取文章列表

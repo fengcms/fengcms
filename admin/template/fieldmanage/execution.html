@@ -32,10 +32,10 @@
 					{elseif $_GET['re']=='0'}
 					操作失败！
 					{/if}
-					<script>setTimeout("Gotonew('?controller=fieldmanage')",3000); </script>
+					<script>setTimeout("Gotonew('?controller=fieldmanage&project={$_GET['project']}')",3000); </script>
 				{else}
 					操作异常！
-					<script>setTimeout("Gotonew('?controller=fieldmanage')",3000); </script>
+					<script>setTimeout("Gotonew('?controller=fieldmanage&project={$_GET['project']}')",3000); </script>
 				{/if}
                 </td>
             </tr>

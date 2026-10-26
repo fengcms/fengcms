@@ -29,9 +29,9 @@ $(function(){
 		tiptype:2,
 		callback:function(data){
 			if(data.status=="y"){
-				location.href =	"?controller=module&project={$_GET['project']}&operate=execution&type=save&re=1&id="+data.id;
+				location.href =	FengAdmin.executionURL('module',data);
 			}else{
-				location.href =	"?controller=module&project={$_GET['project']}&operate=execution&type=save&re=0&id="+data.id;
+				location.href =	FengAdmin.executionURL('module',data);
 			}
 		},
 		usePlugin:{

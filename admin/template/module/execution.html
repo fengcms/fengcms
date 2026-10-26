@@ -12,7 +12,7 @@
 <body>
 <div id="main">
 	<div id="main_top">
-	{if $_GET['type']=="save"}{$info=D($_GET['project'])->where("id=".$_GET['id'])->getone()}{/if}
+	{if $_GET['type']=="save" && !empty($_GET['id'])}{$info=D($_GET['project'])->where("id=".$_GET['id'])->getone()}{/if}
 	</div>
 	<div id="art_body">
     	<table cellspacing="0" class="add_art">
@@ -43,7 +43,7 @@
             	<th colspan="2">
 				{if $_GET['type']=="save"}
 				【<a href="?controller=module&project={$_GET['project']}&operate=add">继续添加</a>】
-				【<a href="?controller=module&project={$_GET['project']}&operate=update&id={$info['id']}">继续修改</a>】
+				{if !empty($info['id'])}【<a href="?controller=module&project={$_GET['project']}&operate=update&id={$info['id']}">继续修改</a>】{/if}
 				{/if}
 				【<a href="?controller=module&project={$_GET['project']}">返回列表</a>】
 				</th>

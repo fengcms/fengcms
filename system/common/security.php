@@ -106,6 +106,15 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         }
     }
     foreach (['id','classid','module_id'] as $key) {
+        if ($key==='id' && $admin && is_array($_POST[$key]??null) &&
+            (($controller==='classify' && $action==='order') || ($controller==='fieldmanage' && $action==='sort'))) {
+            $ids=$_POST[$key];
+            if (!array_is_list($ids) || count($ids)>1000) { cms_fail(400, '排序记录不正确。'); }
+            foreach ($ids as $id) {
+                if (!is_string($id) || !preg_match('/^[0-9]{1,10}$/D',$id) || (int)$id<1) { cms_fail(400, '排序记录不正确。'); }
+            }
+            continue;
+        }
         if (isset($_POST[$key]) && (!is_string($_POST[$key]) || !preg_match('/^[0-9]{0,10}$/D', $_POST[$key]))) {
             cms_fail(400, '数字参数不正确。');
         }
@@ -155,6 +164,22 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         cms_post_required();
     }
     unset($_POST['_csrf']);
+}
+
+function cms_sort_pairs($ids, $sorts): array
+{
+    if (!is_array($ids) || !is_array($sorts) || !array_is_list($ids) || !array_is_list($sorts) ||
+        count($ids)!==count($sorts) || count($ids)>1000) { cms_fail(400, '排序参数不正确。'); }
+    $pairs=[];
+    foreach ($ids as $key=>$id) {
+        $sort=$sorts[$key];
+        if (!is_string($id) || !preg_match('/^[0-9]{1,10}$/D',$id) || (int)$id<1 ||
+            !is_string($sort) || !preg_match('/^[0-9]{1,10}$/D',$sort) || (int)$sort>2147483647) {
+            cms_fail(400, '排序参数不正确。');
+        }
+        $pairs[]=[(int)$id,(int)$sort];
+    }
+    return $pairs;
 }
 
 function cms_path_within(string $root, string $relative, bool $mustExist = true): string

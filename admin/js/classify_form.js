@@ -3,9 +3,9 @@ $(document).ready(function() {
 		tiptype:2,
 		callback:function(data){
 			if(data.status=="y"){
-				location.href ="?controller=classify&operate=execution&type=save&re=1&id="+data.id;
+				location.href =FengAdmin.executionURL('classify',data);
 			}else{
-				location.href ="?controller=classify&operate=execution&type=save&re=0&id="+data.id;
+				location.href =FengAdmin.executionURL('classify',data);
 			}
 		}
 	});

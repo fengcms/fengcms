@@ -218,7 +218,7 @@ class template{
         $s = preg_replace('/[\n\r\t]*\{else\}[\n\r\t]*/is', '<?php } else { ?>', $s);
         $s = preg_replace_callback('/\{raw\s+(\$[^}]+)\}/i', static fn($m) => '<?php echo '.$m[1].' ?? ""; ?>', $s);
         if (realpath(ABS_PATH) === realpath(ROOT_PATH.'/admin')) {
-            $head = '<meta name="csrf-token" content="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>"><script src="/admin/js/security.js"></script>';
+            $head = '<meta name="csrf-token" content="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>"><script src="/admin/js/navigation.js"></script><script src="/admin/js/security.js"></script>';
             $s = str_ireplace('</head>', $head.'</head>', $s);
         }
 

@@ -4,11 +4,11 @@ $(function(){
 	var data=form.Validform({
 		callback:function(data){
 			if(data.status=="y"){
-				location.href ="?controller=recover&operate=execution&type=save&re=1&project="+encodeURIComponent(data.project || project);
+				location.href =FengAdmin.executionURL('recover',data,{includeId:false,project:data.project || project});
 			}else if(data.status=="a"){
 				alert('请选择记录！');
 			}else if(data.status=="n"){
-				location.href ="?controller=recover&operate=execution&type=save&re=0&project="+encodeURIComponent(data.project || project);
+				location.href =FengAdmin.executionURL('recover',data,{includeId:false,project:data.project || project});
 			}
 		}
 	});

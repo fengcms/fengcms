@@ -138,50 +138,52 @@ class fieldmanageModel{// extends model{
      *
      * @return array
      */
-	public function sort($array){
-		foreach($array['id'] as $k => $v){
-			$re=D($this->d_name)->where('id="'.$v.'"')->update('sort="'.$array['sort'][$k].'",time="'.time().'"');
-			if(!$re)return array('status' => 'n');
-		}
-			return array('status' => 'y');
-	}
+    public function sort($array){
+        $pairs=cms_sort_pairs($array['id']??null,$array['sort']??null);
+        if(!$pairs){return ['status'=>'a'];}
+        foreach($pairs as [$id,$sort]){
+            if(!D($this->d_name)->where(['id'=>$id])->getone()){return ['status'=>'n'];}
+        }
+        foreach($pairs as [$id,$sort]){
+            D($this->d_name)->where(['id'=>$id])->update(['sort'=>$sort,'time'=>time()]);
+        }
+        return ['status'=>'y'];
+    }
+
     /**
      * 保存信息
      *
      * @return array
      */
-	public function save($array){
-
-		if($array['id']){
-
-			$id=$array['id'];unset($array['id']);unset($array['project']);
-
-			$array['enable']=($array['enable']?1:0);
-			$array['search']=($array['search']?1:0);
-			$re=D($this->d_name)->where('id="'.$id.'"')->update($array);
-
-		}else{
-			$project=$array['project'];unset($array['project']);
-
-			$type=$this->fieldtype($array['name'],$array['type']);
-
-			$array['sort']=intval(D($this->v_name)->where('module_id="'.$array['module_id'].'"')->getcount()-1);
-
-			D($this->model)->query("ALTER TABLE `".DB_PREFIX.$project."`".$type.";");
-
-			$re=D($this->d_name)->insert($array);
-
-		}
-
-		if($re){
-
-			return array('status' => 'y','id' => ($id)?$id:$re);
-			
-		}else{
-
-			return array('status' => 'n','id' => ($id)?$id:$re);
-		}
-	}
+    public function save($array){
+        $id=$array['id']??'';
+        if($id){
+            $exists=D($this->d_name)->where(['id'=>$id])->getone();
+            unset($array['id'],$array['project']);
+            $array['enable']=empty($array['enable'])?0:1;
+            $array['search']=empty($array['search'])?0:1;
+            $saved=$exists && D($this->d_name)->where(['id'=>$id])->update($array)>=0;
+        }else{
+            $project=$array['project']??null;
+            $name=$array['name']??null;
+            $type=$array['type']??null;
+            if(!is_string($project) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,29}$/D',$project) ||
+                !is_string($name) || !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]{0,49}$/D',$name) ||
+                !is_string($type) || !preg_match('/^[0-9]{1,10}$/D',$type)){
+                cms_fail(400,'字段参数不正确。');
+            }
+            $module=D('module')->where(['project'=>$project,'id'=>$array['module_id']??''])->getone();
+            $fieldType=D('module_field_type')->where(['id'=>$type,'f'=>1])->getone();
+            if(!$module || !$fieldType){cms_fail(400,'字段所属模型或类型不正确。');}
+            if(D($this->d_name)->where(['module_id'=>$module['id'],'name'=>$name])->getone()){return ['status'=>'n'];}
+            unset($array['project'],$array['id']);
+            $array['sort']=(int)D($this->d_name)->where(['module_id'=>$module['id']])->getcount()-1;
+            D($this->d_name)->query('ALTER TABLE '.model::identifier(DB_PREFIX.$project).$this->fieldtype($name,$type));
+            $id=D($this->d_name)->insert($array);
+            $saved=(bool)$id;
+        }
+        return ['status'=>$saved?'y':'n','id'=>$id?:null];
+    }
 
     /**
      * 保存信息
@@ -242,7 +244,7 @@ class fieldmanageModel{// extends model{
      * @return array
      */
 	public function gefieldtype($int){
-		$array=D("module_field_type")->where('id="'.$int.'"')->getone();
+		$array=D("module_field_type")->where(['id'=>$int])->getone();
 		return $array['class'];
 	}
 

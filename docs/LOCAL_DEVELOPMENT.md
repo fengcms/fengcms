@@ -2,6 +2,8 @@
 
 首次克隆后运行 `./bin/setup-git-hooks`（开发工具需要 Python 3），启用仓库内提交校验。所有提交标题使用 `type(scope): 中文描述`，例如 `fix(editor): 修复图片插入失败`。完整维护约定见根目录 [AGENTS.md](../AGENTS.md)。编辑器适配变更还应运行 `node tests/editor-regression.js`。
 
+后台保存、批量操作或结果页跳转变更还应运行 `node tests/navigation-regression.js`。它执行实际页面回调，覆盖正常、缺失和异常 ID 的成功/失败结果；PHP 端排序与结果页检查包含在 `./bin/dev test` 中。
+
 本方案使用本机已有的 Docker / Colima；PHP、MySQL、Nginx 均运行在容器中，没有安装裸机服务。当前是安全升级开发环境，不是直接上线配置。
 
 ```sh

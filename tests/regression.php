@@ -50,6 +50,7 @@ $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
 $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
+$categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
 $originalBase=$db->query('SELECT name,copyright FROM f_base LIMIT 1')->fetch_assoc();
 $originalName=$originalBase['name'];
@@ -118,6 +119,63 @@ try {
     $fieldResult=request('GET',$fieldRoute.'&operate=execution&type=save&re=1',$cookies);
     expect_check($fieldResult['status']===200 && str_contains($fieldResult['body'],'操作成功') && !str_contains($fieldResult['body'],'继续修改'),'batch result page works without a single field ID');
     expect_check(request('GET',$fieldRoute.'&operate=execution&type=save&re=1&id=undefined',$cookies)['status']===400,'invalid numeric query parameters remain rejected');
+    $sortingFields=$db->query('SELECT id FROM f_module_field WHERE module_id='.(int)$moduleFixtureId.' ORDER BY id LIMIT 2')->fetch_all(MYSQLI_ASSOC);
+    $sortingIds=array_column($sortingFields,'id');
+    $sortData=['_csrf'=>$newToken,'id'=>$sortingIds,'sort'=>['2','0']];
+    expect_check((request('POST',$fieldRoute.'&operate=sort',$cookies,$sortData)['json']['status']??'')==='y','field sorting accepts the legitimate numeric ID array');
+    expect_check((request('POST',$fieldRoute.'&operate=sort',$cookies,$sortData)['json']['status']??'')==='y','unchanged field sorting is successful');
+    $missingSortId=(string)((int)$db->query('SELECT MAX(id)+100 FROM f_module_field')->fetch_row()[0]);
+    $missingFieldSort=['_csrf'=>$newToken,'id'=>[$sortingIds[0],$missingSortId],'sort'=>['77','1']];
+    expect_check((request('POST',$fieldRoute.'&operate=sort',$cookies,$missingFieldSort)['json']['status']??'')==='n' &&
+        (int)$db->query('SELECT sort FROM f_module_field WHERE id='.(int)$sortingIds[0])->fetch_row()[0]===2,'missing field sort ID leaves prior rows unchanged');
+    expect_check(request('POST',$fieldRoute.'&operate=sort',$cookies,['id'=>$sortingIds,'sort'=>['2','0']])['status']===403,'field sorting still requires CSRF');
+    foreach ([['id'=>[['1']],'sort'=>['0']],['id'=>['1 OR 1=1'],'sort'=>['0']],['id'=>$sortingIds,'sort'=>['0']],['id'=>$sortingIds,'sort'=>['invalid','0']]] as $badSort) {
+        expect_check(request('POST',$fieldRoute.'&operate=sort',$cookies,['_csrf'=>$newToken]+$badSort)['status']===400,'field sorting rejects malformed ID or ordering arrays');
+    }
+    expect_check(request('POST',$fieldRoute.'&operate=save',$cookies,$sortData)['status']===400,'ID arrays remain forbidden on single-record field saves');
+    $customFieldData=['_csrf'=>$newToken,'module_id'=>$moduleFixtureId,'project'=>$moduleProject,'name'=>'qa_extra_'.$tag,'aliases'=>'回归字段','type'=>'17'];
+    $customFieldSave=request('POST',$fieldRoute.'&operate=save',$cookies,$customFieldData);
+    expect_check(($customFieldSave['json']['status']??'')==='y' && (int)($customFieldSave['json']['id']??0)>0,'custom field creation returns its real record ID');
+    expect_check($db->query("SHOW COLUMNS FROM `f_$moduleProject` LIKE '".$customFieldData['name']."'")->num_rows===1,'custom field creation updates the declared module table');
+    $customFieldData['id']=$customFieldSave['json']['id'];
+    expect_check((request('POST',$fieldRoute.'&operate=save',$cookies,$customFieldData)['json']['status']??'')==='y','unchanged custom field metadata can be saved again');
+    $classifyRoute='/admin/index.php?controller=classify';
+    foreach ([1,2] as $categoryNumber) {
+        $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('qa_category_{$tag}_$categoryNumber','url','article',0,0)");
+        $categoryIds[]=$db->insert_id;
+    }
+    $rootCategories=request('GET',$classifyRoute,$cookies);
+    expect_check(str_contains($rootCategories['body'],'operate=sorts&classid=0'),'root category sorting link contains a valid zero parent ID');
+    expect_check(request('GET',$classifyRoute.'&operate=sorts&classid=0',$cookies)['status']===200,'root category sorting page renders');
+    $categorySort=['_csrf'=>$newToken,'id'=>$categoryIds,'sort'=>['3','0']];
+    expect_check((request('POST',$classifyRoute.'&operate=order',$cookies,$categorySort)['json']['status']??'')==='y','category sorting accepts the legitimate numeric ID array');
+    expect_check((request('POST',$classifyRoute.'&operate=order',$cookies,$categorySort)['json']['status']??'')==='y','unchanged category sorting is successful');
+    expect_check((int)$db->query('SELECT sort FROM f_classify WHERE id='.(int)$categoryIds[0])->fetch_assoc()['sort']===3,'category sort values persist');
+    $missingCategoryId=(string)((int)$db->query('SELECT MAX(id)+100 FROM f_classify')->fetch_row()[0]);
+    $missingCategorySort=['_csrf'=>$newToken,'id'=>[$categoryIds[0],$missingCategoryId],'sort'=>['77','1']];
+    expect_check((request('POST',$classifyRoute.'&operate=order',$cookies,$missingCategorySort)['json']['status']??'')==='n' &&
+        (int)$db->query('SELECT sort FROM f_classify WHERE id='.(int)$categoryIds[0])->fetch_row()[0]===3,'missing category sort ID leaves prior rows unchanged');
+    expect_check(request('POST',$classifyRoute.'&operate=save',$cookies,$categorySort)['status']===400,'ID arrays remain forbidden on single-category saves');
+    foreach ([['module',$moduleProject],['classify',null],['fieldmanage',$moduleProject],['modulemanage',null],['message',null],['signup',null],['recover',$moduleProject],['tplmanage','tpl']] as [$resultController,$resultProject]) {
+        foreach (['0','1'] as $resultState) {
+            $resultRoute='/admin/index.php?controller='.$resultController.'&operate=execution&type=save&re='.$resultState.($resultProject?'&project='.$resultProject:'');
+            $resultPage=request('GET',$resultRoute,$cookies);
+            expect_check($resultPage['status']===200,'result page accepts absent optional record ID: '.$resultController.' re='.$resultState);
+            preg_match_all('/href="([^"]+)"/',$resultPage['body'],$resultLinks);$validLinks=true;
+            foreach ($resultLinks[1] as $resultLink) {
+                parse_str(parse_url(html_entity_decode($resultLink,ENT_QUOTES|ENT_HTML5,'UTF-8'),PHP_URL_QUERY)??'',$resultQuery);
+                foreach (['id','classid','page','module_id'] as $numericKey) {
+                    if(isset($resultQuery[$numericKey]) && (!is_string($resultQuery[$numericKey]) || !preg_match('/^[0-9]{1,10}$/D',$resultQuery[$numericKey]))){$validLinks=false;}
+                }
+            }
+            expect_check($validLinks,'result page emits no empty numeric links: '.$resultController.' re='.$resultState);
+        }
+    }
+    $db->query("INSERT INTO `f_$moduleProject` (title,status) VALUES ('result_$tag',1)");$resultContentId=$db->insert_id;
+    foreach ([['module',$moduleProject,$resultContentId],['classify',null,$categoryIds[0]],['fieldmanage',$moduleProject,$customFieldSave['json']['id']],['modulemanage',null,$moduleFixtureId]] as [$resultController,$resultProject,$resultId]) {
+        $resultPage=request('GET','/admin/index.php?controller='.$resultController.'&operate=execution&type=save&re=1&id='.$resultId.($resultProject?'&project='.$resultProject:''),$cookies);
+        expect_check($resultPage['status']===200 && str_contains($resultPage['body'],'operate=update&id='.$resultId),'valid record IDs still provide edit links: '.$resultController);
+    }
     expect_check(request('GET','/admin/index.php?controller=module&project=manage',$cookies)['status']===404,'content editor cannot address administrator table');
     $articleTitle='probe_'.$tag.' <b data-probe="title">';
     $rich='<p>安全回归正文 '.$tag.'</p>';
@@ -402,6 +460,7 @@ try {
     expect_check($rate['status']===429,'login rate limit enforced');
     echo "All $passed regression checks passed.\n";
 } finally {
+    foreach ($categoryIds as $categoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$categoryId); }
     if ($moduleFixtureId) {
         $db->query('DELETE FROM f_module_field WHERE module_id='.(int)$moduleFixtureId);
         $db->query('DELETE FROM f_module WHERE id='.(int)$moduleFixtureId);
