@@ -12,6 +12,7 @@
 - `admin/js/editor.js`、`admin/css/editor.css`：wangEditor 适配与样式；`resource-picker.js`：资源选择器；`admin/api/`：上传、列表、缩略图接口。
 - `admin/public/wangeditor/`：wangEditor 5.1.23（MIT）；`system/vendor/htmlpurifier/`：HTML Purifier 4.19.1（LGPL）。这些是部署所需源码，应纳入 Git。
 - `docker/`、`compose.yaml`、`bin/dev`：本地容器；`tools/`：初始化、迁移、检查；`tests/regression.php`：HTTP/数据库回归。
+- `install/index.php`、`system/common/install_schema.php`：共享主机的一次性网页安装与开发初始化共用数据导入；首次安装步骤见 `docs/INSTALLATION.md`。本地 Docker 显式关闭网页入口。
 - `docs/`：维护记录；`docs/legacy/`：原 Windows 文档的 UTF-8 归档。新文档使用 UTF-8。
 - 根目录 `LICENSE` 是 FengCMS 自有代码与文档的 MIT 许可；第三方组件许可证与版权声明独立保留，见 `docs/THIRD_PARTY_LICENSES.md`。历史文档中的旧授权条款已失效，不得复制回现行界面或安装流程。
 
@@ -37,6 +38,7 @@
 - 网络图片使用浏览器直接引用 HTTP/HTTPS 地址。若未来增加服务器下载远程图片，需要单独设计 SSRF、重定向、大小和超时防护。
 - 编辑器/资源选择器依赖本地托管。保留第三方许可证和来源摘要，升级依赖核验版本、来源和许可；不要手改压缩版 vendor 代码处理业务适配。
 - 错误详情写入私有日志，不向访客泄露 SQL、路径、堆栈、密码或密钥。
+- 网页安装只允许新站点使用。保留站长预置的一次性密钥、HTTPS、CSRF、安装锁、未占用表前缀检查及私有配置文件保护；安装 SQL 不可加入覆盖旧表或默认可登录口令。Apache/Nginx 只开放 `install/index.php`，不可直连配置、SQL、临时配置及上传目录脚本。更新安装器时必须在隔离空库实测，不能使用现有站点数据库。
 - 未经明确部署授权，不修改生产代码、数据库、配置或重启服务；只读检查授权不等于部署授权。不要在仓库文档中记录客户域名、服务器路径、账号或可识别的运行环境盘点。
 - 旧密码登录后会迁移为新哈希，旧程序不识别。发布与回退须考虑代码、数据库、上传和运行配置的一致性；MyISAM 一致性备份不能仅依赖 `--single-transaction`。
 

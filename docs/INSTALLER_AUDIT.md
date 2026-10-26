@@ -1,5 +1,7 @@
 # 安装程序检查（2026-10-26）
 
+> 本文记录改造前的检查结论。旧 `install/data.php`、`install/install.php`、`install/step/` 等文件已删除；`install/index.php` 已重写为一次性网页安装器。当前用法见[共享虚拟主机首次安装](INSTALLATION.md)。下文提到的旧文件、默认凭证和禁用状态均是历史证据，不能作为当前部署说明。
+
 ## 结论
 
 当前仓库有两套不同年代的安装路径：
@@ -30,3 +32,9 @@
 4. 在新的安装方式完成前，文档和错误页不应引导用户访问 `/install/index.php`。存量站点升级继续遵循[安全升级记录](SECURITY_UPGRADE.md)中的备份、迁移和验收顺序。
 
 参考：[PHP 手册关于旧 MySQL 扩展的移除](https://www.php.net/manual/en/function.mysql-connect.php)、[OWASP 关于 URL 查询参数泄露敏感信息](https://community.owasp.org/vulnerabilities/Information_exposure_through_query_strings_in_url)、[OWASP 默认凭证测试指南](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/04-Authentication/02-Default_Credentials/)。
+
+## 改造后复核（2026-10-26）
+
+旧网页向导代码及静态文件已经移除。新的 `install/index.php` 要求站长预先放置一次性密钥，使用 HTTPS、会话及 CSRF 校验；安装数据不含删表语句或可登录默认口令，配置写入独立私有文件。本地 Docker 开发入口仍主动返回 404。
+
+在全新隔离数据库中，分别验证 PHP 8.4.27/MySQL 8.4.11/Nginx、PHP 8.4.27/MySQL 8.4.11/Apache，以及 PHP 8.3.36/MariaDB 10.11.19/Apache 的网页安装、后台登录和首页访问。回归脚本检查错误密钥、缺少 CSRF、管理员密码不一致、完成后安装锁，以及私有配置、安装目录内部文件和临时配置的 Web 拒绝访问。原有 280 项业务回归在本地 PHP 8.4/MySQL 8.4 开发环境通过。LiteSpeed、真实共享主机控制面板和 PHP 8.3/MariaDB 的完整业务回归尚未验证。

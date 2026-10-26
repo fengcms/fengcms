@@ -1,8 +1,9 @@
 # 文档目录
 
 - [本地容器开发](LOCAL_DEVELOPMENT.md)：环境启动、账号配置、检查与备份。
+- [共享虚拟主机首次安装](INSTALLATION.md)：HTTPS、站长授权、浏览器安装与故障排查。
 - [GitHub 发布流程](RELEASING.md)：版本标签、发布包、校验和与后台版本查询。
-- [安装程序检查](INSTALLER_AUDIT.md)：旧网页向导的可用性、安全风险与现有初始化方式。
+- [安装程序检查](INSTALLER_AUDIT.md)：旧网页向导的历史风险及本次改造记录。
 - [共享主机网页安装方案](WEB_INSTALLER_PLAN.md)：首次安装流程、安全边界与验收标准。
 - [安全升级记录](SECURITY_UPGRADE.md)：修复、验证、线上盘点和迁移限制。
 - [历史文档归档](legacy/README.md)：原 `_doc` 资料，文本已统一为 UTF-8，附模板白皮书原件与纯文本版。
