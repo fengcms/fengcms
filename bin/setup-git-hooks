@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+command -v python3 >/dev/null 2>&1 || { echo '提交校验需要 Python 3。' >&2; exit 1; }
+git config --local core.hooksPath .githooks
+echo '已启用中文 Conventional Commits 校验：type(scope): 中文描述'

@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+"""校验仓库约定的中文 Conventional Commits 标题。"""
+import re
+import sys
+from pathlib import Path
+
+try:
+    message = Path(sys.argv[1]).read_text(encoding="utf-8")
+except (OSError, UnicodeError, IndexError) as error:
+    sys.exit("无法读取 UTF-8 提交说明：" + str(error))
+
+subject = message.split("\n", 1)[0]
+pattern = r"(?:feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)\([a-z][a-z0-9-]*\): [^\s].*"
+if (not re.fullmatch(pattern, subject)
+        or subject != subject.strip()
+        or not re.search(r"[\u3400-\u9fff\U00020000-\U0002fa1f]", subject)
+        or any(ord(char) < 32 or ord(char) == 127 for char in subject)):
+    sys.exit("提交标题必须为 type(scope): 中文描述，例如：feat(editor): 支持插入网络图片\n"
+             "type/scope 使用小写英文，scope 必填，冒号后一个空格，描述须包含中文。")
