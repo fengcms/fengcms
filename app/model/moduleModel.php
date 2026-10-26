@@ -355,7 +355,7 @@ class moduleModel extends model{
 	/*
 	位置
 	*/
-	public function location($classid,$str="&gt;&gt;"){
+	public function location($classid,$str=">>"){
 		$array=explode(',',M("classify")->wz($classid,$str));
 		return array_reverse(array_unique(array_filter($array)));
 	}

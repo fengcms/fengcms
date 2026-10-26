@@ -92,6 +92,9 @@ try {
     $public=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check($public['status']===200 && str_contains($public['body'],'&lt;b data-probe=&quot;title&quot;&gt;') && !str_contains($public['body'],'<b data-probe="title">'),'article title is escaped');
     expect_check(str_contains($public['body'],$rich),'explicit rich content retains markup');
+    expect_check(str_contains($public['body'],'&gt;&gt;') && !str_contains($public['body'],'&amp;gt;'),
+        'breadcrumb separator is HTML-escaped exactly once');
+
     expect_check(request('GET','/?controller=content&project=article&id='.$draftId,$cookies)['status']===404,'unpublished article is private');
     $query='/index.php?controller=search&tags='.rawurlencode('<b data-probe="search">');
     $search=request('GET',$query,$cookies);

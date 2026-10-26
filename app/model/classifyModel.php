@@ -66,7 +66,7 @@ class classifyModel extends model{
 
 		$arr=D($this->d_name)->field('id,classid,name,html')->where('id = "'.$id.'"')->getone();
 
-		$array.=' '.$str.' <a href="'.cms_escape(cms_safe_url(url($arr['html']))).'">'.cms_escape($arr['name']).'</a>,';
+		$array.=' '.cms_escape($str).' <a href="'.cms_escape(cms_safe_url(url($arr['html']))).'">'.cms_escape($arr['name']).'</a>,';
 
 		if($arr['classid']>0){
 
