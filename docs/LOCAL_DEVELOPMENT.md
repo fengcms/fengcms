@@ -6,6 +6,8 @@
 
 本方案使用本机已有的 Docker / Colima；PHP、MySQL、Nginx 均运行在容器中，没有安装裸机服务。当前是安全升级开发环境，不是直接上线配置。
 
+FengCMS 自有代码与文档采用根目录 [MIT License](../LICENSE)；随附组件仍适用 [第三方许可说明](THIRD_PARTY_LICENSES.md)。旧版安装示例页脚包含与 MIT 冲突的文字，数据库迁移只替换内容完全一致的旧默认值，不改动站点管理员自定义的版权信息。
+
 ```sh
 ./bin/dev up       # 构建、初始化并启动
 ./bin/dev status

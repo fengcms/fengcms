@@ -45,7 +45,7 @@ CREATE TABLE `#prefix_base` (
   `template` varchar(255) default NULL COMMENT '模板',
   `time` varchar(15) default NULL COMMENT '修改时间'
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT COMMENT='网站基本';
-insert into `#prefix_base` VALUES ('FengCms','FengCms 打造最简单的网站内容管理系统','www.fengcms.com','Copyright 20013-2015 Powered by FengCms.COM，地方网络工作室 All Rights Reserved.<br />地方网络工作室 版权所有 未经许可严禁复制或建立镜像 <br />版本号：FengCms Beta 1.0','测试,文章系统,文章','我的站描述','/index.html','1383976418');
+insert into `#prefix_base` VALUES ('FengCms','FengCms 打造最简单的网站内容管理系统','www.fengcms.com','© 2013-2026 地方网络工作室及 FengCMS 贡献者。FengCMS 软件采用 MIT License；软件许可见仓库 LICENSE。网站内容版权由站点所有者自行设置。','测试,文章系统,文章','我的站描述','/index.html','1383976418');
 DROP TABLE IF EXISTS `#prefix_classify`;
 CREATE TABLE `#prefix_classify` (
   `id` int(11) NOT NULL auto_increment,

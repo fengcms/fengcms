@@ -12,6 +12,7 @@ if ($tables) {
         throw new RuntimeException('Database is not empty and has no development marker. Refusing to initialize it.');
     }
     migrate_security($db, 'f_');
+    migrate_license_notice($db, 'f_');
     echo "Existing development database retained; administrator password unchanged.\n";
     exit;
 }

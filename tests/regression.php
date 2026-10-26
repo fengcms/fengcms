@@ -92,6 +92,23 @@ try {
     expect_check((request('POST','/admin/index.php?controller=admin',$cookies,$login)['json']['status']??'')==='y','modern login succeeds');
     expect_check($sid!==$cookies['fengcms_session'],'session ID rotates');
     $newToken=token($cookies,true); expect_check($newToken!==$csrf,'CSRF rotates');
+    $licensePage=request('GET','/admin/index.php?controller=home&operate=main',$cookies);
+    expect_check($licensePage['status']===200 && str_contains($licensePage['body'],'MIT License') &&
+        !str_contains($licensePage['body'],'非商业运用') && !str_contains($licensePage['body'],'必须在FengCms官方论坛首发'),
+        'admin home displays the current MIT terms without obsolete restrictions');
+    expect_check(migrate_license_notice($db,'f_')===0,'legacy sample footer migration is idempotent after update');
+    $legacyFooter='Copyright 20013-2015 Powered by FengCms.COM，地方网络工作室 All Rights Reserved.<br />地方网络工作室 版权所有 未经许可严禁复制或建立镜像 <br />版本号：FengCms Beta 1.0';
+    $stmt=$db->prepare('UPDATE f_base SET copyright=?');
+    $stmt->bind_param('s',$legacyFooter); $stmt->execute();
+    expect_check(migrate_license_notice($db,'f_')===1 &&
+        str_contains($db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_row()[0],'MIT License'),
+        'legacy sample footer migrates to MIT notice');
+    $db->query("UPDATE f_base SET copyright='QA custom site copyright'");
+    expect_check(migrate_license_notice($db,'f_')===0 &&
+        $db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_row()[0]==='QA custom site copyright',
+        'license footer migration preserves a customized site footer');
+    $stmt=$db->prepare('UPDATE f_base SET copyright=?');
+    $stmt->bind_param('s',$originalBase['copyright']); $stmt->execute();
     $createdModule=request('POST','/admin/index.php?controller=modulemanage&operate=save',$cookies,['_csrf'=>$newToken,'project'=>$moduleProject,'name'=>'回归模型','item'=>'商品','unit'=>'件']);
     $moduleRow=$db->query("SELECT id FROM f_module WHERE project='$moduleProject'")->fetch_assoc();
     $moduleFixtureId=$moduleRow['id']??null;

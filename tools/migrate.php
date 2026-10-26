@@ -27,7 +27,24 @@ function migrate_security(mysqli $db, string $prefix): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
+function migrate_license_notice(mysqli $db, string $prefix): int
+{
+    if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
+        throw new RuntimeException('Invalid database prefix.');
+    }
+    // Replace only the untouched legacy sample footer; preserve site-specific copyright text.
+    $old = 'Copyright 20013-2015 Powered by FengCms.COM，地方网络工作室 All Rights Reserved.<br />地方网络工作室 版权所有 未经许可严禁复制或建立镜像 <br />版本号：FengCms Beta 1.0';
+    $new = '© 2013-2026 地方网络工作室及 FengCMS 贡献者。FengCMS 软件采用 MIT License；软件许可见仓库 LICENSE。网站内容版权由站点所有者自行设置。';
+    $stmt = $db->prepare("UPDATE `{$prefix}base` SET copyright=? WHERE copyright=?");
+    $stmt->bind_param('ss', $new, $old);
+    $stmt->execute();
+    return $stmt->affected_rows;
+}
+
 if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
-    migrate_security(migration_connection(), getenv('DB_PREFIX') ?: 'f_');
-    echo "Security schema migration complete.\n";
+    $db = migration_connection();
+    $prefix = getenv('DB_PREFIX') ?: 'f_';
+    migrate_security($db, $prefix);
+    $updated = migrate_license_notice($db, $prefix);
+    echo "Security schema migration complete; replaced $updated legacy sample license footer(s).\n";
 }
