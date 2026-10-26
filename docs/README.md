@@ -7,6 +7,7 @@
 - [共享主机网页安装方案](WEB_INSTALLER_PLAN.md)：首次安装流程、安全边界与验收标准。
 - [安全升级记录](SECURITY_UPGRADE.md)：修复、验证、线上盘点和迁移限制。
 - [v1.36 代码审阅报告](CODE_AUDIT_V1.36.md)：安全、数据完整性、性能与维护性风险及优先级。
+- [v1.36 后续加固实施方案](HARDENING_ROADMAP_V1.36.md)：后台备份与模型导入保留方案，以及已采纳风险的分阶段实施计划。
 - [历史文档归档](legacy/README.md)：原 `_doc` 资料，文本已统一为 UTF-8，附模板白皮书原件与纯文本版。
 - [第三方许可说明](THIRD_PARTY_LICENSES.md)：FengCMS MIT 许可与随附组件原许可的范围。
 
