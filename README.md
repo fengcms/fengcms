@@ -2,6 +2,7 @@
 
 使用 Docker / Colima 运行 PHP 8.4、MySQL 8.4 和 Nginx，无需安装裸机服务。运行 `./bin/dev up`，访问 http://127.0.0.1:18080/ 。
 
+- [文档总目录与历史资料](docs/README.md)
 - [本地使用说明](docs/LOCAL_DEVELOPMENT.md)
 - [修复记录、线上盘点与迁移限制](docs/SECURITY_UPGRADE.md)
 

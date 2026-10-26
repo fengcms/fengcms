@@ -1,26 +1,26 @@
-FengCms 1.32°æĞŞ¸Ä¹ıµÄÎÄ¼ş
+FengCms 1.32ç‰ˆä¿®æ”¹è¿‡çš„æ–‡ä»¶
 /system/app.php
 /system/common/function.php
 /system/common/waf.php
 /system/common/filter.php
 /web.config
 
-/¾ø´ó¶ÔÊıÄ£°æÎÄ¼ş£¬½«ÍòÄÜ±êÇ©·½Ê½¸üĞÂÎªĞÂ·½·¨£¬²¢ĞŞ¸´ÉÙÁ¿Ä£°æ´íÎó£¨´Ë²»ÒªÇó¸üĞÂĞŞ¸´£©
+/ç»å¤§å¯¹æ•°æ¨¡ç‰ˆæ–‡ä»¶ï¼Œå°†ä¸‡èƒ½æ ‡ç­¾æ–¹å¼æ›´æ–°ä¸ºæ–°æ–¹æ³•ï¼Œå¹¶ä¿®å¤å°‘é‡æ¨¡ç‰ˆé”™è¯¯ï¼ˆæ­¤ä¸è¦æ±‚æ›´æ–°ä¿®å¤ï¼‰
 
-FengCms 1.31°æĞŞ¸Ä¹ıµÄÎÄ¼ş
+FengCms 1.31ç‰ˆä¿®æ”¹è¿‡çš„æ–‡ä»¶
 /system/common/filter.php
 /app/model/messageModel.php
 
-FengCms 1.30°æĞŞ¸Ä¹ıµÄÎÄ¼ş
+FengCms 1.30ç‰ˆä¿®æ”¹è¿‡çš„æ–‡ä»¶
 
 /app/controller/classifyController.php
 /admin/template/system/form/batchpic.html
 
-FengCms 1.29°æĞŞ¸Ä¹ıµÄÎÄ¼ş
+FengCms 1.29ç‰ˆä¿®æ”¹è¿‡çš„æ–‡ä»¶
 
 /system/common/function.php
 /system/core/template.php
 /admin/app/model/classifyModel.php
 /admin/version.php
 
-ĞÂÔötemplate_mobileÄ¿Â¼
+æ–°å¢template_mobileç›®å½•
