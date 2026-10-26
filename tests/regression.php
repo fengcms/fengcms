@@ -367,6 +367,13 @@ try {
     expect_check(($message['status']??'')==='y' && (int)$savedMessage['status']===0 && $savedMessage['reply']===null && (int)$savedMessage['time']>1,'public message cannot set publication, reply or time');
     $messagePage=request('GET','/admin/index.php?controller=message',$cookies);
     expect_check(str_contains($messagePage['body'],'&lt;b data-probe=&quot;message&quot;&gt;') && !str_contains($messagePage['body'],'<b data-probe="message">'),'visitor message is escaped in admin');
+    $replyData=['_csrf'=>$newToken,'id'=>$messageId,'reply'=>'谢谢反馈，已处理。','status'=>'1','rtime'=>(string)time()];
+    $replySave=request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData);
+    expect_check(($replySave['json']['status']??'')==='y' && (int)($replySave['json']['id']??0)===(int)$messageId,'message reply returns the actual saved record ID');
+    expect_check($db->query('SELECT reply FROM f_message WHERE id='.(int)$messageId)->fetch_assoc()['reply']===$replyData['reply'],'message reply is persisted');
+    $replyResult=request('GET','/admin/index.php?controller=message&operate=execution&re=1&id='.$replySave['json']['id'],$cookies);
+    expect_check($replyResult['status']===200 && str_contains($replyResult['body'],'操作成功'),'message reply result URL accepts its returned record ID');
+    expect_check((request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData)['json']['status']??'')==='y','saving an unchanged message reply is successful');
     $db->query("CREATE TABLE `$fixture` (id int AUTO_INCREMENT PRIMARY KEY,name varchar(255),note text) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $text="单引号' 双引号\" 反斜杠\\ 1e10 ; DROP TABLE test";
     $id=D(substr($fixture,2))->insert(['name'=>$text,'note'=>null]);

@@ -63,17 +63,14 @@ class messageModel{// extends model{
      *
      * @return array
      */
-	public function save($array){
-		$id=$array['id'];unset($array['id']);
-		if(D($this->d_name)->where('id="'.$id.'"')->update($array)){
-
-			return array('status' => 'y','id' => $array['id']);
-
-		}else{
-
-			return array('status' => 'n','id' => $array['id']);
-		}
-	}
+    public function save($array){
+        $id=$array['id']??'';
+        if(!is_string($id) || !preg_match('/^[0-9]{1,10}$/D',$id) || (int)$id<1){cms_fail(400,'留言 ID 不正确。');}
+        unset($array['id']);
+        $exists=D($this->d_name)->where(['id'=>$id])->getone();
+        $saved=$exists && $array && D($this->d_name)->where(['id'=>$id])->update($array)>=0;
+        return ['status'=>$saved?'y':'n','id'=>$id];
+    }
 
 }
 
