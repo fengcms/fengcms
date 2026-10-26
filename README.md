@@ -5,6 +5,7 @@
 - [文档总目录与历史资料](docs/README.md)
 - [本地使用说明](docs/LOCAL_DEVELOPMENT.md)
 - [修复记录、线上盘点与迁移限制](docs/SECURITY_UPGRADE.md)
+- [AI 维护约定与提交规范](AGENTS.md)：首次克隆后运行 `./bin/setup-git-hooks`，启用 `type(scope): 中文描述` 提交校验。
 
 当前为安全升级开发版，不可直接覆盖运行环境和定制代码未经验证的存量站点。
 

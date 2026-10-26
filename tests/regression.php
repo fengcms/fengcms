@@ -113,6 +113,14 @@ try {
     expect_check(str_contains($cleaned,'<strong>加粗</strong>') && str_contains($cleaned,'src="/upload/safe.png"'), 'sanitizer preserves normal formatting and relative images');
     $cleanPublic=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check(str_contains($cleanPublic['body'],$cleaned), 'sanitized rich text still renders with legacy template syntax');
+    $networkHTML='<p>网络图片<img src="https://images.example.com/photo?id=1&amp;size=large" alt="网络图片"><img src="http://images.example.com/plain.jpg" alt="普通网址"></p>';
+    $networkSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,['_csrf'=>$newToken,'id'=>$articleId,'title'=>'updated_'.$tag,'content'=>$networkHTML]);
+    $networkSaved=$db->query('SELECT content FROM f_article WHERE id='.(int)$articleId)->fetch_assoc()['content'];
+    expect_check(($networkSave['json']['status']??'')==='y' && str_contains($networkSaved,'https://images.example.com/photo?id=1&amp;size=large') && str_contains($networkSaved,'http://images.example.com/plain.jpg'), 'network images survive server sanitization and storage');
+    $networkEdit=request('GET','/admin/index.php?controller=module&project=article&operate=update&id='.$articleId,$cookies);
+    expect_check($networkEdit['status']===200 && str_contains($networkEdit['body'],'https://images.example.com/photo?id=1&amp;amp;size=large'), 'network image URL is escaped for editing without losing query parameters');
+    $networkPublic=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
+    expect_check($networkPublic['status']===200 && str_contains($networkPublic['body'],$networkSaved), 'network images render through the original frontend template');
 
     $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');

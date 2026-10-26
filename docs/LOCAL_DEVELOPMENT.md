@@ -1,5 +1,7 @@
 # 本地容器开发
 
+首次克隆后运行 `./bin/setup-git-hooks`（开发工具需要 Python 3），启用仓库内提交校验。所有提交标题使用 `type(scope): 中文描述`，例如 `fix(editor): 修复图片插入失败`。完整维护约定见根目录 [AGENTS.md](../AGENTS.md)。编辑器适配变更还应运行 `node tests/editor-regression.js`。
+
 本方案使用本机已有的 Docker / Colima；PHP、MySQL、Nginx 均运行在容器中，没有安装裸机服务。当前是安全升级开发环境，不是直接上线配置。
 
 ```sh
@@ -28,3 +30,9 @@ export all_proxy=socks5://127.0.0.1:7897
 ```
 
 Docker daemon 拉取镜像不一定继承 shell 代理，必要时在 Colima/Docker 中单独配置代理，不要把代理或凭证固化进镜像。
+
+## 本地提交历史整理
+
+2026-10-26 经维护者授权，将当前 `master` 原有 16 个提交说明改为中文 Conventional Commits 标题。逐个保持文件树、作者、提交者与时间不变；父提交引用和提交哈希随历史改写而变化。原提交备份为本机已忽略的 `var/git-backups/before-chinese-history.bundle`，映射表为同目录 `chinese-history-map.json`，需要恢复时可在另一目录克隆该 bundle 检查。备份不纳入发布仓库。
+
+未执行推送，远端跟踪引用保留真实的既有状态；已有远端提交与新历史不再构成快进关系，后续发布需由维护者决定如何同步。

@@ -4,6 +4,23 @@
     const instances = new Map();
     let pending = 0;
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+    function checkImageURL(value, allowRelative = false) {
+        if (typeof value !== 'string' || !value.trim() || /[\\\x00-\x1f\x7f]/.test(value)) return false;
+        const text = value.trim();
+        if (allowRelative && /^\/(?!\/)/.test(text)) return true;
+        if (!/^https?:\/\//i.test(text)) return false;
+        try {
+            const url = new URL(text);
+            return !!url.hostname && !url.username && !url.password;
+        } catch (_) { return false; }
+    }
+    function checkImage(src, alt, link, allowRelative = false) {
+        if (!checkImageURL(src, allowRelative)) return allowRelative
+            ? '图片地址须为 HTTP/HTTPS 网址或站内绝对路径。'
+            : '请输入完整的 HTTP/HTTPS 图片网址。';
+        if (link && !checkImageURL(link, true)) return '图片跳转链接须为 HTTP/HTTPS 网址或站内绝对路径。';
+        return true;
+    }
     async function upload(file, dir = 'image', onProgress = () => {}, signal) {
         if (file.size <= 0 || file.size > 10 * 1024 * 1024) throw new Error('文件必须大于 0 且不能超过 10MB');
         const data = new FormData();
@@ -64,7 +81,10 @@
             selector:body, html:textarea.value || '<p><br></p>', mode:'default',
             config:{ placeholder:'请输入内容',
                 onChange:() => sync(),
-                MENU_CONF:{uploadImage:{maxFileSize:10 * 1024 * 1024,
+                MENU_CONF:{
+                    insertImage:{checkImage, parseImageSrc:src=>src.trim()},
+                    editImage:{checkImage:(src,alt,link)=>checkImage(src,alt,link,true), parseImageSrc:src=>src.trim()},
+                    uploadImage:{maxFileSize:10 * 1024 * 1024,
                     async customUpload(file, insert) { const url = await upload(file); insert(url, '', ''); }
                 }}
             }
@@ -72,15 +92,27 @@
         window.wangEditor.createToolbar({editor, selector:toolbar, config:{toolbarKeys:[
             'headerSelect','bold','italic','underline','through','color','bgColor','fontSize',
             'bulletedList','numberedList','blockquote','justifyLeft','justifyCenter','justifyRight',
-            'insertLink','uploadImage','insertTable','undo','redo','fullScreen'
+            'insertLink',{
+                key:'group-image', title:'图片',
+                iconSvg:'<svg viewBox="0 0 1024 1024"><path d="M896 128H128v768h768V128zM192 192h640v448L640 448 448 640 320 512 192 640V192zm64 128a64 64 0 1 0 128 0 64 64 0 0 0-128 0z"/></svg>',
+                menuKeys:['uploadImage','insertImage']
+            },'insertTable','undo','redo','fullScreen'
         ]}});
-        toolbar.querySelectorAll('button[data-tooltip]').forEach(button => {
-            button.setAttribute('aria-label', button.getAttribute('data-tooltip').split('\n')[0]);
-        });
+        // Toolbar and group buttons are inserted asynchronously by wangEditor.
+        const labelToolbar = () => {
+            toolbar.querySelectorAll('button[data-tooltip]').forEach(button => {
+                button.setAttribute('aria-label', button.getAttribute('data-tooltip').split('\n')[0]);
+            });
+            toolbar.querySelectorAll('button[data-menu-key="group-image"]').forEach(button => {
+                button.setAttribute('aria-label', '图片');button.setAttribute('title', '图片');
+            });
+        };
+        const toolbarObserver = new MutationObserver(labelToolbar);
+        toolbarObserver.observe(toolbar, {childList:true, subtree:true});labelToolbar();
         body.setAttribute('aria-label', textarea.name || textarea.id || '富文本编辑区');
         const fullscreenObserver = new MutationObserver(updateFullscreenFrame);
         fullscreenObserver.observe(wrapper, {attributes:true, attributeFilter:['class']});
-        editor.on('destroyed', () => { fullscreenObserver.disconnect(); updateFullscreenFrame(); });
+        editor.on('destroyed', () => { toolbarObserver.disconnect(); fullscreenObserver.disconnect(); updateFullscreenFrame(); });
         instances.set(textarea, editor); textarea.hidden = true;
     }
     function setField(id, urls, multiple) {
