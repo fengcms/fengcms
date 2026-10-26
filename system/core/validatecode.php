@@ -28,7 +28,7 @@ class validatecode {
  private function createcode() {
   $_len = strlen($this->charset)-1;
   for ($i=0;$i<$this->codelen;$i++) {
-   $this->code .= $this->charset[mt_rand(0,$_len)];
+   $this->code .= $this->charset[random_int(0,$_len)];
   }
  }
  //生成背景

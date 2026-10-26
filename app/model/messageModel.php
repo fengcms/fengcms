@@ -4,8 +4,7 @@ class messageModel extends model
     public function page() { return sqlpage('message',20,'*','status=1','id desc'); }
     public function save($input)
     {
-        $code = $input['vcode'] ?? '';
-        if (!is_string($code) || empty($_SESSION['authnum']) || !hash_equals(strtolower($_SESSION['authnum']), strtolower($code))) {
+        if (!cms_captcha_verify($input['vcode'] ?? null)) {
             return ['status'=>'c'];
         }
         $data = [];
@@ -18,7 +17,7 @@ class messageModel extends model
         // Publication state, reply and timestamps are controlled by the server.
         $data += ['status'=>0,'time'=>time()];
         $id = D('message')->insert($data);
-        unset($_SESSION['authnum']);
+        unset($_SESSION['authnum'],$_SESSION['authnum_at']);
         return ['status'=>$id ? 'y' : 'n','id'=>$id];
     }
 }

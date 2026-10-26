@@ -16,7 +16,11 @@ class homeController extends Controller{
 	}
 
 	public function vccore(){
-		if(strtolower($_POST['param'])==strtolower($_SESSION['authnum'])){
+		if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST'){
+			header('Allow: POST');
+			cms_fail(405,'此操作需要 POST 请求。');
+		}
+		if(cms_captcha_verify($_POST['param']??null)){
 			echo 'y';//json_encode(array('y'));
 		}else{
 			echo '验证码不正确';//json_encode(array('n'));

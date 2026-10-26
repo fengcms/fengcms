@@ -6,4 +6,5 @@ require ROOT_PATH.'/system/core/validatecode.php';  //�Ȱ�������
 $_vc = new validatecode();		//ʵ����һ������
 $_vc->doimg();		
 $_SESSION['authnum'] = $_vc->getcode();//��֤�뱣�浽SESSION��
+$_SESSION['authnum_at'] = time();
 ?>

@@ -72,6 +72,11 @@ try {
     expect_check($tagsPage['status']===200 && str_contains($tagsPage['body'],'id="tags_list"'),'tag cloud pseudo-static URL renders its controller');
     expect_check(str_contains(request('GET','/tags.html?source=regression',$cookies)['body'],'id="tags_list"'),'tag cloud accepts ordinary query parameters');
     expect_check(str_contains(request('GET','/?controller=tags',$cookies)['body'],'id="tags_list"'),'dynamic tag cloud URL remains available');
+    $captchaCookies=[];
+    expect_check(request('GET','/vccore.php',$captchaCookies)['status']===200,'visitor can request a captcha image');
+    $arrayCaptcha=request('POST','/?controller=home&operate=vccore',$captchaCookies,['param'=>['abcd']]);
+    expect_check($arrayCaptcha['status']!==500 && $arrayCaptcha['body']!=='y',
+        'captcha verification rejects array input without a PHP error');
     $tagSearch=request('GET','/tags/security-test.html',$cookies);
     expect_check($tagSearch['status']===200 && !str_contains($tagSearch['body'],'id="tags_list"') && str_contains($tagSearch['body'],'security-test'),'tag keyword search remains separate from the tag cloud');
     expect_check(request('GET','/admin/index.php',$cookies)['status']===302,'anonymous admin redirects');
@@ -947,7 +952,13 @@ try {
         expect_check($legacySyntax,'bundled templates retain original variable syntax: '.$directory);
     }
 
-    $_SESSION['authnum']='abcd';
+    $_SESSION['authnum']='abcd'; $_SESSION['authnum_at']=time();
+    $wrongMessage=M('message')->save(['vcode'=>'zzzz']);
+    expect_check(($wrongMessage['status']??'')==='c' && !isset($_SESSION['authnum']),
+        'incorrect message captcha is consumed immediately');
+    $_SESSION['authnum']='abcd'; $_SESSION['authnum_at']=time();
+    expect_check(cms_captcha_verify('AbCd') && $_SESSION['authnum']==='abcd',
+        'correct asynchronous captcha check keeps the code for message submission');
     $message=M('message')->save(['vcode'=>'abcd','title'=>'message_'.$tag,'content'=>'<b data-probe="message">hello</b>','name'=>'visitor','status'=>'1','reply'=>'injected','time'=>'1']);
     $messageId=$message['id']??null;
     $savedMessage=$db->query('SELECT * FROM f_message WHERE id='.(int)$messageId)->fetch_assoc();
@@ -1094,6 +1105,11 @@ try {
         $rate=request('POST','/admin/index.php?controller=admin',$rateCookies,['_csrf'=>$rateToken,'user'=>'absent_'.$tag,'password'=>'incorrect','admincode'=>getenv('ADMIN_CODE')]);
     }
     expect_check($rate['status']===429,'login rate limit enforced');
+    $captchaRateCookies=[];
+    for($i=0;$i<31;$i++){
+        $captchaRate=request('POST','/?controller=home&operate=vccore',$captchaRateCookies,['param'=>'zzzz']);
+    }
+    expect_check($captchaRate['status']===429,'captcha guesses are limited per remote address');
     echo "All $passed regression checks passed.\n";
 } finally {
     if ($signupFixtureCreated) { $db->query('DROP TABLE f_signup_base'); }
@@ -1143,6 +1159,8 @@ try {
         $stmt=$db->prepare('DELETE FROM f_login_attempts WHERE bucket=?'); $stmt->bind_param('s',$bucket); $stmt->execute();
     }
     $bucket=hash_hmac('sha256','ip:'.gethostbyname('web'),getenv('APP_KEY'));
+    $stmt=$db->prepare('DELETE FROM f_login_attempts WHERE bucket=?'); $stmt->bind_param('s',$bucket); $stmt->execute();
+    $bucket=hash_hmac('sha256','captcha-ip:'.gethostbyname('web'),getenv('APP_KEY'));
     $stmt=$db->prepare('DELETE FROM f_login_attempts WHERE bucket=?'); $stmt->bind_param('s',$bucket); $stmt->execute();
     $db->query("DROP TABLE IF EXISTS `$fixture`");
 }

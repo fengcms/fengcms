@@ -168,6 +168,40 @@ function cms_safe_url($value): string
     return $scheme && !in_array(strtolower($scheme), ['http','https','mailto','tel'], true) ? '' : $value;
 }
 
+function cms_captcha_verify($value): bool
+{
+    $code=$_SESSION['authnum']??null;
+    $issued=$_SESSION['authnum_at']??null;
+    $valid=is_string($value) && preg_match('/^[A-Za-z0-9]{4}$/D',$value) &&
+        is_string($code) && is_int($issued) && $issued<=time() && time()-$issued<=600 &&
+        hash_equals(strtolower($code),strtolower($value));
+    cms_captcha_attempt(!$valid);
+    if(!$valid){unset($_SESSION['authnum'],$_SESSION['authnum_at']);}
+    return $valid;
+}
+
+function cms_captcha_attempt(bool $failed): void
+{
+    // The existing login-attempt table also provides a bounded, per-IP budget
+    // across fresh sessions. Never trust client-supplied forwarding headers here.
+    $ip=$_SERVER['REMOTE_ADDR']??null;
+    if(!is_string($ip) || $ip===''){return;}
+    $db=new db_mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME);
+    $table=model::identifier(DB_PREFIX.'login_attempts');
+    $bucket=hash_hmac('sha256','captcha-ip:'.$ip,KEYS);
+    $now=time();
+    $row=$db->assoc($db->query("SELECT attempts,expires_at FROM $table WHERE bucket=?",[$bucket]));
+    if($row && (int)$row['expires_at']>$now && (int)$row['attempts']>=30){
+        header('Retry-After: '.max(1,(int)$row['expires_at']-$now));
+        cms_fail(429,'验证码尝试过多，请稍后重试。');
+    }
+    if(!$failed){return;}
+    $expires=$now+900;
+    $db->query("INSERT INTO $table (bucket,attempts,expires_at) VALUES (?,1,?)
+        ON DUPLICATE KEY UPDATE attempts=IF(expires_at<=?,1,attempts+1),
+        expires_at=IF(expires_at<=?,VALUES(expires_at),expires_at)",[$bucket,$expires,$now,$now]);
+}
+
 function cms_editor_content_project(string $name): bool
 {
     static $allowed=[];
