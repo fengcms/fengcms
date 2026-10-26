@@ -116,7 +116,17 @@ class moduleModel extends model{
 		$sortp=$this->op['sort']['p']??'desc';
 		$limit=$this->op['limit']??10;
 
-		return D($table)->field($field)->where($where)->sort($sortf,$sorts,$sortp)->limit($limit)->getall();
+		$rows=D($table)->field($field)->where($where)->sort($sortf,$sorts,$sortp)->limit($limit)->getall();
+		// Legacy templates print these fields directly in href attributes. Keep the
+		// template syntax while neutralizing unsafe URLs from imported/old rows.
+		if($table==='classify' || $table==='friend'){
+			$key=$table==='classify'?'html':'url';
+			foreach($rows as &$row){
+				if(isset($row[$key])){$row[$key]=cms_safe_url($row[$key]);}
+			}
+			unset($row);
+		}
+		return $rows;
 		//return $this->getall();
 	}
 

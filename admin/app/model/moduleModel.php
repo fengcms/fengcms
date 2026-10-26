@@ -84,6 +84,10 @@ class moduleModel extends model{
 		}
 		$array=array_intersect_key($array,$writable);
 		foreach($array as $name=>$value){if(!is_string($value) && !is_int($value)){cms_fail(400,'字段内容不正确。');}}
+		if($project==='tags' && isset($array['name'])){$this->validateTag($array['name']);}
+		if($project==='friend' && isset($array['url']) && $array['url']!=='' && cms_safe_url($array['url'])===''){
+			cms_fail(400,'链接地址只允许安全的链接。');
+		}
 		if(isset($array['status']) && !in_array((string)$array['status'],['0','1'],true)){cms_fail(400,'状态不正确。');}
 		$array=cms_clean_record($array,$project);
 		if($hasAttrib && $id!==null){
@@ -130,32 +134,43 @@ class moduleModel extends model{
      * @return array
      */
 	public function batchsave($arr){
-		foreach(explode("\n",$arr['batch']) as $v){
+		$batch=$arr['batch']??null;
+		if(!is_string($batch) || $batch===''){cms_fail(400,'批量内容不正确。');}
+		$rows=[];
+		foreach(explode("\n",$batch) as $v){
+			if(trim($v)===''){continue;}
+			$array=[];
 
 			if($_GET['project']=="tags"){
 
 				$array['name']			=	trim($v);
+				$this->validateTag($array['name']);
 
 			}else{
 
-				$c=explode("|",$v);
-
-				if(count($c)<1){
-
-					return array('status' => 'n');
-
-				}else{
-
-					$array['name']		=	$c[0];
-					$array['url']		=	trim($c[1]);
+				$c=explode("|",$v,2);
+				if(trim($c[0])===''){cms_fail(400,'批量内容不正确。');}
+				$array['name']		=	trim($c[0]);
+				$array['url']		=	trim($c[1]??'');
+				if($array['url']!=='' && cms_safe_url($array['url'])===''){
+					cms_fail(400,'链接地址只允许安全的链接。');
 				}
 			}
-
+			$rows[]=$array;
+		}
+		if(!$rows){cms_fail(400,'批量内容不正确。');}
+		foreach($rows as $array){
 			$re=D($_GET['project'])->insert($array);
 
 			if(!$re) return array('status' => 'n');
 		}
 		 return array('status' => 'y');
+	}
+
+	private function validateTag(string $name): void{
+		if($name==='' || mb_strlen($name,'UTF-8')>50 || preg_match('/[<>\x00-\x1f\x7f]/',$name)){
+			cms_fail(400,'标签名称不正确。');
+		}
 	}
 
 }

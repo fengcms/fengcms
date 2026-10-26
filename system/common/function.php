@@ -363,7 +363,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 
 
 	function url($url){
-		if($url===null){return '';}
+		if(!is_string($url) || $url==='' || cms_safe_url($url)===''){return '';}
 		if(URL_TYPE=='1'){
 			return $url;
 		}elseif(URL_TYPE=='0'){
@@ -403,10 +403,11 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 	}
 
 	function search($string){
+		if(!is_scalar($string)){return '';}
 		if(URL_TYPE=='1'){
-			return '/tags/'.urlencode($string).'.html';
+			return '/tags/'.rawurlencode((string)$string).'.html';
 		}elseif(URL_TYPE=='0'){
-			return '/?controller=search&tags='.$string;
+			return '/?controller=search&tags='.rawurlencode((string)$string);
 		}
 	}
 

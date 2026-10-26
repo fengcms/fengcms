@@ -158,6 +158,13 @@ class classifyModel extends model{
 		$array=array_intersect_key($array,array_fill_keys($allowed,true));
 		foreach($array as $value){if(!is_string($value) && !is_int($value)){cms_fail(400,'栏目内容不正确。');}}
 		if(array_key_exists('intro',$array)){$array['intro']=cms_clean_html($array['intro']);}
+		if($id===null && ($array['type']??null)!=='url' &&
+			(!isset($array['enname']) || !preg_match('/^[A-Za-z0-9_-]{1,50}$/D',$array['enname']))){
+			cms_fail(400,'栏目英文名称只能包含字母、数字、下划线和连字符，且不能超过 50 字符。');
+		}
+		if(array_key_exists('html',$array) && $array['html']!=='' && cms_safe_url($array['html'])===''){
+			cms_fail(400,'外链地址只允许安全的链接。');
+		}
 		if(array_key_exists('time',$_POST)){$array['time']=time();}
 		if($id!==null){
 			$re=$array?D($this->d_name)->where(['id'=>$id])->update($array):false;
@@ -204,21 +211,40 @@ class classifyModel extends model{
      * @return array
      */
 	public function batchsave($classify){
-
-		foreach(explode("\n",$classify['name']??'') as $v){
+		if(($classify['type']??null)!=='module' || !is_string($classify['project']??null) ||
+			!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D',$classify['project'])){
+			cms_fail(400,'批量栏目类型或模型不正确。');
+		}
+		foreach(['name','classid','intro','img','key','description','channel_template','classify_template','content_template'] as $field){
+			if(isset($classify[$field]) && !is_string($classify[$field])){cms_fail(400,'栏目内容不正确。');}
+		}
+		if(isset($classify['classid']) && !preg_match('/^[0-9]{1,10}$/D',$classify['classid'])){
+			cms_fail(400,'父栏目不正确。');
+		}
+		$names=$classify['name']??null;
+		if(!is_string($names) || $names===''){cms_fail(400,'栏目内容不正确。');}
+		$intro=cms_clean_html($classify['intro']??'');
+		$topid=$this->topid($classify['classid']??0);
+		$rows=[];
+		foreach(explode("\n",$names) as $v){
+			if(trim($v)===''){continue;}
 			$array=[];
 
 			$c=explode("|",$v);
+			if(count($c)!==2 || trim($c[0])===''){cms_fail(400,'批量栏目格式不正确。');}
 
-			$array['name']				=	$c[0];
+			$array['name']				=	trim($c[0]);
 			$array['enname']			=	trim($c[1]??'');
+			if(!preg_match('/^[A-Za-z0-9_-]{1,50}$/D',$array['enname'])){
+				cms_fail(400,'栏目英文名称只能包含字母、数字、下划线和连字符，且不能超过 50 字符。');
+			}
 
-			$array['topid']				=	$this->topid($classify['classid']??0);
+			$array['topid']				=	$topid;
 
 			$array['classid']			=	$classify['classid']??0;
 			$array['type']				=	$classify['type']??'';
 			$array['project']			=	$classify['project']??'';
-			$array['intro']				=	$classify['intro']??'';
+			$array['intro']				=	$intro;
 			$array['img']				=	$classify['img']??'';
 			$array['key']				=	$classify['key']??'';
 			$array['description']		=	$classify['description']??'';
@@ -227,10 +253,14 @@ class classifyModel extends model{
 			$array['classify_template']	=	$classify['classify_template']??'';
 			$array['content_template']	=	$classify['content_template']??'';
 
+			$rows[]=$array;
+		}
+		if(!$rows){cms_fail(400,'栏目内容不正确。');}
+		foreach($rows as $array){
 			$id=D($this->d_name)->insert($array);
 
 			$re=D($this->d_name)->where(['id'=>(int)$id])->update(array(
-				'html'	=>	'/'.$classify['project'].'_'.$array['enname'].'_'.$id.'.html'
+				'html'	=>	'/'.$array['project'].'_'.$array['enname'].'_'.$id.'.html'
 				));
 			if(!$re) return array('status' => 'n','id' => $id);
 		}

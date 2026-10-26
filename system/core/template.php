@@ -204,7 +204,13 @@ class template{
         $s = preg_replace_callback('/\{(\$[a-zA-Z0-9_\[\]\'"\$\x7f-\xff]+)\}/i',
             static fn($m) => '<?php echo cms_template_output('.$m[1].' ?? null); ?>', $s);
 		$s = @preg_replace("/\{\\\$(.+?)\}/is", "<?php if(($\\1)){ $\\1;}?>", $s);
-        $s = @preg_replace("/\{([@&\\\$a-zA-Z0-9_]+)\(([ ,\?\.=&%-\:a-zA-Z0-9_\[\]\'\"\\\$\x7f-\xff\(\)]*)\)\}/is", "<?php echo \\1(\\2);?>", $s);
+        $s = preg_replace_callback("/\{([@&\\\$a-zA-Z0-9_]+)\(([ ,\?\.=&%-\:a-zA-Z0-9_\[\]\'\"\\\$\x7f-\xff\(\)]*)\)\}/is",
+            static function ($m) {
+                $call=$m[1].'('.$m[2].')';
+                return in_array(strtolower($m[1]),['url','search'],true)
+                    ? '<?php echo cms_escape(cms_safe_url('.$call.')); ?>'
+                    : '<?php echo '.$call.'; ?>';
+            }, $s);
         for ($i = 0; $i <= 5; $i++) {
             $s = preg_replace_callback('/[\n\r\t]*\{loop\s+(\S+)\s+(\S+)\}\s*(.+?)\s*\{\/loop\}[\n\r\t]*/is',
                 static fn($m) => '<?php if (is_array('.$m[1].' ?? null)) { foreach ('.$m[1].' as '.$m[2].') { ?>'.$m[3].'<?php }} ?>', $s);

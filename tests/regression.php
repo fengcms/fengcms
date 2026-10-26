@@ -53,6 +53,7 @@ $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."
 $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=null; $backupId=null;
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
 $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId=null;
+$unsafeTagId=$unsafeCategoryId=$unsafeFriendId=$legacyUnsafeTagId=$legacyUnsafeFriendId=$legacyUnsafeCategoryId=$badExternalId=null;
 $counterTagIds=[]; $counterAuthorId=null;
 $signupFixtureCreated=false;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
@@ -214,6 +215,24 @@ try {
     expect_check(($tagEdit['json']['status']??'')==='y' &&
         $db->query('SELECT name FROM f_tags WHERE id='.(int)$editorTagId)->fetch_row()[0]==='editor_tag_updated_'.$tag,
         'editor updates related keyword');
+    $unsafeTag='audit_'.$tag.'"><svg/onload=alert(1)>';
+    $unsafeTagBatch=request('POST','/admin/index.php?controller=module&project=tags&operate=batchsave',$editorCookies,
+        ['_csrf'=>$editorToken,'batch'=>$unsafeTag]);
+    $unsafeTagLookup=$db->prepare('SELECT id FROM f_tags WHERE name=?');
+    $unsafeTagLookup->bind_param('s',$unsafeTag); $unsafeTagLookup->execute();
+    $unsafeTagId=$unsafeTagLookup->get_result()->fetch_row()[0]??null; $unsafeTagLookup->close();
+    expect_check($unsafeTagBatch['status']===400 && $unsafeTagId===null,
+        'editor cannot create a tag containing executable markup');
+    $legacyTag='audit_legacy_'.$tag.'"><svg/onload=alert(1)>';
+    $legacyTagInsert=$db->prepare('INSERT INTO f_tags (name,status) VALUES (?,1)');
+    $legacyTagInsert->bind_param('s',$legacyTag); $legacyTagInsert->execute();
+    $legacyUnsafeTagId=$db->insert_id; $legacyTagInsert->close();
+    $legacyTagHome=request('GET','/tags.html',$editorCookies);
+    expect_check($legacyTagHome['status']===200 &&
+        str_contains($legacyTagHome['body'],rawurlencode($legacyTag)) &&
+        !str_contains($legacyTagHome['body'],'<svg/onload=alert(1)>'),
+        'existing unsafe tag names are encoded in public search links');
+    $db->query('DELETE FROM f_tags WHERE id='.(int)$legacyUnsafeTagId); $legacyUnsafeTagId=null;
     $quotedTag='quoted_'.$tag.'"value'; $normalTag='normal_'.$tag; $otherTag='other_'.$tag;
     $counterInsert=$db->prepare('INSERT INTO f_tags (name,hits) VALUES (?,0)');
     foreach ([$quotedTag,$normalTag,$otherTag] as $counterName) {
@@ -243,6 +262,59 @@ try {
     $editorCategoryId=(int)($categorySave['json']['id']??0) ?: null;
     expect_check(($categorySave['json']['status']??'')==='y' && $editorCategoryId!==null,
         'editor creates an external-link category');
+    $unsafeCategoryName='audit_category_'.$tag;
+    $unsafeCategory=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'type'=>'module','project'=>'article','name'=>$unsafeCategoryName,
+            'enname'=>'audit"><svg/onload=alert(1)>','classid'=>'0','nav'=>'1','genre'=>'one']);
+    $unsafeCategoryLookup=$db->prepare('SELECT id FROM f_classify WHERE name=?');
+    $unsafeCategoryLookup->bind_param('s',$unsafeCategoryName); $unsafeCategoryLookup->execute();
+    $unsafeCategoryId=$unsafeCategoryLookup->get_result()->fetch_row()[0]??null; $unsafeCategoryLookup->close();
+    expect_check($unsafeCategory['status']===400 && $unsafeCategoryId===null,
+        'editor cannot create a category with executable URL slug');
+    $badBatchCategory=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'type'=>'module','project'=>'article','name'=>'批量恶意|slug"><svg/onload=alert(1)>',
+            'classid'=>'0','genre'=>'batch']);
+    expect_check($badBatchCategory['status']===400,
+        'batch category creation rejects executable URL slugs');
+    $safeBatchCategory=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'type'=>'module','project'=>'article','name'=>'批量安全|audit-safe-'.$tag,
+            'classid'=>'0','intro'=>'<p>说明</p><script>alert(1)</script>','genre'=>'batch']);
+    $safeBatchRow=$db->query("SELECT id,intro FROM f_classify WHERE enname='audit-safe-".$tag."'")->fetch_assoc();
+    $safeBatchId=$safeBatchRow['id']??null;
+    if($safeBatchId){$categoryIds[]=(int)$safeBatchId;}
+    expect_check(($safeBatchCategory['json']['status']??'')==='y' && $safeBatchRow &&
+        str_contains($safeBatchRow['intro'],'<p>说明</p>') && !str_contains($safeBatchRow['intro'],'<script'),
+        'batch categories keep valid slugs and sanitize introductions');
+    $db->query('DELETE FROM f_classify WHERE id='.(int)$safeBatchId);
+    array_pop($categoryIds);
+    $badExternalName='audit_external_'.$tag;
+    $badExternal=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'type'=>'url','project'=>'article','name'=>$badExternalName,
+            'html'=>'javascript:alert(1)','classid'=>'0','genre'=>'one']);
+    $badExternalRow=$db->query("SELECT id FROM f_classify WHERE name='".$badExternalName."'")->fetch_row();
+    $badExternalId=$badExternalRow[0]??null;
+    expect_check($badExternal['status']===400 && !$badExternalRow,
+        'external category rejects javascript links');
+    $badFriendName='audit_friend_'.$tag;
+    $badFriend=request('POST','/admin/index.php?controller=module&project=friend&operate=batchsave',$editorCookies,
+        ['_csrf'=>$editorToken,'batch'=>$badFriendName.'|javascript:alert(1)']);
+    $badFriendRow=$db->query("SELECT id FROM f_friend WHERE name='".$badFriendName."'")->fetch_row();
+    $unsafeFriendId=$badFriendRow[0]??null;
+    expect_check($badFriend['status']===400 && !$badFriendRow,
+        'friend links reject javascript URLs');
+    $legacyBadLink='javascript:alert(1)';
+    $legacyFriendInsert=$db->prepare('INSERT INTO f_friend (name,url,status) VALUES (?,?,1)');
+    $legacyFriendInsert->bind_param('ss',$badFriendName,$legacyBadLink); $legacyFriendInsert->execute();
+    $legacyUnsafeFriendId=$db->insert_id; $legacyFriendInsert->close();
+    $legacyCategoryName='audit_legacy_category_'.$tag;
+    $legacyCategoryInsert=$db->prepare("INSERT INTO f_classify (name,type,project,classid,nav,html) VALUES (?,'url','article',0,1,?)");
+    $legacyCategoryInsert->bind_param('ss',$legacyCategoryName,$legacyBadLink); $legacyCategoryInsert->execute();
+    $legacyUnsafeCategoryId=$db->insert_id; $legacyCategoryInsert->close();
+    $legacyLinksHome=request('GET','/',$editorCookies);
+    expect_check($legacyLinksHome['status']===200 && !str_contains($legacyLinksHome['body'],'href="javascript:alert(1)"'),
+        'public navigation and friend links neutralize imported javascript URLs');
+    $db->query('DELETE FROM f_classify WHERE id='.(int)$legacyUnsafeCategoryId); $legacyUnsafeCategoryId=null;
+    $db->query('DELETE FROM f_friend WHERE id='.(int)$legacyUnsafeFriendId); $legacyUnsafeFriendId=null;
     $tamperedCategory=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'id'=>(string)$editorCategoryId,'type'=>'module','project'=>'manage','name'=>'bad']);
     expect_check($tamperedCategory['status']===403 &&
@@ -1049,7 +1121,14 @@ try {
     foreach ($articleIds as $id) { $db->query('DELETE FROM f_article WHERE id='.(int)$id); }
     if ($editorArticleId) { $db->query('DELETE FROM f_article WHERE id='.(int)$editorArticleId); }
     if ($editorCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$editorCategoryId); }
+    if ($unsafeCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$unsafeCategoryId); }
+    if ($legacyUnsafeCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$legacyUnsafeCategoryId); }
+    if ($badExternalId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$badExternalId); }
     if ($editorTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$editorTagId); }
+    if ($unsafeTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$unsafeTagId); }
+    if ($legacyUnsafeTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$legacyUnsafeTagId); }
+    if ($unsafeFriendId) { $db->query('DELETE FROM f_friend WHERE id='.(int)$unsafeFriendId); }
+    if ($legacyUnsafeFriendId) { $db->query('DELETE FROM f_friend WHERE id='.(int)$legacyUnsafeFriendId); }
     foreach ($counterTagIds as $counterTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$counterTagId); }
     if ($counterAuthorId) { $db->query('DELETE FROM f_author WHERE id='.(int)$counterAuthorId); }
     if ($editorMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$editorMessageId); }
