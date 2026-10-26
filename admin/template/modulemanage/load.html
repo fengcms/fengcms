@@ -4,20 +4,21 @@
 <meta charset="utf-8">
 <title>导入模型</title>
 <link href="css/css.css" rel="stylesheet">
+<link href="public/jquery/validform/css.css" rel="stylesheet">
 <link href="css/maintenance.css" rel="stylesheet">
 </head>
 <body class="maintenance-page">
 <div id="main">
-    <form method="post" action="?controller=modulemanage&operate=preview" enctype="multipart/form-data">
+    <form method="post" action="?controller=modulemanage&operate=preview" enctype="multipart/form-data" class="form">
         <div id="main_top"><dl id="article_ico">
             <dd class="art_ico_8"><button type="submit">预览模型</button></dd>
             <dd class="art_ico_9"><a href="?controller=modulemanage">返回</a></dd>
         </dl></div>
         <div id="art_body"><table cellspacing="0" class="add_art maint-form">
             <tr><th colspan="2" class="maint-heading">导入模型</th></tr>
-            <tr><th>新模型表名：</th><td><input name="project" required pattern="[A-Za-z][A-Za-z0-9_]{0,29}" maxlength="30" class="inputxt"> 只能创建新模型，不覆盖已有模型。</td></tr>
-            <tr><th>模型文件：</th><td><input type="file" name="package_file" accept=".json,.fengmodel.json,application/json"> 最大 1 MB。</td></tr>
-            <tr><th>或粘贴模型 JSON：</th><td><textarea name="package_json" class="inputxt" style="width:520px;height:150px"></textarea></td></tr>
+            <tr><th>新模型表名：</th><td><input name="project" required pattern="[A-Za-z][A-Za-z0-9_]{0,29}" maxlength="30" class="inputxt" style="width:300px"> <span class="color999">只能创建新模型，不覆盖已有模型。</span></td></tr>
+            <tr><th>模型文件：</th><td><input type="file" name="package_file" class="inputxt" accept=".json,.fengmodel.json,application/json" style="width:520px"> <span class="color999">最大 1 MB。</span></td></tr>
+            <tr><th>或粘贴模型 JSON：</th><td><textarea name="package_json" class="inputxt" style="width:520px;height:150px;resize:vertical"></textarea></td></tr>
             <tr><th>格式说明：</th><td>使用本系统新导出的 .fengmodel.json。旧版加密 SQL 导入码不能直接执行；请先在隔离环境转换。</td></tr>
         </table></div>
     </form>
