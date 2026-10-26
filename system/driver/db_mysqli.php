@@ -4,6 +4,7 @@ defined('TPL_INCLUDE') or die('Restricted access');
 class db_mysqli extends database
 {
     public $name = '';
+    private int $affectedRows = 0;
 
     public function __construct($host, $user, $pass, $name)
     {
@@ -27,7 +28,9 @@ class db_mysqli extends database
     public function query($sql, array $params = [])
     {
         if (!$params) {
-            return $this->query_id = $this->link_id->query($sql);
+            $result = $this->link_id->query($sql);
+            $this->affectedRows = $this->link_id->affected_rows;
+            return $this->query_id = $result;
         }
         $stmt = $this->link_id->prepare($sql);
         $types = '';
@@ -37,6 +40,8 @@ class db_mysqli extends database
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $result = $stmt->get_result();
+        // Closing a statement resets mysqli::affected_rows to -1.
+        $this->affectedRows = $stmt->affected_rows;
         $stmt->close();
         return $this->query_id = ($result ?: true);
     }
@@ -73,7 +78,7 @@ class db_mysqli extends database
     }
 
     public function is_links() { return $this->link_id instanceof mysqli; }
-    public function affected_rows() { return $this->link_id->affected_rows; }
+    public function affected_rows() { return $this->affectedRows; }
     public function insert_id() { return $this->link_id->insert_id; }
     public function free_result($result = null)
     {
