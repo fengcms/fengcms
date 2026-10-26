@@ -83,6 +83,11 @@ try {
     $csrf=token($cookies);
     $page=request('GET','/admin/login.php',$cookies);
     expect_check(!str_contains($page['body'],'cnzz.com') && str_contains(strtolower($page['headers']),'cache-control: no-store'),'login has no tracker and is not cached');
+    expect_check(str_contains($page['body'],'public/jquery/jquery-4.0.0.min.js') &&
+        str_contains($page['body'],'/js/jquery-compat.js?v=4.0.0') &&
+        !str_contains($page['body'],'public/jquery/jquery.js') &&
+        request('GET','/admin/public/jquery/jquery-4.0.0.min.js',$cookies)['status']===200,
+        'login loads the bundled jQuery before Validform');
     $hash=password_hash($password,PASSWORD_DEFAULT);
     $stmt=$db->prepare("INSERT INTO f_manage (admin,password,role,datetime) VALUES (?,?,'super_admin',NOW())");
     $stmt->bind_param('ss',$user,$hash); $stmt->execute(); $testId=$db->insert_id;

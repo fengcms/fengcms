@@ -9,7 +9,8 @@ header('Cache-Control: no-store');
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <title>后台登录</title>
 <link href="public/jquery/validform/css.css" rel="stylesheet" type="text/css" />
-<script src="public/jquery/jquery.js"></script>
+<script src="public/jquery/jquery-4.0.0.min.js"></script>
+<script src="/js/jquery-compat.js?v=4.0.0"></script>
 <script src="public/jquery/validform/validform.js"></script>
 
 <style>
