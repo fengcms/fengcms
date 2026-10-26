@@ -20,7 +20,7 @@ $query_string=empty($_SERVER["QUERY_STRING"]) ? array() : array($_SERVER["QUERY_
 
 check_data($query_string,$url_arr);
 check_data($_GET,$args_arr);
-check_data($_POST,$args_arr);
+check_data($wafPost ?? $_POST,$args_arr);
 check_data($_COOKIE,$args_arr);
 check_data($referer,$args_arr);
 function W_log($log)

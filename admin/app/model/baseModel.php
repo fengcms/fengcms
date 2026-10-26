@@ -41,6 +41,7 @@ class baseModel extends model{
      * @return array
      */
     public function save($array){
+        if (array_key_exists('copyright', $array)) { $array['copyright']=cms_clean_html($array['copyright']); }
         if($this->url_type($array['url_type'])){
             
             unset($array['url_type']);

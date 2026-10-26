@@ -40,11 +40,11 @@ function token(array &$cookies, bool $admin=false): string {
     if (!preg_match($pattern,$page['body'],$m)) { throw new RuntimeException('No CSRF token; HTTP '.$page['status']); }
     return $m[1];
 }
-function upload(array &$cookies,string $token,string $name,string $content): array {
+function upload(array &$cookies,string $token,string $name,string $content, string $dir="image"): array {
     $b = 'fengcms'.bin2hex(random_bytes(8));
     $body = "--$b\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$token\r\n";
     $body .= "--$b\r\nContent-Disposition: form-data; name=\"imgFile\"; filename=\"$name\"\r\nContent-Type: application/octet-stream\r\n\r\n$content\r\n--$b--\r\n";
-    return request('POST','/admin/api/upload.php?dir=image',$cookies,$body,['Content-Type'=>'multipart/form-data; boundary='.$b]);
+    return request('POST','/admin/api/upload.php?dir='.rawurlencode($dir),$cookies,$body,['Content-Type'=>'multipart/form-data; boundary='.$b]);
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
@@ -105,6 +105,14 @@ try {
     $edit=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,['_csrf'=>$newToken,'id'=>$articleId,'title'=>'updated_'.$tag,'info'=>'updated','content'=>$rich]);
     expect_check(($edit['json']['status']??'')==='y','article edit succeeds with CSRF');
     expect_check($db->query('SELECT title FROM f_article WHERE id='.(int)$articleId)->fetch_assoc()['title']==='updated_'.$tag,'article edit persists');
+    $attack='<p onclick="alert(1)">安全<strong>加粗</strong><script>alert(1)</script><iframe src="https://example.com"></iframe><a href="javascript:alert(1)">链接</a><img src="/upload/safe.png" onerror="alert(1)"></p>';
+    $cleanSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,['_csrf'=>$newToken,'id'=>$articleId,'title'=>'updated_'.$tag,'content'=>$attack]);
+    $cleaned=$db->query('SELECT content FROM f_article WHERE id='.(int)$articleId)->fetch_assoc()['content'];
+    expect_check(($cleanSave['json']['status']??'')==='y' && !preg_match('/<script|<iframe|onerror|onclick|javascript:/i',$cleaned), 'article save sanitizes HTML on the server');
+    expect_check(str_contains($cleaned,'<strong>加粗</strong>') && str_contains($cleaned,'src="/upload/safe.png"'), 'sanitizer preserves normal formatting and relative images');
+    $cleanPublic=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
+    expect_check(str_contains($cleanPublic['body'],$cleaned), 'sanitized rich text still renders with legacy template syntax');
+
     $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');
     expect_check(request('GET','/index.html',$cookies)['status']===200,'rewrite mode renders homepage');
@@ -116,6 +124,8 @@ try {
     foreach (['add', 'update&id='.$articleId] as $operation) {
         $formPage=request('GET','/admin/index.php?controller=module&project=article&operate='.$operation,$cookies);
         preg_match('/<form\b[^>]*>/i', $formPage['body'], $formTag);
+        expect_check(str_contains($formPage['body'],'/admin/public/wangeditor/index.js') && str_contains($formPage['body'],'textarea data-cms-editor') && !str_contains($formPage['body'],'kindeditor.js'), 'article screen loads wangEditor adapter: '.$operation);
+
         expect_check($formPage['status']===200 && isset($formTag[0]) &&
             str_contains($formTag[0], 'action="?controller=module&project=article&operate=save"') &&
             !str_contains($formTag[0], '<input'), 'article form action intact: '.$operation);
@@ -146,6 +156,12 @@ try {
         'valid image containing script-like bytes is accepted');
     $binaryUrl=$binaryUpload['json']['url']; $files[]=dirname(__DIR__).$binaryUrl;
     expect_check(request('GET',$binaryUrl,$cookies)['body']===$gif, 'binary image is served unchanged as static data');
+    $attachment=upload($cookies,$newToken,'notes.txt','attachment '.$tag,'file');
+    expect_check($attachment['status']===200 && ($attachment['json']['error']??-1)===0, 'authenticated attachment upload succeeds');
+    $files[]=dirname(__DIR__).$attachment['json']['url'];
+    expect_check(upload($cookies,$newToken,'bad.html','<script>alert(1)</script>','file')['status']===400, 'HTML attachment rejected');
+    expect_check(upload($cookies,$newToken,'bad.svg','<svg onload="alert(1)"></svg>')['status']===400, 'SVG upload rejected');
+    expect_check(request('GET','/admin/public/htmledit/php/upload_json.php',$cookies)['status']===404, 'old editor upload endpoint disabled');
     $manager='/admin/api/files.php';
     expect_check(isset(request('GET',$manager,$cookies)['json']['file_list']),'template picker returns JSON');
     expect_check(request('GET',$manager.'?path=../',$cookies)['status']===400,'file manager traversal rejected');
@@ -156,6 +172,19 @@ try {
     define('TPL_INCLUDE',1); define('ABS_PATH',dirname(__DIR__)); define('ROOT_PATH',ABS_PATH);
     $_SERVER+=['HTTP_HOST'=>'localhost','PHP_SELF'=>'/index.php','REQUEST_URI'=>'/'];
     require ROOT_PATH.'/system/app.php';
+    foreach ([
+        '<svg><script>alert(1)</script></svg>',
+        '<img src="data:image/svg+xml,evil" onerror="alert(1)">',
+        '<a href="java&#x73;cript:alert(1)">bad</a>',
+        '<p style="background-image:url(javascript:alert(1));position:fixed">text</p>'
+    ] as $hostile) {
+        expect_check(!preg_match('/<script|<svg|onerror|javascript:|data:image|position:|background-image/i',cms_clean_html($hostile)), 'HTML sanitizer blocks hostile markup');
+    }
+    $tableHtml='<table><tbody><tr><td colspan="2">表格</td></tr></tbody></table>';
+    expect_check(str_contains(cms_clean_html($tableHtml),'<td colspan="2">表格</td>'), 'HTML sanitizer preserves table cells');
+    $metadataFixture=['content'=>$attack,'title'=>'<b>plain title</b>'];
+    $metadataClean=cms_clean_record($metadataFixture,'article');
+    expect_check(!str_contains($metadataClean['content'],'<script') && $metadataClean['title']===$metadataFixture['title'], 'rich text policy follows field metadata without changing text fields');
     $pagination=arraypage(range(1,25),10);
     expect_check($pagination['fy'] instanceof CmsHtml && str_contains(cms_template_output($pagination['fy']),'<a '),
         'legacy pagination value renders trusted links without raw syntax');

@@ -122,6 +122,7 @@ class classifyModel extends model{
      * @return array
      */
 	public function save($array){
+        if (array_key_exists('intro', $array)) { $array['intro']=cms_clean_html($array['intro']); }
 
 		//$array=array_filter($array);
 

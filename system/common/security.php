@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/richtext.php';
 // Shared by front controllers, login and editor endpoints.
 function cms_session_start(): void
 {

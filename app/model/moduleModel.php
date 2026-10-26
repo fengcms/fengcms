@@ -240,7 +240,7 @@ class moduleModel extends model{
 			$arr['tags']=$this->atags($arr['tags']);
             foreach (['origin','author','inputer','tags'] as $field) { $arr[$field]=cms_html($arr[$field]); }
 		}
-		$arr['content']=cms_html($arr['content'] ?? '');
+		foreach (cms_richtext_fields($table) as $field) { $arr[$field]=cms_html($arr[$field] ?? ''); }
 		return $arr;
 		
 	}

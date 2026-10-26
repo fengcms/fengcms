@@ -69,6 +69,7 @@ class moduleModel extends model{
      * @return array
      */
 	public function save($array){
+        $array = cms_clean_record($array, $_GET['project']);
 
 		if($array['id']){
 

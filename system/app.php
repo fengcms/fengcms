@@ -79,8 +79,7 @@ include_once COMMON_PATH.'function.php';
 // 加载函数
 include_once COMMON_PATH.'filter.php';
 
-// 防注
-include_once COMMON_PATH.'waf.php'; 
+// Legacy request checks run after route authentication below.
 
 // 加载类库
 import('core.*');
@@ -109,6 +108,17 @@ final class app {
         }
         $admin = realpath(ABS_PATH) === realpath(ROOT_PATH.'/admin');
         cms_route_guard($controller, $action, $admin);
+        // Rich text has a parser-based policy at save time. Do not run the old
+        // keyword WAF over those authenticated fields (it rejects normal prose).
+        $wafPost = $_POST;
+        if ($admin && $action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            $richFields = match ($controller) {
+                'module' => cms_richtext_fields($_GET['project']),
+                'base' => ['copyright'], 'classify' => ['intro'], default => [],
+            };
+            foreach ($richFields as $field) { unset($wafPost[$field]); }
+        }
+        include_once COMMON_PATH.'waf.php';
         $_WORKER['controller'] = $controller.'Controller';
         $_WORKER['operate'] = $action;
         spl_autoload_register(['app', 'loadController']);
