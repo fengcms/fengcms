@@ -801,6 +801,17 @@ try {
     $copyrightSave=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'copyright'=>$attack,'url_type'=>'1']);
     $copyright=$db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_assoc()['copyright'];
     expect_check(($copyrightSave['json']['status']??'')==='y' && !str_contains($copyright,'<script') && str_contains($copyright,'<strong>加粗</strong>'), 'copyright HTML uses the server sanitizer');
+    $importedCopyright='<p>保留段落</p><script>window.auditCopyright=1</script>';
+    $importedCopyrightSave=$db->prepare('UPDATE f_base SET copyright=?');
+    $importedCopyrightSave->bind_param('s',$importedCopyright); $importedCopyrightSave->execute();
+    $importedCopyrightPage=request('GET','/',$cookies);
+    expect_check($importedCopyrightPage['status']===200 &&
+        !str_contains($importedCopyrightPage['body'],'window.auditCopyright=1') &&
+        str_contains($importedCopyrightPage['body'],'保留段落') &&
+        $db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_row()[0]===$importedCopyright,
+        'imported copyright is cleaned only for rendering and not rewritten in storage');
+    $restoreCopyright=$db->prepare('UPDATE f_base SET copyright=?');
+    $restoreCopyright->bind_param('s',$copyright); $restoreCopyright->execute();
 
     expect_check(request('GET','/index.html',$cookies)['status']===200,'rewrite mode renders homepage');
     request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>$originalName,'url_type'=>'0']);
