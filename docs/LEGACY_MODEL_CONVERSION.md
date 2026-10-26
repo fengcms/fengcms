@@ -2,15 +2,16 @@
 
 旧版模型导入码解密后是可执行 SQL。新版后台只接收声明式 `.fengmodel.json`，不会执行旧码。仓库中的 `tools/convert-legacy-model.py` 可在本机用 Python 3 离线转换；它没有数据库连接。原站若还能使用新版代码导出模型，优先直接导出新格式。
 
-1. 将**一个模型**的旧导入码单独保存为 UTF-8 文本，例如 `legacy-model.txt`。不要把它提交 Git。旧码使用旧程序内置的固定密钥，不能当作保密文件。
+1. 创建仓库已忽略的 `var/model-conversion/`，将**一个模型**的旧导入码单独保存为 UTF-8 文本，例如 `var/model-conversion/legacy-model.txt`。不要把它提交 Git。旧码使用旧程序内置的固定密钥，不能当作保密文件。
 2. 从原模型设置中确认项目代号。旧导出器已把代号替换为 `#project`，工具无法从导入码自动找回，必须显式提供。
 3. 在仓库目录运行：
 
    ```sh
+   mkdir -p var/model-conversion
    python3 tools/convert-legacy-model.py \
-     --input legacy-model.txt \
+     --input var/model-conversion/legacy-model.txt \
      --source-project goods \
-     --output goods.fengmodel.json
+     --output var/model-conversion/goods.fengmodel.json
    ```
 
 4. 检查生成文件里的模块名称、物理列、字段类型、默认值和启用状态。输出权限为 `0600`；不要提交旧码或站点私有模型包。使用后台的导入预览，选择**新项目代号**后再确认。
