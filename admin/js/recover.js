@@ -1,12 +1,14 @@
 $(function(){
-	data=$(".form").Validform({
+	var form=$(".form");
+	var project=new URL(form.attr("action"),window.location.href).searchParams.get("project") || "";
+	var data=form.Validform({
 		callback:function(data){
 			if(data.status=="y"){
-				location.href ="?controller=recover&operate=execution&type=save&re=1&id="+data.id;
+				location.href ="?controller=recover&operate=execution&type=save&re=1&project="+encodeURIComponent(data.project || project);
 			}else if(data.status=="a"){
 				alert('请选择记录！');
 			}else if(data.status=="n"){
-				location.href ="?controller=recover&operate=execution&type=save&re=0&id="+data.id;
+				location.href ="?controller=recover&operate=execution&type=save&re=0&project="+encodeURIComponent(data.project || project);
 			}
 		}
 	});
@@ -17,7 +19,7 @@ $(function(){
 		$.Hidemsg();
 	});
 	$("#search").click(function(){
-		location.href ="?controller=recover&field="+$("#field").val()+"&title="+$("#title").val();
+		location.href ="?controller=recover&project="+encodeURIComponent(project)+"&field="+encodeURIComponent($("#field").val())+"&title="+encodeURIComponent($("#title").val());
 	});
 	$(".form").keypress(function(e){ if (e.which == 13){ return false; }});
 });

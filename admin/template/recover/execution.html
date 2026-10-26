@@ -32,16 +32,16 @@
 					{elseif $_GET['re']=='0'}
 					操作失败！
 					{/if}
-					<script>setTimeout("Gotonew('?controller=recover')",3000); </script>
+					<script>setTimeout("Gotonew('?controller=recover&project={$_GET['project']}')",3000); </script>
 				{else}
 					操作异常！
-					<script>setTimeout("Gotonew('?controller=recover')",3000); </script>
+					<script>setTimeout("Gotonew('?controller=recover&project={$_GET['project']}')",3000); </script>
 				{/if}
                 </td>
             </tr>
             <tr>
             	<th colspan="2">
-				【<a href="?controller=recover">返回关键词列表</a>】
+				【<a href="?controller=recover&project={$_GET['project']}">返回回收站</a>】
 				</th>
             </tr>
         </table>

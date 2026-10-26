@@ -155,6 +155,36 @@ try {
     expect_check($networkEdit['status']===200 && str_contains($networkEdit['body'],'https://images.example.com/photo?id=1&amp;amp;size=large'), 'network image URL is escaped for editing without losing query parameters');
     $networkPublic=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check($networkPublic['status']===200 && str_contains($networkPublic['body'],$networkSaved), 'network images render through the original frontend template');
+    $recycleIds=[];
+    foreach ([-1,-1,-1] as $recycleStatus) {
+        $db->query("INSERT INTO `f_$moduleProject` (title,status) VALUES ('recycle_$tag',$recycleStatus)");
+        $recycleIds[]=$db->insert_id;
+    }
+    $recoverRoute='/admin/index.php?controller=recover&project='.$moduleProject;
+    $recoverBatch=request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'recovers','article'=>array_slice($recycleIds,0,2)]);
+    expect_check(($recoverBatch['json']['status']??'')==='y' && $db->query("SELECT id FROM `f_$moduleProject` WHERE id IN (".implode(',',array_slice($recycleIds,0,2)).') AND status=1')->num_rows===2,'recycle bin batch restoration really restores selected records');
+    expect_check(($recoverBatch['json']['project']??'')===$moduleProject,'recycle bin batch response retains the selected module for result navigation');
+    $recoverResult=request('GET',$recoverRoute.'&operate=execution&type=save&re=1',$cookies);
+    expect_check($recoverResult['status']===200 && str_contains($recoverResult['body'],'操作成功') && str_contains($recoverResult['body'],'project='.$moduleProject) && str_contains($recoverResult['body'],'返回回收站'),'recycle bin batch result works without a record ID and retains the module');
+    $recoverFailure=request('GET',$recoverRoute.'&operate=execution&type=save&re=0',$cookies);
+    expect_check($recoverFailure['status']===200 && str_contains($recoverFailure['body'],'操作失败') && str_contains($recoverFailure['body'],'project='.$moduleProject),'recycle bin failure result also returns to the same module');
+    expect_check(request('GET',$recoverRoute.'&operate=recoverone&id='.$recycleIds[2],$cookies)['status']===405,'single record restoration requires POST');
+    expect_check(request('POST',$recoverRoute.'&operate=batch',$cookies,['method'=>'recovers','article'=>[$recycleIds[2]]])['status']===403,'recycle bin batch writes require CSRF');
+    foreach (['x', [['1']], [$recycleIds[2],'1 OR 1=1'], [$recycleIds[2],'0']] as $invalidIds) {
+        expect_check(request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'recovers','article'=>$invalidIds])['status']===400,'recycle bin rejects malformed selections before changing records');
+    }
+    expect_check((int)$db->query("SELECT status FROM `f_$moduleProject` WHERE id=".$recycleIds[2])->fetch_assoc()['status']===-1,'invalid selections do not partially restore valid records');
+    $recoverEmpty=request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'recovers']);
+    expect_check(($recoverEmpty['json']['status']??'')==='a' && ($recoverEmpty['json']['project']??'')===$moduleProject,'empty recycle bin selection preserves its prompt and module');
+    $recoverSingle=request('POST',$recoverRoute.'&operate=recoverone&id='.$recycleIds[2],$cookies,['_csrf'=>$newToken]);
+    expect_check($recoverSingle['status']===200 && str_contains($recoverSingle['body'],'project='.$moduleProject) && str_contains($recoverSingle['body'],'re=1') && (int)$db->query("SELECT status FROM `f_$moduleProject` WHERE id=".$recycleIds[2])->fetch_assoc()['status']===1,'single record restoration retains its module and succeeds');
+    $recoverRepeat=request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'recovers','article'=>[$recycleIds[2]]]);
+    expect_check(($recoverRepeat['json']['status']??'')==='n' && ($recoverRepeat['json']['project']??'')===$moduleProject,'stale restoration reports failure with valid navigation context');
+    $safeDelete=request('POST',$recoverRoute.'&operate=delete&id='.$recycleIds[2],$cookies,['_csrf'=>$newToken]);
+    expect_check(str_contains($safeDelete['body'],'re=0') && $db->query("SELECT id FROM `f_$moduleProject` WHERE id=".$recycleIds[2])->num_rows===1,'recycle bin deletion cannot remove an already restored record');
+    expect_check(request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'index','article'=>[$recycleIds[0]]])['status']===400,'recycle bin cannot dispatch arbitrary batch methods');
+    expect_check(request('GET',$recoverRoute.'&operate=recovers',$cookies)['status']===404,'recycle bin internal batch helpers cannot be called as routes');
+    expect_check(request('GET',$recoverRoute.'&operate=execution&type=save&re=1&id=undefined',$cookies)['status']===400,'invalid numeric query parameters are still rejected after recycle bin repair');
 
     $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');

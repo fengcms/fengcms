@@ -41,59 +41,60 @@ class recoverController extends Controller{
 
 	public function recoverone(){
 		if($_GET['id']){
-			if(D($this->model)->where('id="'.$_GET['id'].'"')->update(array(
+			if(D($this->model)->where(['id'=>$_GET['id'],'status'=>-1])->update(array(
 				"status"	 => 1
 			))){
-				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&operate=execution&type=exc&re=1">';
+				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=1">';
 			}else{
-				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&operate=execution&type=exc&re=0">';
+				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=0">';
 			}
 		}else{
-				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&operate=execution&type=exc&re=0">';
+				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=0">';
 		}
 	}
 
 	public function delete(){
 		if($_GET['id']){
-			if(D($this->model)->where('id="'.$_GET['id'].'"')->delete()){
-				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&operate=execution&type=exc&re=1">';
+			if(D($this->model)->where(['id'=>$_GET['id'],'status'=>-1])->delete()){
+				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=1">';
 			}else{
-				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&operate=execution&type=exc&re=0">';
+				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=0">';
 			}
 		}else{
-				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&operate=execution&type=exc&re=0">';	
+				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=0">';
 		}
 	}
 
 
-	public function batch(){
-        if (!in_array($_POST['method'] ?? '', ['recovers', 'thorough'], true)) { cms_fail(400, '批量操作不正确。'); }
-		if(!$_POST['article']){
-			echo json_encode(array('status' => 'a'));
-		}else{
-			if($this->{$_POST['method']}($_POST['article'],$_POST['parameter'])){
-				echo json_encode(array('status' => 'y'));
-			}else{
-				echo json_encode(array('status' => 'n'));
-			}
-		}
-	}
+    public function batch(){
+        $method=$_POST['method']??'';
+        if(!is_string($method) || !in_array($method,['recovers','thorough'],true)){cms_fail(400,'批量操作不正确。');}
+        $ids=$this->recordIds($_POST['article']??[]);
+        $status=$ids ? ($this->$method($ids)?'y':'n') : 'a';
+        echo json_encode(['status'=>$status,'project'=>$this->model]);
+    }
 
-	public function recovers($array){
-		foreach($array as $v){
-		if(!D($this->model)->where('id="'.$v.'"')->update(array(
-			"status"	=> "1"
-		)))return false;
-		}
-		return true;
-	}
+    private function recordIds($values): array{
+        if(!is_array($values) || count($values)>1000){cms_fail(400,'回收站记录参数不正确。');}
+        foreach($values as $id){
+            if(!is_string($id) || !preg_match('/^[0-9]{1,10}$/D',$id) || (int)$id<1){cms_fail(400,'回收站记录参数不正确。');}
+        }
+        return array_values(array_unique($values));
+    }
 
-	public function thorough($array){
-		foreach($array as $v){
-			if(!D($this->model)->where('id="'.$v.'"')->delete())return false;
-		}
-		return true;
-	}
+    public function recovers($ids){
+        foreach($ids as $id){
+            if(!D($this->model)->where(['id'=>$id,'status'=>-1])->update(['status'=>1])){return false;}
+        }
+        return true;
+    }
+
+    public function thorough($ids){
+        foreach($ids as $id){
+            if(!D($this->model)->where(['id'=>$id,'status'=>-1])->delete()){return false;}
+        }
+        return true;
+    }
 
     /**
      * 保存信息
@@ -112,7 +113,7 @@ class recoverController extends Controller{
      * @return array
      */
 	public function execution(){
-		return $this->display('recover/execution.html',D($this->model)->where('id="'.$_GET['id'].'"')->getone());
+		return $this->display('recover/execution.html');
 	}
 }
 
