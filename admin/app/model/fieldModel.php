@@ -45,23 +45,6 @@ class fieldModel extends model{
 		}
 	}
 
-    /**
-     * 保存信息
-     *
-     * @return array
-     */
-	public function save($array){
-
-		if(D($this->d_name)->update($array)){
-
-			return array('status' => 'y');
-
-		}else{
-
-			return array('status' => 'n');
-		}
-	}
-
 	public function fieldrepl($arr,$arrs,$fieldname,$value=NULL){
 
 		foreach($arr as $k => $v){

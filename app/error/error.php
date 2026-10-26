@@ -16,10 +16,10 @@ a:hover{ text-decoration:none;color:#FF6600;}
 </head>
 <body>
 <div id="notice">
-	<h1>Message	：<?php  echo $Message?></h1>
-	<p>File：<?php echo $File; ?></p>
+	<h1>Message	：<?php echo htmlspecialchars((string)($Message ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></h1>
+	<p>File：<?php echo htmlspecialchars((string)($File ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></p>
 	<p>Time：<?php echo date('Y-m-d h:i:s') ?></p>
-	<p>Lines：<?php echo $Line; ?></p>
+	<p>Lines：<?php echo htmlspecialchars((string)($Line ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></p>
 </div>
 </body>
 </html>
