@@ -49,8 +49,9 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
 $files=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null;
-$articleIds=[]; $messageId=null;
-$originalName=$db->query('SELECT name FROM f_base LIMIT 1')->fetch_assoc()['name'];
+$articleIds=[]; $messageId=null; $fieldFixtureId=null;
+$originalBase=$db->query('SELECT name,copyright FROM f_base LIMIT 1')->fetch_assoc();
+$originalName=$originalBase['name'];
 $settingsPath=(getenv('APP_RUNTIME_PATH') ?: dirname(__DIR__).'/var/runtime').'/site.json';
 $originalSettings=is_file($settingsPath) ? file_get_contents($settingsPath) : null;
 try {
@@ -115,6 +116,10 @@ try {
 
     $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');
+    $copyrightSave=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'copyright'=>$attack,'url_type'=>'1']);
+    $copyright=$db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_assoc()['copyright'];
+    expect_check(($copyrightSave['json']['status']??'')==='y' && !str_contains($copyright,'<script') && str_contains($copyright,'<strong>加粗</strong>'), 'copyright HTML uses the server sanitizer');
+
     expect_check(request('GET','/index.html',$cookies)['status']===200,'rewrite mode renders homepage');
     request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>$originalName,'url_type'=>'0']);
     foreach (['home&operate=main','base','manage&operate=password','modulemanage','module&project=article','classify','message','tplmanage','dbmanage&operate=dbmanages'] as $route) {
@@ -182,6 +187,11 @@ try {
     }
     $tableHtml='<table><tbody><tr><td colspan="2">表格</td></tr></tbody></table>';
     expect_check(str_contains(cms_clean_html($tableHtml),'<td colspan="2">表格</td>'), 'HTML sanitizer preserves table cells');
+    $customName='qa_rich_'.$tag;
+    $fieldInsert=$db->prepare('INSERT INTO f_module_field (module_id,name,aliases,type,status) SELECT m.id,?,"QA rich text",t.id,1 FROM f_module m JOIN f_module_field_type t ON t.quote="htmledit.html" WHERE m.project="article" LIMIT 1');
+    $fieldInsert->bind_param('s',$customName); $fieldInsert->execute(); $fieldFixtureId=$db->insert_id;
+    $customClean=cms_clean_record([$customName=>$attack],'article');
+    expect_check($fieldFixtureId>0 && !str_contains($customClean[$customName],'<script') && str_contains($customClean[$customName],'<strong>加粗</strong>'), 'custom rich-text fields use metadata-driven sanitization');
     $metadataFixture=['content'=>$attack,'title'=>'<b>plain title</b>'];
     $metadataClean=cms_clean_record($metadataFixture,'article');
     expect_check(!str_contains($metadataClean['content'],'<script') && $metadataClean['title']===$metadataFixture['title'], 'rich text policy follows field metadata without changing text fields');
@@ -239,7 +249,8 @@ try {
     foreach ([$testId,$legacyId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
     foreach ($articleIds as $id) { $db->query('DELETE FROM f_article WHERE id='.(int)$id); }
     if ($messageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$messageId); }
-    $restore=$db->prepare('UPDATE f_base SET name=?'); $restore->bind_param('s',$originalName); $restore->execute();
+    if ($fieldFixtureId) { $db->query('DELETE FROM f_module_field WHERE id='.(int)$fieldFixtureId); }
+    $restore=$db->prepare('UPDATE f_base SET name=?,copyright=?'); $restore->bind_param('ss',$originalName,$originalBase['copyright']); $restore->execute();
     if ($originalSettings===null) { if (is_file($settingsPath)) { unlink($settingsPath); } }
     else { file_put_contents($settingsPath,$originalSettings); }
     foreach ([$user,$legacyUser,'absent_'.$tag,'admin" OR 1=1 #'] as $name) {

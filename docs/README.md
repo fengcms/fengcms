@@ -5,3 +5,5 @@
 - [历史文档归档](legacy/README.md)：原 `_doc` 资料，文本已统一为 UTF-8，附模板白皮书原件与纯文本版。
 
 - [富文本编辑器安全评估](EDITOR_SECURITY_ASSESSMENT.md)：现状、风险边界和替换建议。
+
+- [wangEditor 迁移记录](EDITOR_MIGRATION.md)：组件版本、接口、清洗规则、验证与回退。

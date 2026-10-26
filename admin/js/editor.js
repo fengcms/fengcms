@@ -36,6 +36,10 @@
             'bulletedList','numberedList','blockquote','justifyLeft','justifyCenter','justifyRight',
             'insertLink','uploadImage','insertTable','undo','redo','fullScreen'
         ]}});
+        toolbar.querySelectorAll('button[data-tooltip]').forEach(button => {
+            button.setAttribute('aria-label', button.getAttribute('data-tooltip').split('\n')[0]);
+        });
+        body.setAttribute('aria-label', textarea.name || textarea.id || '富文本编辑区');
         instances.set(textarea, editor); textarea.hidden = true;
     }
     function setField(id, urls, multiple) {
@@ -81,7 +85,7 @@
                 if(path){const up=document.createElement('button');up.type='button';up.textContent='上一级';up.onclick=()=>load(result.moveup_dir_path);list.append(up);}
                 result.file_list.forEach(file=>{
                     const item=document.createElement('button');item.type='button';item.textContent=(file.is_dir?'📁 ':'')+file.filename;
-                    item.onclick=()=>file.is_dir?load(result.current_dir_path+file.filename+'/'):select(result.current_url+encodeURIComponent(file.filename));
+                    item.onclick=()=>file.is_dir?load(result.current_dir_path+file.filename+'/'):select(dir==='template' ? result.current_url+file.filename : result.current_url.split('/').map(encodeURIComponent).join('/')+encodeURIComponent(file.filename));
                     list.append(item);
                 });
             }catch(error){status.textContent=error.message;}
@@ -98,6 +102,6 @@
     document.addEventListener('submit',function(event){if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
     function start(){document.querySelectorAll('textarea[data-cms-editor]').forEach(mount);}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
-    window.addEventListener('pagehide',()=>{instances.forEach(editor=>editor.destroy());instances.clear();});
+    window.addEventListener('pagehide',event=>{if(!event.persisted){instances.forEach(editor=>editor.destroy());instances.clear();}});
     window.FengEditor={sync,upload};
 }());
