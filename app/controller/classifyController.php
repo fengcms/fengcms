@@ -42,6 +42,7 @@ class classifyController extends Controller{
 			$array=D('single')->where(['classid'=>(int)$this->classify['id'],'status'=>1])->getone();
 
 			if($array['id']){
+                $array['content']=cms_html($array['content'] ?? '');
 
 			$_GET['classid']=$this->classify['id'];
 

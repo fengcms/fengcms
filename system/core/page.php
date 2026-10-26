@@ -130,7 +130,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 //            $pageBar = "<form name=\"page_jump\" action=\"$jump_url\" method=\"get\" style=\"width:auto;padding:0;margin:0;\">".$pageBar."<form>";
         }
  
-        return $pageBar;
+        return cms_html($pageBar);
     }
  
  

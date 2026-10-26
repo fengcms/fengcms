@@ -91,7 +91,7 @@ try {
     $status=0; $articleStmt->execute(); $draftId=$db->insert_id; $articleIds[]=$draftId;
     $public=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check($public['status']===200 && str_contains($public['body'],'&lt;b data-probe=&quot;title&quot;&gt;') && !str_contains($public['body'],'<b data-probe="title">'),'article title is escaped');
-    expect_check(str_contains($public['body'],$rich),'explicit rich content retains markup');
+    expect_check(str_contains($public['body'],$rich),'legacy content variable retains rich markup');
     expect_check(str_contains($public['body'],'&gt;&gt;') && !str_contains($public['body'],'&amp;gt;'),
         'breadcrumb separator is HTML-escaped exactly once');
 
@@ -156,6 +156,21 @@ try {
     define('TPL_INCLUDE',1); define('ABS_PATH',dirname(__DIR__)); define('ROOT_PATH',ABS_PATH);
     $_SERVER+=['HTTP_HOST'=>'localhost','PHP_SELF'=>'/index.php','REQUEST_URI'=>'/'];
     require ROOT_PATH.'/system/app.php';
+    $pagination=arraypage(range(1,25),10);
+    expect_check($pagination['fy'] instanceof CmsHtml && str_contains(cms_template_output($pagination['fy']),'<a '),
+        'legacy pagination value renders trusted links without raw syntax');
+    $untrusted=['fy'=>'<script>alert(1)</script>','content'=>'<img src=x onerror=alert(1)>'];
+    expect_check(str_contains(cms_template_output($untrusted['fy']),'&lt;script&gt;') &&
+        str_contains(cms_template_output($untrusted['content']),'&lt;img'), 'HTML trust is not inferred from variable names');
+    expect_check(cms_template_output(cms_html('<p>trusted</p>'))==='<p>trusted</p>', 'explicit renderer HTML retains markup');
+    foreach (['template','admin/template'] as $directory) {
+        $legacySyntax=true;
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(ROOT_PATH.'/'.$directory)) as $file) {
+            if ($file->isFile() && $file->getExtension()==='html' && str_contains(file_get_contents($file->getPathname()),'{raw ')) { $legacySyntax=false; }
+        }
+        expect_check($legacySyntax,'bundled templates retain original variable syntax: '.$directory);
+    }
+
     $_SESSION['authnum']='abcd';
     $message=M('message')->save(['vcode'=>'abcd','title'=>'message_'.$tag,'content'=>'<b data-probe="message">hello</b>','name'=>'visitor','status'=>'1','reply'=>'injected','time'=>'1']);
     $messageId=$message['id']??null;

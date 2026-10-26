@@ -238,7 +238,9 @@ class moduleModel extends model{
 			$arr['inputer']=$this->aurl('inputer',$arr['inputer']);
 
 			$arr['tags']=$this->atags($arr['tags']);
+            foreach (['origin','author','inputer','tags'] as $field) { $arr[$field]=cms_html($arr[$field]); }
 		}
+		$arr['content']=cms_html($arr['content'] ?? '');
 		return $arr;
 		
 	}
@@ -357,7 +359,7 @@ class moduleModel extends model{
 	*/
 	public function location($classid,$str=">>"){
 		$array=explode(',',M("classify")->wz($classid,$str));
-		return array_reverse(array_unique(array_filter($array)));
+		return array_map('cms_html', array_reverse(array_unique(array_filter($array))));
 	}
 
 	/*

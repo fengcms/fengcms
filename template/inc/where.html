@@ -31,16 +31,16 @@
 {elseif $_GET['controller']=="classify"}
 	{if $_GET['project']=="single"}
 		{loop M("module")->location($classid,$str) $k $v}
-		{raw $v}
+		{$v}
 		{/loop}
 	{else}
 		{loop M("module")->location($id,$str) $k $v}
-		{raw $v}
+		{$v}
 		{/loop}
 	{/if}	
 {elseif $_GET['controller']=="content"}
 	{loop M("module")->location($classid,$str) $k $v}
-	{raw $v}
+	{$v}
 	{/loop}
 	 {$str} {if $readtitle=="1"}<a href="{url($html)}" title="{$title}">{$title}</a>{else}内容正文{/if}
 {elseif $_GET['controller']=="message"}

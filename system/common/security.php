@@ -62,6 +62,24 @@ function cms_password_verify(string $password, string $hash): bool
     return password_verify($password, $hash);
 }
 
+// Mark only HTML produced by audited renderers or administrator rich-text fields.
+// Ordinary strings (including request input) never acquire this type automatically.
+final class CmsHtml implements Stringable
+{
+    public function __construct(private string $html) {}
+    public function __toString(): string { return $this->html; }
+}
+
+function cms_html($value): CmsHtml
+{
+    return $value instanceof CmsHtml ? $value : new CmsHtml((string)($value ?? ''));
+}
+
+function cms_template_output($value): string
+{
+    return $value instanceof CmsHtml ? (string)$value : cms_escape($value);
+}
+
 function cms_escape($value): string
 {
     return is_scalar($value) ? htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : '';

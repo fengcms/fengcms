@@ -66,22 +66,22 @@ class classifyModel extends model{
 				foreach($array as $k => $v) {
 					if($w){
 						($v['id']==$vle)?$option='selected':$option="";
-						if(count($v['classid'])>0){
-							$arr .= '<optgroup label="'.str_repeat('──',$i).$v['name'].'"></optgroup>';
+						if(is_array($v['classid']) && count($v['classid'])>0){
+							$arr .= '<optgroup label="'.str_repeat('──',$i).cms_escape($v['name']).'"></optgroup>';
 							$arr .= $this->procoption($v['classid'],$vle,$w,$i+1);
 						}else{
-							$arr .= '<option value="'.$v['id'].'" '.$option.'>'.str_repeat('──',$i).$v['name'].'</option>';
+							$arr .= '<option value="'.$v['id'].'" '.$option.'>'.str_repeat('──',$i).cms_escape($v['name']).'</option>';
 						}
 					}else{
 						($v['id']==$vle)?$option='selected':$option="";
-						$arr .= '<option value="'.$v['id'].'" '.$option.'>'.str_repeat('──',$i).$v['name'].'</option>';
-						if(count($v['classid'])>0){
+						$arr .= '<option value="'.$v['id'].'" '.$option.'>'.str_repeat('──',$i).cms_escape($v['name']).'</option>';
+						if(is_array($v['classid']) && count($v['classid'])>0){
 							$arr .= $this->procoption($v['classid'],$vle,$w,$i+1);
 						}
 					}
 				}
 			}
-			return $arr;
+			return cms_html($arr ?? '');
 		}
 	}
 

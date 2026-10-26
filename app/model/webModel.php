@@ -17,6 +17,7 @@ class webModel extends model{
 	public function __construct(){
 		parent::__construct($this->d_name);
 		$this->information=$this->getone();
+        $this->information['copyright']=cms_html($this->information['copyright'] ?? '');
 	}
 }
 

@@ -112,7 +112,7 @@ class classifyModel extends model{
 				$array.="</li>";
 			}
 		}
-		return $array;
+		return cms_html($array ?? '');
 	}
 }
 

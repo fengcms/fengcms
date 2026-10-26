@@ -27,16 +27,16 @@
 			</div>
 			<div id="article">
 				<div id="article_title"><h2>{$title}</h2></div>
-				<div id="article_date">文章来源：{raw $origin}　　文章作者：{raw $author}　　日期：{$date}</div>
+				<div id="article_date">文章来源：{$origin}　　文章作者：{$author}　　日期：{$date}</div>
 				<div id="article_shoucang"><script language="javascript" src="/image/sc.js"></script></div>
 				<div class="gehang"></div>
 				<div id="article_info">{$info}</div>
 				<div class="gehang"></div>
 				<div id="article_nr">
 					<div class="article_nr_ad">{include "show/home_a_show.html"}</div>
-					{raw $content}
+					{$content}
 				</div>
-				<div id="article_editor"><span>责任编辑：{raw $inputer} 阅读了{intval($hits)}次</span>关键词：{raw $tags}</div>
+				<div id="article_editor"><span>责任编辑：{$inputer} 阅读了{intval($hits)}次</span>关键词：{$tags}</div>
 				<div id="article_next">
 					<b>上一篇：</b>{include "inc/prev.html"}<br />
 					<b>下一篇：</b>{include "inc/next.html"}

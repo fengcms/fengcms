@@ -202,7 +202,7 @@ class template{
         $s = @preg_replace("/\{include\s+(.+?)\}/is", "<?php include Template::Tpl(\\1); ?>", $s);
         $s = @preg_replace("/\{([A-Z][A-Z0-9_]*)\}/s", "<?php if(defined('\\1')){echo \\1;}?>", $s);
         $s = preg_replace_callback('/\{(\$[a-zA-Z0-9_\[\]\'"\$\x7f-\xff]+)\}/i',
-            static fn($m) => '<?php echo cms_escape('.$m[1].' ?? null); ?>', $s);
+            static fn($m) => '<?php echo cms_template_output('.$m[1].' ?? null); ?>', $s);
 		$s = @preg_replace("/\{\\\$(.+?)\}/is", "<?php if(($\\1)){ $\\1;}?>", $s);
         $s = @preg_replace("/\{([@&\\\$a-zA-Z0-9_]+)\(([ ,\?\.=&%-\:a-zA-Z0-9_\[\]\'\"\\\$\x7f-\xff\(\)]*)\)\}/is", "<?php echo \\1(\\2);?>", $s);
         for ($i = 0; $i <= 5; $i++) {
