@@ -72,6 +72,12 @@ try {
     $tagsPage=request('GET','/tags.html',$cookies);
     expect_check($tagsPage['status']===200 && str_contains($tagsPage['body'],'id="tags_list"'),'tag cloud pseudo-static URL renders its controller');
     expect_check(str_contains(request('GET','/tags.html?source=regression',$cookies)['body'],'id="tags_list"'),'tag cloud accepts ordinary query parameters');
+    $tagOverride=request('GET','/tags.html?controller=home',$cookies);
+    expect_check($tagOverride['status']===200 && str_contains($tagOverride['body'],'id="tags_list"'),
+        'rewrite route cannot be overridden by a query parameter');
+    $tagPathOverride=request('GET','/tags/x&controller=home.html',$cookies);
+    expect_check($tagPathOverride['status']!==200 || str_contains($tagPathOverride['body'],'站内搜索'),
+        'rewrite route cannot be overridden from a path capture');
     expect_check(str_contains(request('GET','/?controller=tags',$cookies)['body'],'id="tags_list"'),'dynamic tag cloud URL remains available');
     $captchaCookies=[];
     expect_check(request('GET','/vccore.php',$captchaCookies)['status']===200,'visitor can request a captcha image');
