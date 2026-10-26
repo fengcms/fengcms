@@ -15,7 +15,9 @@ class searchController extends Controller
         }
         if ($tags === '') { cms_fail(400, '请输入关键词。'); }
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $url = '/?'.http_build_query(['controller'=>'search','project'=>$project,'tags'=>$tags], '', '&', PHP_QUERY_RFC3986);
+            $query = ['controller'=>'search','tags'=>$tags];
+            if ($project !== '') { $query['project']=$project; }
+            $url = '/?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986);
             header('Location: '.$url, true, 303);
             return;
         }

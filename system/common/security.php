@@ -101,7 +101,8 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         if (in_array($key, ['id','classid','page'], true) && !preg_match('/^[0-9]{1,10}$/D', $value)) {
             cms_fail(400, '数字参数不正确。');
         }
-        if ($key === 'project' && !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $value)) {
+        if ($key === 'project' && !(!$admin && $controller === 'search' && $value === '') &&
+            !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $value)) {
             cms_fail(400, '模型名称不正确。');
         }
     }

@@ -195,6 +195,15 @@ try {
     $query='/index.php?controller=search&project=article&tags='.rawurlencode('" OR 1=1 #');
     $search=request('GET',$query,$cookies);
     expect_check($search['status']===200 && !str_contains($search['body'],$tag),'search SQL injection cannot return unrelated articles');
+    $allSearch='/?controller=search&project=&tags='.rawurlencode('搜索');
+    $search=request('GET',$allSearch,$cookies);
+    expect_check($search['status']===200 && str_contains($search['body'],'站内搜索') && !str_contains($search['body'],'模型名称不正确'),'all-model search accepts the existing empty project URL');
+    expect_check(request('GET','/?controller=search&tags='.rawurlencode('搜索'),$cookies)['status']===200,'all-model search also accepts an omitted project');
+    $searchPost=request('POST','/?controller=search',$cookies,['project'=>'','tags'=>'搜索']);
+    expect_check($searchPost['status']===303 && preg_match('~^Location: /\?controller=search&tags=%E6%90%9C%E7%B4%A2\s*$~m',$searchPost['headers'])===1,'all-model search form redirects without an empty project parameter');
+    expect_check(request('GET','/?controller=search&project=article&tags='.rawurlencode('搜索'),$cookies)['status']===200,'named-model search still works');
+    expect_check(request('GET','/?controller=search&project='.rawurlencode('../admin').'&tags=test',$cookies)['status']===400,'malformed search model remains rejected');
+    expect_check(request('GET','/?controller=content&project=&id='.$articleId,$cookies)['status']===400,'empty project remains forbidden outside search');
     $edit=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,['_csrf'=>$newToken,'id'=>$articleId,'title'=>'updated_'.$tag,'info'=>'updated','content'=>$rich]);
     expect_check(($edit['json']['status']??'')==='y','article edit succeeds with CSRF');
     expect_check($db->query('SELECT title FROM f_article WHERE id='.(int)$articleId)->fetch_assoc()['title']==='updated_'.$tag,'article edit persists');
