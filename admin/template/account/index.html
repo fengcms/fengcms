@@ -2,48 +2,52 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>编辑账号管理</title>
+<title>系统账号管理</title>
 <link href="css/css.css" rel="stylesheet">
-<link href="css/maintenance.css" rel="stylesheet">
+<link href="public/jquery/validform/css.css" rel="stylesheet">
+<style>
+.account-notice { margin:10px 0; padding:8px 12px; border:1px solid #c8d9ef; background:#eaedf2; line-height:1.8; }
+.account-notice strong { color:#295283; font-size:16px; letter-spacing:2px; }
+.account-actions form { display:inline-block; margin:0 8px 4px 0; }
+.account-actions button { border:0; background:none; color:#295283; cursor:pointer; font-size:12px; }
+.account-actions button:hover { color:#f60; text-decoration:underline; }
+.account-actions .account-delete { color:#b03a3a; }
+.account-actions .inputxt { width:150px; }
+</style>
 </head>
-<body class="maintenance-page">
+<body>
 <div id="main">
-    <div id="main_top"><dl id="article_ico"><dd class="art_ico_8"><a href="?controller=account">编辑账号管理</a></dd></dl></div>
+    <div id="main_top"><dl id="article_ico">
+        <dd class="art_ico_8"><a href="#" onclick="document.getElementById('account-create').requestSubmit();return false;">创建账号</a></dd>
+        <dd class="art_ico_9"><a href="?controller=account">刷新列表</a></dd>
+    </dl></div>
     <div id="art_body">
-        {if $message}<p class="maint-success">{$message}</p>{/if}
-        {if $newCode}
-        <p class="maint-success">本次生成的认证码：<strong class="maint-hash">{$newCode}</strong><br>只显示这一次。登录时需同时输入用户名、密码和此认证码。</p>
-        {/if}
-        <p class="maint-intro">编辑可管理“内容”“相关”中的业务资料，不能访问系统设置、模板编辑、数据库和模块配置。</p>
-        <table cellspacing="0" class="add_art maint-form">
-            <tr><th colspan="2" class="maint-heading">新建编辑账号</th></tr>
-            <tr><td colspan="2">
-                <form method="post" action="?controller=account&operate=create">
-                    <label>用户名 <input class="inputxt" name="username" required minlength="5" maxlength="64" pattern="[A-Za-z][A-Za-z0-9_.-]{4,63}" autocomplete="off"></label>
-                    <label>初始密码 <input class="inputxt" name="password" type="password" required minlength="12" maxlength="72" autocomplete="new-password"></label>
-                    <button class="maint-primary" type="submit">创建编辑</button>
-                </form>
-            </td></tr>
-        </table>
+        {if $message}<p class="account-notice">{$message}</p>{/if}
+        {if $newCode}<p class="account-notice">本次生成的认证码：<strong>{$newCode}</strong><br>只显示这一次。登录时需同时输入用户名、密码和认证码。</p>{/if}
+        <form id="account-create" method="post" action="?controller=account&operate=create" class="form">
+            <table cellspacing="0" class="add_art">
+                <tr><th>用户名：</th><td><input class="inputxt" name="username" required minlength="5" maxlength="64" pattern="[A-Za-z][A-Za-z0-9_.-]{4,63}" autocomplete="off" style="width:300px"></td></tr>
+                <tr><th>初始密码：</th><td><input class="inputxt" name="password" type="password" required minlength="12" maxlength="72" autocomplete="new-password" style="width:300px"> <span class="color999">当前要求 12–72 字节</span></td></tr>
+            </table>
+        </form>
         <div id="art_list">
-            <table cellspacing="0" class="maint-table">
+            <table cellspacing="0">
                 <tr><th>用户名</th><th>角色</th><th>状态</th><th>操作</th></tr>
                 {loop $accounts $account}
                 <tr>
                     <td>{$account['admin']}</td>
                     <td>{if $account['role']=='super_admin'}超级管理员{else}编辑{/if}</td>
                     <td>{if $account['enabled']}已启用{else}已停用{/if}</td>
-                    <td class="maint-actions">
+                    <td class="account-actions">
                         {if $account['role']=='editor'}
-                        <form method="post" action="?controller=account&operate=toggle" onsubmit="return confirm('确定更改这个编辑账号的状态吗？')">
-                            <input type="hidden" name="id" value="{$account['id']}">
-                            <input type="hidden" name="enabled" value="{if $account['enabled']}0{else}1{/if}">
-                            <button type="submit" class="maint-action">{if $account['enabled']}停用{else}启用{/if}</button>
+                        <form method="post" action="?controller=account&operate=toggle" class="form" onsubmit="return confirm('确定更改这个编辑账号的状态吗？')">
+                            <input type="hidden" name="id" value="{$account['id']}"><input type="hidden" name="enabled" value="{if $account['enabled']}0{else}1{/if}">
+                            <button type="submit">{if $account['enabled']}停用{else}启用{/if}</button>
                         </form>
-                        <form method="post" action="?controller=account&operate=reset" onsubmit="return confirm('确定重置此账号的密码和认证码吗？')">
+                        <form method="post" action="?controller=account&operate=reset" class="form" onsubmit="return confirm('确定重置此账号的密码和认证码吗？')">
                             <input type="hidden" name="id" value="{$account['id']}">
                             <input class="inputxt" type="password" name="password" required minlength="12" maxlength="72" placeholder="新密码" autocomplete="new-password">
-                            <button type="submit" class="maint-action">重置凭据</button>
+                            <button type="submit">重置凭据</button>
                         </form>
                         {/if}
                     </td>

@@ -101,8 +101,12 @@ try {
     expect_check($sid!==$cookies['fengcms_session'],'session ID rotates');
     $newToken=token($cookies,true); expect_check($newToken!==$csrf,'CSRF rotates');
     $accountPage=request('GET','/admin/index.php?controller=account',$cookies);
-    expect_check($accountPage['status']===200 && str_contains($accountPage['body'],'新建编辑账号'),
+    expect_check($accountPage['status']===200 && str_contains($accountPage['body'],'系统账号管理'),
         'super administrator can open editor account management');
+    $systemMenu=request('GET','/admin/index.php',$cookies);
+    expect_check(str_contains($systemMenu['body'],'系统账号管理') &&
+        !str_contains($systemMenu['body'],'>编辑账号</a>'),
+        'system account management appears in system menu, not top bar');
     $createdEditor=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
         ['_csrf'=>$newToken,'username'=>$editorUser,'password'=>$editorPassword]);
     preg_match('/本次生成的认证码：<strong[^>]*>([a-f0-9]{32})<\/strong>/',$createdEditor['body'],$editorCodeMatch);
