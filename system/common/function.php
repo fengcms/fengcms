@@ -375,7 +375,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 				if(substr($url[0],1)=='content'){
 					return "?controller=content&project=".$url[1]."&id=".$url[2];
 				}else{
-					return "?controller=classify&project=".substr($url[0],1)."&classify=".$url[1]."&classid=".$url[2];
+					return "?controller=classify&project=".substr($url[0],1)."&classify=".($url[1] ?? '')."&classid=".($url[2] ?? '');
 				}
 			}
 		}
@@ -553,7 +553,8 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 
 	  $_SERVER['ALL_HTTP'] = isset($_SERVER['ALL_HTTP']) ? $_SERVER['ALL_HTTP'] : '';   
 	  $mobile_browser = '0';   
-	  if(preg_match('/(up.browser|up.link|mmp|symbian|smartphone|midp|wap|phone|iphone|ipad|ipod|android|xoom)/i', strtolower($_SERVER['HTTP_USER_AGENT'])))   
+		  $userAgent=strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+		  if(preg_match('/(up.browser|up.link|mmp|symbian|smartphone|midp|wap|phone|iphone|ipad|ipod|android|xoom)/i', $userAgent))
 		$mobile_browser++;   
 	  if((isset($_SERVER['HTTP_ACCEPT'])) and (strpos(strtolower($_SERVER['HTTP_ACCEPT']),'application/vnd.wap.xhtml+xml') !== false))   
 		$mobile_browser++;   
@@ -561,7 +562,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 		$mobile_browser++;   
 	  if(isset($_SERVER['HTTP_PROFILE']))   
 		$mobile_browser++;   
-	  $mobile_ua = strtolower(substr($_SERVER['HTTP_USER_AGENT'],0,4));   
+		  $mobile_ua = substr($userAgent,0,4);
 	  $mobile_agents = array(   
 			'w3c ','acs-','alav','alca','amoi','audi','avan','benq','bird','blac',   
 			'blaz','brew','cell','cldc','cmd-','dang','doco','eric','hipt','inno',   
@@ -578,10 +579,10 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 	  if(strpos(strtolower($_SERVER['ALL_HTTP']), 'operamini') !== false)   
 		$mobile_browser++;   
 	  // Pre-final check to reset everything if the user is on Windows   
-	  if(strpos(strtolower($_SERVER['HTTP_USER_AGENT']), 'windows') !== false)   
+		  if(strpos($userAgent, 'windows') !== false)
 		$mobile_browser=0;   
 	  // But WP7 is also Windows, with a slightly different characteristic   
-	  if(strpos(strtolower($_SERVER['HTTP_USER_AGENT']), 'windows phone') !== false)   
+		  if(strpos($userAgent, 'windows phone') !== false)
 		$mobile_browser++;   
 	  if($mobile_browser>0)   
 		return true;   

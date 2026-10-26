@@ -17,7 +17,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 // 项目版本
 define('VERSION', '2.0');
 // 设置错误等级
-error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED);
+error_reporting(E_ALL);
 // 脚本开始时间
 define('__BEGIN__', microtime(true));
 // 设置编码
@@ -79,8 +79,6 @@ include_once COMMON_PATH.'function.php';
 // 加载函数
 include_once COMMON_PATH.'filter.php';
 
-// Legacy request checks run after route authentication below.
-
 // 加载类库
 import('core.*');
 
@@ -108,22 +106,6 @@ final class app {
         }
         $admin = realpath(ABS_PATH) === realpath(ROOT_PATH.'/admin');
         cms_route_guard($controller, $action, $admin);
-        // Rich text has a parser-based policy at save time. Do not run the old
-        // keyword WAF over those authenticated fields (it rejects normal prose).
-        // Template administrators also submit source code, including script tags.
-        // This exception only applies after the authenticated POST/CSRF guard.
-        $wafPost = $_POST;
-        if ($admin && $action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-            $richFields = match ($controller) {
-                'module' => cms_richtext_fields($_GET['project']),
-                'base' => ['copyright'], 'classify' => ['intro'], 'tplmanage' => ['content'], default => [],
-            };
-            foreach ($richFields as $field) { unset($wafPost[$field]); }
-        }
-        if ($admin && $controller === 'modulemanage' && $action === 'preview') {
-            unset($wafPost['package_json']);
-        }
-        include_once COMMON_PATH.'waf.php';
         $_WORKER['controller'] = $controller.'Controller';
         $_WORKER['operate'] = $action;
         spl_autoload_register(['app', 'loadController']);

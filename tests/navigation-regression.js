@@ -7,7 +7,7 @@ const root=path.join(__dirname,'..');
 let checked=0;
 const sources=[
     'admin/js/signup_from.js','admin/js/classify_form.js','admin/js/modulemanage_form.js',
-    'admin/js/modulemanage_load.js','admin/js/field_system.js','admin/js/recover.js','admin/js/filemanage.js',
+    'admin/js/field_system.js','admin/js/recover.js','admin/js/filemanage.js',
     'admin/template/message/reply.html','admin/template/module/add.html',
     'admin/template/module/update.html','admin/template/fieldmanage/add.html','admin/template/fieldmanage/update.html','admin/template/fieldmanage/system.html'
 ];
@@ -29,7 +29,7 @@ for(const source of sources){
         const url=new URL(location.href,'http://localhost/admin/index.php');
         assert.equal(url.searchParams.get('operate'),'execution',source);
         assert.equal(url.searchParams.get('re'),status==='y'?'1':'0',source);
-        const batch=source.includes('signup_from') || source.includes('modulemanage_load') || source.includes('field_system') || source.includes('message/reply') || source.includes('recover.js') || source.includes('filemanage.js') || source.includes('fieldmanage/system');
+        const batch=source.includes('signup_from') || source.includes('field_system') || source.includes('message/reply') || source.includes('recover.js') || source.includes('filemanage.js') || source.includes('fieldmanage/system');
         assert.equal(url.searchParams.has('id'),id===37&&!batch,source+' ID='+String(id));
         if(source.includes('module/add') || source.includes('module/update') || source.includes('fieldmanage/') || source.includes('field_system'))assert.equal(url.searchParams.get('project'),'goods',source);
         checked++;

@@ -9,7 +9,6 @@ FengCMS 自有代码与文档采用根目录 [MIT License](../LICENSE)。MIT 允
 | wangEditor 5 | `admin/public/wangeditor/` | `LICENSE`、`package.json` 标注 MIT；来源摘要随组件保存。 |
 | HTML Purifier | `system/vendor/htmlpurifier/` | `LICENSE`、`composer.json` 标注 LGPL-2.1-or-later。 |
 | Validform | `js/validform/`、`admin/public/jquery/validform/` | 主脚本标头声明 MIT；插件可能有各自声明。 |
-| jQuery 与 HTML5 Shiv | `js/`、`admin/public/jquery/` | 保留原脚本标头；HTML5 Shiv 标注 MIT/GPL2。 |
-| SWFUpload | 两套 `validform/plugin/swfupload/` | 原脚本标头声明 MIT。 |
+| jQuery 4.0.0 与 HTML5 Shiv | `js/jquery.js`、`js/jquery.min.js`、`admin/public/jquery/jquery-4.0.0.min.js` 及 `js/html5.js` | jQuery 从 [官方 CDN](https://code.jquery.com/jquery-4.0.0.min.js) 取得，三个本地副本 SHA-256 均为 `39a546ea9ad97f8bfaf5d3e0e8f8556adb415e470e59007ada9759dce472adaa`，脚本标头保留 OpenJS 版权及许可链接；HTML5 Shiv 标注 MIT/GPL2。 |
 
-旧插件如 `js/jquery.marquee.js` 和 `validform/plugin/jqtransform/` 在仓库内只有作者信息，缺少可核验的完整授权文本。不能仅凭 FengCMS 的 MIT `LICENSE` 将它们宣称为 MIT；对外分发前应核对来源及授权，必要时替换组件。历史归档中的旧 FengCMS 授权协议仅用于说明旧版本，现行授权以根目录 `LICENSE` 为准。
+旧插件如 `js/jquery.marquee.js` 和 `validform/plugin/jqtransform/` 在仓库内只有作者信息，缺少可核验的完整授权文本。不能仅凭 FengCMS 的 MIT `LICENSE` 将它们宣称为 MIT；对外分发前应核对来源及授权，必要时替换组件。两套未使用的 SWFUpload 目录已从发布源码移除。历史归档中的旧 FengCMS 授权协议仅用于说明旧版本，现行授权以根目录 `LICENSE` 为准。

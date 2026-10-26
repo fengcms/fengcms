@@ -52,7 +52,8 @@ class modulemanageController extends Controller{
      * @return template,array
      */
 	public function disabled(){
-		if(M($this->model)->update($_GET['f'],'id="'.$_GET['id'].'"')){
+		if (!in_array($_GET['f'] ?? null, ['0','1'], true)) { cms_fail(400, '模型状态不正确。'); }
+		if(M($this->model)->setStatus((int)$_GET['f'],(int)$_GET['id'])){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage">';
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage">';

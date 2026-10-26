@@ -66,14 +66,9 @@ function SetHome(url){
 		alert("您好,您的浏览器不支持自动设置页面为首页功能,请您手动在浏览器里设置该页面为首页!");
 	}
 }
-//屏蔽js错误
-function ResumeError() {
-return true;
-}
-window.onerror = ResumeError;
-
 //首页幻灯
 $(function(){
+	if (!$.fn.KinSlideshow || !$("#home_hd").length) return;
 	$("#home_hd").KinSlideshow({
 			moveStyle:"right",
 			titleBar:{titleBar_height:26,titleBar_bgColor:"#08355c",titleBar_alpha:0.5},
@@ -85,7 +80,7 @@ $(function(){
 
 //首页滚动图文
 $(function(){
-
+	if (!$.fn.kxbdSuperMarquee || !$('#home_guncon').length) return;
 	$('#home_guncon').kxbdSuperMarquee({
 		distance:350,
 		time:3,
@@ -100,10 +95,8 @@ $(function(){
 
 window.onscroll = function(){ 
 var t = document.documentElement.scrollTop || document.body.scrollTop; 
-if (t>=200) 
-document.getElementById("go_top").className="black"; 
-else 
-document.getElementById("go_top").className="none";
+var top = document.getElementById("go_top");
+if (top) top.className = t >= 200 ? "black" : "none";
 }
 
 //新闻内容评论切换

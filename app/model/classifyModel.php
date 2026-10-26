@@ -73,8 +73,9 @@ class classifyModel extends model{
      * @return array
      */
 	public function wz($id,$str){
-
+		$array='';
 		$arr=D($this->d_name)->field('id,classid,name,html')->where('id = "'.$id.'"')->getone();
+		if (!$arr) { return ''; }
 
 		$array.=' '.cms_escape($str).' <a href="'.cms_escape(cms_safe_url(url($arr['html']))).'">'.cms_escape($arr['name']).'</a>,';
 
@@ -91,8 +92,9 @@ class classifyModel extends model{
      * @return array
      */
 	public function title($id,$str){
-
+		$array='';
 		$arr=D($this->d_name)->field('id,classid,name,html')->where('id = "'.$id.'"')->getone();
+		if (!$arr) { return ''; }
 
 		$array.=$arr['name'].' '.$str.' ,';
 

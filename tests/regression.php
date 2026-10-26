@@ -127,6 +127,12 @@ try {
     expect_check(($moduleEdit['json']['status']??'')==='y' &&
         $db->query('SELECT name FROM f_module WHERE id='.(int)$moduleFixtureId)->fetch_row()[0]==='回归模型已修改',
         'model edit succeeds when disabled project input is absent');
+    $disabledRoute='/admin/index.php?controller=modulemanage&operate=disabled&id='.$moduleFixtureId;
+    expect_check(request('POST',$disabledRoute.'&f=1 OR 1=1',$cookies,['_csrf'=>$newToken])['status']===400,
+        'model status cannot inject SQL after removing the legacy WAF');
+    expect_check(request('POST',$disabledRoute.'&f=0',$cookies,['_csrf'=>$newToken])['status']===200 &&
+        request('POST',$disabledRoute.'&f=1',$cookies,['_csrf'=>$newToken])['status']===200,
+        'model status still toggles with validated values');
     $fieldRoute='/admin/index.php?controller=fieldmanage&project='.$moduleProject;
     $fieldPage=request('GET',$fieldRoute.'&operate=system',$cookies);
     expect_check($fieldPage['status']===200 && !str_contains($fieldPage['body'],'data.id') && str_contains($fieldPage['body'],'name="_csrf"'),'system field form has CSRF and does not build an undefined field ID');
@@ -247,6 +253,12 @@ try {
     $articleStmt=$db->prepare('INSERT INTO f_article (title,content,info,template,classid,status,time,date) VALUES (?,?,?,"/article_content.html","0",?,UNIX_TIMESTAMP(),CURDATE())');
     $status=1; $articleStmt->bind_param('sssi',$articleTitle,$rich,$tag,$status); $articleStmt->execute(); $articleId=$db->insert_id; $articleIds[]=$articleId;
     $status=0; $articleStmt->execute(); $draftId=$db->insert_id; $articleIds[]=$draftId;
+    $shiftRoute='/admin/index.php?controller=module&project=article&operate=shift';
+    expect_check(request('POST',$shiftRoute,$cookies,['_csrf'=>$newToken,'classid'=>(string)$categoryIds[0],'classarray'=>$articleId.' OR 1=1'])['status']===400,
+        'article shift rejects injected ID lists');
+    expect_check(request('POST',$shiftRoute,$cookies,['_csrf'=>$newToken,'classid'=>(string)$categoryIds[0],'classarray'=>(string)$articleId])['status']===200 &&
+        (int)$db->query('SELECT classid FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0]===(int)$categoryIds[0],
+        'article shift accepts validated IDs');
     $public=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check($public['status']===200 && str_contains($public['body'],'&lt;b data-probe=&quot;title&quot;&gt;') && !str_contains($public['body'],'<b data-probe="title">'),'article title is escaped');
     expect_check(str_contains($public['body'],$rich),'legacy content variable retains rich markup');
@@ -257,6 +269,9 @@ try {
     $query='/index.php?controller=search&tags='.rawurlencode('<b data-probe="search">');
     $search=request('GET',$query,$cookies);
     expect_check($search['status']===200 && str_contains($search['body'],'&lt;b data-probe=&quot;search&quot;&gt;') && !str_contains($search['body'],'<b data-probe="search">'),'search reflects escaped text');
+    $scriptSearch=request('GET','/?controller=search&tags='.rawurlencode('<script>alert(1)</script>'),$cookies);
+    expect_check($scriptSearch['status']===200 && str_contains($scriptSearch['body'],'&lt;script&gt;alert(1)&lt;/script&gt;') &&
+        !str_contains($scriptSearch['body'],'<script>alert(1)</script>'), 'normal search text is escaped without keyword blocking');
     $query='/index.php?controller=search&project=article&tags='.rawurlencode('" OR 1=1 #');
     $search=request('GET',$query,$cookies);
     expect_check($search['status']===200 && !str_contains($search['body'],$tag),'search SQL injection cannot return unrelated articles');

@@ -163,9 +163,16 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function shift(){
-		if($_POST['classid']&&$_POST['classarray']){
-
-			if(D($_GET['project'])->where('id='.implode(" or id=",array_filter(explode(",",$_POST['classarray']))))->update('classid="'.$_POST['classid'].'"')){
+		$classid=$_POST['classid'] ?? null;
+		$classarray=$_POST['classarray'] ?? null;
+		if (!is_string($classid) || !preg_match('/^[0-9]{1,10}$/D',$classid) ||
+			!is_string($classarray) || !preg_match('/^[1-9][0-9]{0,9}(?:,[1-9][0-9]{0,9}){0,499}$/D',$classarray)) {
+			cms_fail(400, '转移参数不正确。');
+		}
+		$ids=array_values(array_unique(array_map('intval',explode(',',$classarray))));
+		$placeholders=implode(',',array_fill(0,count($ids),'?'));
+		if ($ids) {
+			if(D($_GET['project'])->where('id IN ('.$placeholders.')',$ids)->update(['classid'=>(int)$classid])){
 				echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 			}else{
 				echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';

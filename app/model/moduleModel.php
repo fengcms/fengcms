@@ -41,7 +41,7 @@ class moduleModel extends model{
 
 		$exp=explode(',',$str);
 
-			if($exp[1]){
+			if($exp[1] ?? ''){
 
 			  return $this->op['where']=$exp[0].$this->whereclass($exp[1]);
 			  
@@ -109,12 +109,12 @@ class moduleModel extends model{
 		}else{
 			$this->tagsresolve($func);
 		}
-		$field=$this->op['field']?$this->op['field']:'*';
-		$where=$this->op['where']?$this->op['where']:'id';
-		$sortf=$this->op['sort']['f']?$this->op['sort']['f']:'id';
-		$sorts=$this->op['sort']['s']?$this->op['sort']['s']:'order';
-		$sortp=$this->op['sort']['p']?$this->op['sort']['p']:'desc';
-		$limit=$this->op['limit']?$this->op['limit']:10;
+		$field=$this->op['field']??'*';
+		$where=$this->op['where']??'id';
+		$sortf=$this->op['sort']['f']??'id';
+		$sorts=$this->op['sort']['s']??'order';
+		$sortp=$this->op['sort']['p']??'desc';
+		$limit=$this->op['limit']??10;
 
 		return D($table)->field($field)->where($where)->sort($sortf,$sorts,$sortp)->limit($limit)->getall();
 		//return $this->getall();
@@ -257,7 +257,7 @@ class moduleModel extends model{
 
 	private function aurl($table,$string){
 		$aurl=D($table)->where(['name'=>$string])->getone();
-		if($aurl['url']){
+		if(!empty($aurl['url'])){
 			return '<a href="'.cms_escape(cms_safe_url($aurl['url'])).'" target="_blank" rel="noopener">'.cms_escape($aurl['name']).'</a>';
 		}else{
 			return cms_escape($string);

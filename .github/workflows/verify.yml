@@ -1,0 +1,41 @@
+name: 验证
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 核验本地依赖来源
+        run: python3 tools/verify-dependencies.py
+      - name: 前端语法与无数据库回归
+        run: |
+          node --check js/common.js
+          node --check js/jquery-compat.js
+          node --check admin/js/session-warning.js
+          node tests/editor-regression.js
+          node tests/navigation-regression.js
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: 启动隔离数据库和 PHP
+        run: ./bin/dev up
+      - name: PHP 语法检查
+        run: ./bin/dev check
+      - name: HTTP 与数据库回归
+        run: ./bin/dev test
+      - name: 汇总 PHP Warning 与 Deprecated
+        if: always()
+        run: docker compose logs php | python3 tools/summarize-php-diagnostics.py
+      - name: 停止测试容器
+        if: always()
+        run: ./bin/dev down

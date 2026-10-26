@@ -101,7 +101,7 @@ class model{
      * @return	number
      */
     public function getcount(){
-		$this ->options['field']=$this ->options['field']?"count(".$this ->options['field'].")":"count(id)";
+		$this ->options['field']=!empty($this ->options['field'])?"count(".$this ->options['field'].")":"count(id)";
         $result = $this->db->fetch($this->db->query($this->buildselectsql(), $this->options['params'] ?? []));
 		return $result[0][$this ->options['field']]; 
     }
@@ -326,11 +326,11 @@ class model{
 			$options['limit']= $offset.','.$listRows;
 		}
 
-		$limit	= $this ->options['limit']?' limit '.$this->options['limit']:'';//解析limit
-		$field	= $this ->options['field']?$this ->options['field']:'*';//解析查询字段
-		$sort	= $this ->options['sort']?$this ->options['sort']:'';//解析查询字段
-		$table	= $this ->options['table']?$this ->options['table']:$this->name;//解析表名
-		$where	= $this ->options['where']?$this ->options['where']:'';//解析where条件
+		$limit	= !empty($this ->options['limit'])?' limit '.$this->options['limit']:'';//解析limit
+		$field	= $this ->options['field']??'*';//解析查询字段
+		$sort	= $this ->options['sort']??'';//解析查询字段
+		$table	= $this ->options['table']??$this->name;//解析表名
+		$where	= $this ->options['where']??'';//解析where条件
 		$sql	= 'select '.$field.' from '.$table.' '.$where.' '.$sort.' '.$limit;
 		//echo $sql;
 		return $sql;

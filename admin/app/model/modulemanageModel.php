@@ -46,8 +46,8 @@ class modulemanageModel extends model{
      *
      * @return array
      */
-	public function update($status,$where=""){
-		return D($this->d_name)->where($where)->update("status=".$status);
+	public function setStatus(int $status,int $id){
+		return D($this->d_name)->where(['id'=>$id])->update(['status'=>$status]);
 	}
 
     /**
