@@ -44,7 +44,7 @@ function upload(array &$cookies,string $token,string $name,string $content): arr
     $b = 'fengcms'.bin2hex(random_bytes(8));
     $body = "--$b\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$token\r\n";
     $body .= "--$b\r\nContent-Disposition: form-data; name=\"imgFile\"; filename=\"$name\"\r\nContent-Type: application/octet-stream\r\n\r\n$content\r\n--$b--\r\n";
-    return request('POST','/admin/public/htmledit/php/upload_json.php?dir=image',$cookies,$body,['Content-Type'=>'multipart/form-data; boundary='.$b]);
+    return request('POST','/admin/api/upload.php?dir=image',$cookies,$body,['Content-Type'=>'multipart/form-data; boundary='.$b]);
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
@@ -65,7 +65,7 @@ try {
     expect_check(request('GET','/?controller=../admin',$cookies)['status']===400,'route traversal rejected');
     expect_check(request('GET','/?controller=home&operate=display',$cookies)['status']===404,'inherited helper blocked');
     expect_check(request('GET','/?controller=search&operate=projectexist',$cookies)['status']===404,'non-action helper blocked');
-    expect_check(request('GET','/admin/public/htmledit/php/file_manager_json.php',$cookies)['status']===401,'anonymous file manager blocked');
+    expect_check(request('GET','/admin/api/files.php',$cookies)['status']===401,'anonymous file manager blocked');
     expect_check(upload($cookies,'','test.png','invalid')['status']===401,'anonymous upload blocked');
     expect_check(request('POST','/admin/index.php?controller=admin',$cookies,['user'=>$user])['status']===403,'login requires CSRF');
     $csrf=token($cookies);
@@ -146,7 +146,7 @@ try {
         'valid image containing script-like bytes is accepted');
     $binaryUrl=$binaryUpload['json']['url']; $files[]=dirname(__DIR__).$binaryUrl;
     expect_check(request('GET',$binaryUrl,$cookies)['body']===$gif, 'binary image is served unchanged as static data');
-    $manager='/admin/public/htmledit/php/file_manager_json.php';
+    $manager='/admin/api/files.php';
     expect_check(isset(request('GET',$manager,$cookies)['json']['file_list']),'template picker returns JSON');
     expect_check(request('GET',$manager.'?path=../',$cookies)['status']===400,'file manager traversal rejected');
     expect_check(request('GET','/admin/index.php?controller=tplmanage&operate=update&project=tpl&name=../../config',$cookies)['status']===400,'template editor traversal rejected');

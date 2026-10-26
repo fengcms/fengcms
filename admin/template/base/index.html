@@ -13,8 +13,11 @@
 <!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
 <script src="js/tab.js"></script>
 <script src="public/jquery/validform/validform.js"></script>
-<script src="public/htmledit/kindeditor.js"></script>
-<script src="public/htmledit/lang/zh_CN.js"></script>
+<link rel="stylesheet" href="/admin/public/wangeditor/style.css" />
+<link rel="stylesheet" href="/admin/css/editor.css" />
+<script src="/admin/public/wangeditor/index.js"></script>
+<script src="/admin/js/editor.js"></script>
+
 <script src="js/common.js"></script>
 <script src="js/base.js"></script>
 </head>
@@ -63,12 +66,12 @@
 			</tr>
 			<tr>
 				<th>版权信息：</th>
-				<td><textarea name="copyright" id="copyright" altercss="gray" class="gray" style="width:500px" datatype="*" errormsg="版权信息不能为空！" >{$copyright}</textarea></td>
+				<td><textarea data-cms-editor name="copyright" id="copyright" altercss="gray" class="gray" style="width:500px" datatype="*" errormsg="版权信息不能为空！" >{$copyright}</textarea></td>
 				<td><span class="article_notes colorf60">※：版权信息，支持Html代码</span></td>
 			</tr>
 			<tr>
 				<th>首页模板：</th>
-				<td><input type="text" name="template" id="template_url" value="{$template}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="网站名称至少6个字符！" value="{$name}"/> <input type="button" id="filemanage" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
+				<td><input type="text" name="template" id="template_url" value="{$template}" class="inputxt" style="width:300px" datatype="*6-255" errormsg="网站名称至少6个字符！" value="{$name}"/> <input type="button" id="filemanage" data-cms-target="template_url" data-cms-kind="template" value="浏览模板" class="inputxt" style="width:100px;height:30px;" /></td>
 				<td><span class="article_notes colorf60">※：一般无需修改</span></td>
 			</tr>
 		</table>

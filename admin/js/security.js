@@ -26,9 +26,6 @@
             }
         });
     }
-    if (window.KindEditor) {
-        window.KindEditor.options.extraFileUploadParams = { _csrf: token };
-    }
     // Existing delete/logout links submit POST while retaining query parameters
     // used by legacy controllers. Inline confirmation handlers run first.
     document.addEventListener('click', function (event) {
