@@ -48,19 +48,14 @@ class moduleModel extends model{
      * @return array
      */
 	public function hits($table,$name){
-		if($table && $name){
-			$array=explode(",",$name);
-			if(count($array)>0){
-				foreach($array as $v){
-					$re=D($table)->where('name="'.$v.'"')->update("hits=hits+1");
-				}
-				return $re;
-			}else{
-				return D($table)->where('name="'.$name.'"')->update("hits=hits+1");
-			}
-		}else{
-			return false;
+		if(!in_array($table,['tags','author','inputer','origin'],true) || !is_string($name) || $name==='')return false;
+		$re=false;
+		foreach(explode(',', $name) as $value){
+			$value=trim($value);
+			if($value==='')continue;
+			$re=D($table)->where(['name'=>$value])->update('hits=hits+1');
 		}
+		return $re;
 	}
 
 	/**

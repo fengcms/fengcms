@@ -51,6 +51,7 @@ $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."
 $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=null; $backupId=null;
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
 $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId=null;
+$counterTagIds=[]; $counterAuthorId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
@@ -210,6 +211,29 @@ try {
     expect_check(($tagEdit['json']['status']??'')==='y' &&
         $db->query('SELECT name FROM f_tags WHERE id='.(int)$editorTagId)->fetch_row()[0]==='editor_tag_updated_'.$tag,
         'editor updates related keyword');
+    $quotedTag='quoted_'.$tag.'"value'; $normalTag='normal_'.$tag; $otherTag='other_'.$tag;
+    $counterInsert=$db->prepare('INSERT INTO f_tags (name,hits) VALUES (?,0)');
+    foreach ([$quotedTag,$normalTag,$otherTag] as $counterName) {
+        $counterInsert->bind_param('s',$counterName); $counterInsert->execute(); $counterTagIds[]=$db->insert_id;
+    }
+    $quotedAuthor='author_'.$tag.'"value';
+    $authorInsert=$db->prepare('INSERT INTO f_author (name,hits) VALUES (?,0)');
+    $authorInsert->bind_param('s',$quotedAuthor); $authorInsert->execute(); $counterAuthorId=$db->insert_id;
+    $counterArticle=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'title'=>'counter_'.$tag,'content'=>'<p>计数回归</p>','info'=>'计数导读',
+            'status'=>'1','classid'=>'0','template'=>'/article_content.html','time'=>(string)time(),
+            'date'=>date('Y-m-d'),'tags'=>$quotedTag.', '.$normalTag,'author'=>$quotedAuthor,'inputer'=>'','origin'=>'']);
+    $counterArticleId=(int)($counterArticle['json']['id']??0);
+    if ($counterArticleId>0) { $articleIds[]=$counterArticleId; }
+    expect_check(($counterArticle['json']['status']??'')==='y' && $counterArticleId>0 &&
+        array_map('intval',array_column($db->query('SELECT hits FROM f_tags WHERE id IN ('.implode(',',array_map('intval',$counterTagIds)).') ORDER BY id')->fetch_all(MYSQLI_ASSOC),'hits'))===[1,1,0] &&
+        (int)$db->query('SELECT hits FROM f_author WHERE id='.(int)$counterAuthorId)->fetch_row()[0]===1 &&
+        $db->query('SELECT tags FROM f_article WHERE id='.$counterArticleId)->fetch_row()[0]===$quotedTag.', '.$normalTag,
+        'quoted and trimmed tag/author counters update only matching rows');
+    $db->query('DELETE FROM f_article WHERE id='.(int)$counterArticleId);
+    foreach ($counterTagIds as $counterTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$counterTagId); }
+    $counterTagIds=[];
+    $db->query('DELETE FROM f_author WHERE id='.(int)$counterAuthorId); $counterAuthorId=null;
     $categorySave=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'type'=>'url','project'=>'article','name'=>'编辑外链'.$tag,
             'enname'=>'editor_'.$tag,'classid'=>'0','html'=>'https://example.test/','nav'=>'0','genre'=>'one']);
@@ -930,6 +954,8 @@ try {
     if ($editorArticleId) { $db->query('DELETE FROM f_article WHERE id='.(int)$editorArticleId); }
     if ($editorCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$editorCategoryId); }
     if ($editorTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$editorTagId); }
+    foreach ($counterTagIds as $counterTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$counterTagId); }
+    if ($counterAuthorId) { $db->query('DELETE FROM f_author WHERE id='.(int)$counterAuthorId); }
     if ($editorMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$editorMessageId); }
     if ($batchMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$batchMessageId); }
     if ($messageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$messageId); }
