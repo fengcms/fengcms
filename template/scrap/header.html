@@ -76,7 +76,7 @@
 				  sort字段是栏目排序字段，在栏目管理里的栏目排序功能，就是控制这个字段的。
 		}-->
 
-		{loop l("classify","w[classid=0&&nav=1];f[id,html,name,url_type];n[100];s[sort,2]") $k $v}
+		{loop l("classify","w[classid=0&&nav=1];f[id,html,name,url_type,type];n[100];s[sort,2]") $k $v}
 
 		<!--{
 		判断1：如果为外链栏目，则直接输出html的值。如果不是外链栏目，则用url函数处理html值后再输出。
@@ -116,7 +116,7 @@
 			然后，在下面的loop循环中，我们只要把这个变量写进入，就可以引用这组查询条件了。
 			也就是说：
 
-			{$navwhere=M("module")->l("classify","w[classid=$navid&&nav=1];f[id,html,name,url_type];n[100];s[sort,2]")}
+			{$navwhere=M("module")->l("classify","w[classid=$navid&&nav=1];f[id,html,name,url_type,type];n[100];s[sort,2]")}
 			{loop $navwhere $key $val}
 
 			是等于

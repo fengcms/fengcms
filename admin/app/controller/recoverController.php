@@ -15,7 +15,7 @@ class recoverController extends Controller{
 	private $model;
 
     function __construct(){
-		if($_GET['project']==""){
+		if(($_GET['project']??'')===""){
 		$array=M("module")->findone("type=1 AND recover=1 AND status=1");
 		if (!$array) { cms_fail(404, '没有可用的回收站。'); }
 		$_GET['project']=$array['project'];

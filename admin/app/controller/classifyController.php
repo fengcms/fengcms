@@ -302,7 +302,7 @@ class classifyController extends Controller{
      * @return array
      */
 	public function save(){
-		$genre=$_POST['genre'];
+		$genre=$_POST['genre']??'';
 		unset($_POST['genre']);
 		if($genre=="one" || $genre==""){
 			echo json_encode(M($this->model)->save($_POST));
@@ -317,7 +317,12 @@ class classifyController extends Controller{
      * @return array
      */
 	public function execution(){
-		return $this->display('classify/execution.html');
+		$type=1;
+		if(($_GET['type']??null)==='save' && (int)($_GET['id']??0)>0){
+			$row=D($this->model)->where(['id'=>(int)$_GET['id']])->getone();
+			$type=($row['type']??null)==='module'?0:1;
+		}
+		return $this->display('classify/execution.html',['type'=>$type]);
 	}
 }
 

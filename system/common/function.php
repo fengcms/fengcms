@@ -363,6 +363,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 
 
 	function url($url){
+		if($url===null){return '';}
 		if(URL_TYPE=='1'){
 			return $url;
 		}elseif(URL_TYPE=='0'){

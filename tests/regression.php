@@ -301,7 +301,7 @@ try {
     expect_check($invalidBatch['status']===400 &&
         (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
         'editor batch rejects scalar record without changing article');
-    $invalidRecords=[(string)$editorArticleId, [[$editorArticleId]], ['1 OR 1=1'], ['0'], array_fill(0,1001,(string)$editorArticleId)];
+    $invalidRecords=[(string)$editorArticleId, [[$editorArticleId]], ['1 OR 1=1'], ['0'], array_fill(0,501,(string)$editorArticleId)];
     foreach ($invalidRecords as $record) {
         $badBatch=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$editorCookies,
             ['_csrf'=>$editorToken,'method'=>'recover','record'=>$record]);
@@ -344,7 +344,7 @@ try {
         'article save ignores client-owned and unknown fields while keeping editable title');
     $db->query("INSERT INTO f_message (title,content,status,time) VALUES ('editor_msg_$tag','hello',0,UNIX_TIMESTAMP())");
     $editorMessageId=$db->insert_id;
-    foreach ([[$editorMessageId=>'x'], [[$editorMessageId]], ['1 OR 1=1'], ['0'], array_fill(0,1001,(string)$editorMessageId)] as $record) {
+    foreach ([[$editorMessageId=>'x'], [[$editorMessageId]], ['1 OR 1=1'], ['0'], array_fill(0,501,(string)$editorMessageId)] as $record) {
         foreach ([['message',$editorCookies,$editorToken],['signup',$cookies,$newToken]] as [$controller,$actorCookies,$actorToken]) {
             $badDelete=request('POST','/admin/index.php?controller='.$controller.'&operate=deletebatch',$actorCookies,
                 ['_csrf'=>$actorToken,'record'=>$record]);

@@ -32,6 +32,16 @@ class controller{
 			if(!empty($data)){
 				extract($data,EXTR_SKIP);
 			}
+			// Legacy templates read optional query keys directly. Supply their empty state
+			// only during rendering, after routing and authorization have completed.
+			foreach(['controller'=>'','project'=>'','classid'=>'0','id'=>'0','tags'=>'',
+				'title'=>'','field'=>'','type'=>'','operate'=>'',
+				'attrib_j'=>'','attrib_g'=>'','attrib_t'=>'','attrib_r'=>'','attrib_d'=>'','attrib_h'=>''] as $key=>$default){
+				if(!array_key_exists($key,$_GET)){$_GET[$key]=$default;}
+			}
+			$topid=$topid??0;
+			$template=$template??'';
+			$content_template=$content_template??'';
 			include template::tpl($path);
 		}
 	}
