@@ -50,14 +50,19 @@ assert status == 200 and 'name="db_host"' in page
 assert '环境检查未通过' not in page
 
 values = {
-    'action': 'install', '_csrf': csrf(page), 'db_host': 'db', 'db_user': 'fengcms',
+    'action': 'review', '_csrf': csrf(page), 'db_host': 'db', 'db_user': 'fengcms',
     'db_pass': env['DB_PASSWORD'], 'db_name': 'fengcms', 'db_prefix': 'f_',
     'admin_user': 'siteadmin', 'admin_pass': admin_password,
     'admin_confirm': admin_password,
 }
 bad = dict(values, admin_confirm='mismatch')
 assert '输入不符合要求' in request('/install/index.php', bad)[1]
+assert '请先填写信息并核对目标' in request('/install/index.php', {'action': 'install', '_csrf': csrf(page)})[1]
 status, page = request('/install/index.php', values)
+assert status == 200 and '确认安装目标' in page and 'f_manage' in page and 'f_view_field' in page
+assert 'fengcms' in page and admin_password not in page and env['DB_PASSWORD'] not in page
+assert not (root / 'config.local.php').exists()
+status, page = request('/install/index.php', {'action': 'install', '_csrf': csrf(page)})
 assert status == 200 and '安装完成' in page, 'web install failed'
 match = re.search(r'后台认证码：<strong>([0-9]{4})</strong>', page)
 assert match, 'admin code missing from success page'

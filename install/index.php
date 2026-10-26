@@ -163,24 +163,49 @@ if (empty($_SESSION['authorized'])) {
 }
 
 $problems = installer_requirements($root, $https);
-if ($method === 'POST' && installer_post_value('action') === 'install') {
-    $host = installer_post_value('db_host');
-    $user = installer_post_value('db_user');
-    $password = installer_post_value('db_pass', false);
-    $database = installer_post_value('db_name');
-    $prefix = installer_post_value('db_prefix');
-    $admin = installer_post_value('admin_user');
-    $adminPassword = installer_post_value('admin_pass', false);
-    $confirm = installer_post_value('admin_confirm', false);
+$action = installer_post_value('action');
+if ($method === 'POST' && ($action === 'review' || $action === 'install')) {
+    $form = $action === 'review' ? [
+        'db_host' => installer_post_value('db_host'), 'db_user' => installer_post_value('db_user'),
+        'db_pass' => installer_post_value('db_pass', false), 'db_name' => installer_post_value('db_name'),
+        'db_prefix' => installer_post_value('db_prefix'), 'admin_user' => installer_post_value('admin_user'),
+        'admin_pass' => installer_post_value('admin_pass', false), 'admin_confirm' => installer_post_value('admin_confirm', false),
+    ] : ($_SESSION['install_form'] ?? []);
+    $host = $form['db_host'] ?? '';
+    $user = $form['db_user'] ?? '';
+    $password = $form['db_pass'] ?? '';
+    $database = $form['db_name'] ?? '';
+    $prefix = $form['db_prefix'] ?? '';
+    $admin = $form['admin_user'] ?? '';
+    $adminPassword = $form['admin_pass'] ?? '';
+    $confirm = $form['admin_confirm'] ?? '';
     if ($problems) {
         $error = '安装环境不满足要求，请先处理下列问题。';
-    } elseif (!preg_match('/^[A-Za-z0-9._:-]{1,200}$/D', $host) || !is_string($user) || strlen($user) < 1 || strlen($user) > 128 || preg_match('/[\x00-\x1f\x7f]/', $user) ||
+    } elseif (!preg_match('/^[A-Za-z0-9._:-]{1,200}$/D', $host) || strlen($user) < 1 || strlen($user) > 128 || preg_match('/[\x00-\x1f\x7f]/', $user) ||
         strlen($password) > 512 || !preg_match('/^[A-Za-z0-9_]{1,64}$/D', $database) ||
         !preg_match('/^[A-Za-z][A-Za-z0-9_]{0,29}$/D', $prefix) ||
         !preg_match('/^[A-Za-z][A-Za-z0-9_.-]{2,63}$/D', $admin) ||
         strlen($adminPassword) < 12 || strlen($adminPassword) > 72 || $adminPassword !== $confirm) {
-        $error = '输入不符合要求：请检查数据库信息、表前缀及管理员密码（12 至 72 字节，两次一致）。';
+        $error = '输入不符合要求：请检查数据库信息、表前缀及管理员密码（12 至 72 字节，两次一致）。请先填写信息并核对目标。';
+    } elseif ($action === 'review') {
+        $schema = file_get_contents(__DIR__.'/install.sql');
+        if ($schema === false || !preg_match_all('/^CREATE\s+(TABLE|VIEW)\s+`#prefix_([A-Za-z0-9_]+)`/mi', $schema, $objects) ||
+            preg_match_all('/\bCREATE\s+(?:TABLE|VIEW)\b/i', $schema) !== count($objects[0])) {
+            $error = '无法读取安装对象清单，请检查安装包是否完整。';
+        } else {
+            $_SESSION['install_form'] = $form;
+            $list = '';
+            foreach ($objects[2] as $index => $suffix) {
+                $list .= '<li>'.installer_escape(strtoupper($objects[1][$index])).' <code>'.installer_escape($prefix.$suffix).'</code></li>';
+            }
+            $summary = '<p class="note">请确认将向数据库 <strong>'.installer_escape($database).'</strong> 写入下列对象，表前缀为 <code>'.installer_escape($prefix).'</code>，管理员用户名为 <strong>'.installer_escape($admin).'</strong>。此时尚未写入数据库。</p>';
+            $summary .= '<ul>'.$list.'</ul><p>继续前请再次核对数据库和表前缀；已有对象会被拒绝，执行中失败可能留下部分新对象。</p>';
+            $summary .= '<form method="post" action="index.php"><input type="hidden" name="_csrf" value="'.installer_escape($_SESSION['csrf']).'"><input type="hidden" name="action" value="install"><button type="submit">确认并开始安装</button></form><p><a href="index.php">返回修改</a></p>';
+            installer_page('确认安装目标', $summary);
+            exit;
+        }
     } else {
+        unset($_SESSION['install_form']);
         $db = null;
         $lockFile = null;
         $databaseLock = null;
@@ -236,7 +261,7 @@ if ($problems) {
 } else {
     $body .= '<p class="note">环境检查通过。数据库必须由主机面板预先创建；目标表前缀不能已有表或视图。安装器不会删除现有数据。</p>';
 }
-$body .= '<form method="post" action="index.php"><input type="hidden" name="_csrf" value="'.installer_escape($_SESSION['csrf']).'"><input type="hidden" name="action" value="install">';
+$body .= '<form method="post" action="index.php"><input type="hidden" name="_csrf" value="'.installer_escape($_SESSION['csrf']).'"><input type="hidden" name="action" value="review">';
 $fields = [
     ['db_host', '数据库主机', 'text', 'localhost'],
     ['db_user', '数据库用户名', 'text', ''],
@@ -251,5 +276,5 @@ foreach ($fields as $field) {
     [$name, $label, $type, $placeholder] = $field;
     $body .= '<label for="'.$name.'">'.installer_escape($label).'</label><input id="'.$name.'" name="'.$name.'" type="'.$type.'" placeholder="'.installer_escape($placeholder).'" required autocomplete="off" maxlength="512">';
 }
-$body .= '<button type="submit"'.($problems ? ' disabled' : '').'>安装 FengCMS</button></form><p class="small">安装失败时不会自动删除数据库中的部分对象。请勿对现有站点使用本向导。</p>';
+$body .= '<button type="submit"'.($problems ? ' disabled' : '').'>核对安装目标</button></form><p class="small">确认页会列出将创建的表和视图。安装失败时不会自动删除数据库中的部分对象。请勿对现有站点使用本向导。</p>';
 installer_page('环境检查与安装信息', $body);
