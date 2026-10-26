@@ -42,12 +42,12 @@
 					<th class="art_title_th">样式名称</th>
 					<th width="100">操作</th>
 				</tr>
-				{loop array_filter(getFile(ROOT_PATH.'/css')) $v}
+				{loop $files $v}
 				<tr class="bg_fff">
-					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=css&name={substr($v,0,-4)}">{$v}</a></span></td>
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=css&name={rawurlencode(substr($v,0,-4))}">{$v}</a></span></td>
 					<td>
-					<a href="?controller=tplmanage&operate=update&project=css&name={substr($v,0,-4)}" class="color999">编辑</a>&nbsp;|&nbsp;
-					<a href="?controller=tplmanage&operate=delete&project=css&name={substr($v,0,-4)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这个CSS吗？')">删除</a>
+					<a href="?controller=tplmanage&operate=update&project=css&name={rawurlencode(substr($v,0,-4))}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=css&name={rawurlencode(substr($v,0,-4))}" class="color999" onclick="javascript:return confirm('确定删除这个文件吗？')">删除</a>
 					</td>
 				</tr>
 				{/loop}
@@ -56,12 +56,12 @@
 					<th class="art_title_th">碎片名称</th>
 					<th width="100">操作</th>
 				</tr>
-				{loop array_filter(getFile(ROOT_PATH.'/template/scrap')) $v}
+				{loop $files $v}
 				<tr class="bg_fff">
-					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=scrap&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=scrap&name={rawurlencode(substr($v,0,-5))}">{$v}</a></span></td>
 					<td>
-					<a href="?controller=tplmanage&operate=update&project=scrap&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
-					<a href="?controller=tplmanage&operate=delete&project=scrap&name={substr($v,0,-5)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这个碎片吗？')">删除</a>
+					<a href="?controller=tplmanage&operate=update&project=scrap&name={rawurlencode(substr($v,0,-5))}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=scrap&name={rawurlencode(substr($v,0,-5))}" class="color999" onclick="javascript:return confirm('确定删除这个文件吗？')">删除</a>
 					</td>
 				</tr>
 				{/loop}
@@ -70,11 +70,11 @@
 					<th class="art_title_th">碎片名称</th>
 					<th width="100">操作</th>
 				</tr>
-				{loop array_filter(getFile(ROOT_PATH.'/template/inc')) $v}
+				{loop $files $v}
 				<tr class="bg_fff">
-					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=inc&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=inc&name={rawurlencode(substr($v,0,-5))}">{$v}</a></span></td>
 					<td>
-					<a href="?controller=tplmanage&operate=update&project=inc&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=update&project=inc&name={rawurlencode(substr($v,0,-5))}" class="color999">编辑</a>&nbsp;|&nbsp;
 					<del class="colorf60">删除</del>
 					</td>
 				</tr>
@@ -84,12 +84,12 @@
 					<th class="art_title_th">广告名称</th>
 					<th width="100">操作</th>
 				</tr>
-				{loop array_filter(getFile(ROOT_PATH.'/template/show')) $v}
+				{loop $files $v}
 				<tr class="bg_fff">
-					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=show&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=show&name={rawurlencode(substr($v,0,-5))}">{$v}</a></span></td>
 					<td>
-					<a href="?controller=tplmanage&operate=update&project=show&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
-					<a href="?controller=tplmanage&operate=delete&project=show&name={substr($v,0,-5)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这条广告吗？')">删除</a>
+					<a href="?controller=tplmanage&operate=update&project=show&name={rawurlencode(substr($v,0,-5))}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=show&name={rawurlencode(substr($v,0,-5))}" class="color999" onclick="javascript:return confirm('确定删除这个文件吗？')">删除</a>
 					</td>
 				</tr>
 				{/loop}
@@ -98,12 +98,12 @@
 					<th class="art_title_th">模板名称</th>
 					<th width="100">操作</th>
 				</tr>
-				{loop array_filter(getFile(ROOT_PATH.'/template')) $v}
+				{loop $files $v}
 				<tr class="bg_fff">
-					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=tpl&name={substr($v,0,-5)}">{$v}</a></span></td>
+					<td><span class="art_title_txt"><a href="?controller=tplmanage&operate=update&project=tpl&name={rawurlencode(substr($v,0,-5))}">{$v}</a></span></td>
 					<td>
-					<a href="?controller=tplmanage&operate=update&project=tpl&name={substr($v,0,-5)}" class="color999">编辑</a>&nbsp;|&nbsp;
-					<a href="?controller=tplmanage&operate=delete&project=tpl&name={substr($v,0,-5)}" class="color999" onclick="javascript:return confirm('您确定要删除“{$v}”这个模板吗？')">删除</a>
+					<a href="?controller=tplmanage&operate=update&project=tpl&name={rawurlencode(substr($v,0,-5))}" class="color999">编辑</a>&nbsp;|&nbsp;
+					<a href="?controller=tplmanage&operate=delete&project=tpl&name={rawurlencode(substr($v,0,-5))}" class="color999" onclick="javascript:return confirm('确定删除这个文件吗？')">删除</a>
 					</td>
 				</tr>
 				{/loop}

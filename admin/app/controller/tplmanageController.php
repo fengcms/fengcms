@@ -20,7 +20,7 @@ class tplmanageController extends Controller{
      * @return template,array
      */
 	public function index(){
-		return $this->display('tplmanage/index.html');
+		return $this->display('tplmanage/index.html',['files'=>M($this->model)->files($_GET['project']??'tpl')]);
 	}
 
     /**
@@ -38,9 +38,11 @@ class tplmanageController extends Controller{
      * @return template,array
      */
 	public function update(){
+        $path=M($this->model)->pathset($_GET['name']??null,$_GET['project']??null);
+        if(!is_file($path)){cms_fail(404,'模板不存在。');}
 		return $this->display('tplmanage/update.html',array(
 				'name'		=> $_GET['name'],
-				'content'	=> file_get_contents(M($this->model)->pathset($_GET['name'],$_GET['project']))
+				'content'	=> file_get_contents($path)
 				)
 			);
 	}

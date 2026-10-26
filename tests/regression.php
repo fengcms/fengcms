@@ -162,6 +162,56 @@ try {
         $page=request('GET','/admin/index.php?controller='.$route,$cookies);
         expect_check($page['status']===200 && str_contains($page['body'],'<html'),'admin screen renders: '.$route);
     }
+    $templateRoute='/admin/index.php?controller=tplmanage';
+    $templateName='qa_template_'.$tag;
+    $templateSource='<h1>模板回归 '.$tag.'</h1><p>{$title}</p><script>window.templateQA="'.$tag.'";</script>';
+    expect_check(request('GET',$templateRoute.'&operate=save',$cookies)['status']===405,'template save requires POST');
+    expect_check(request('POST',$templateRoute.'&operate=save',$cookies,['project'=>'tpl','name'=>$templateName,'type'=>'0','content'=>$templateSource])['status']===403,'template save requires CSRF');
+    $anonymous=[];
+    expect_check(request('POST',$templateRoute.'&operate=save',$anonymous,['_csrf'=>$newToken,'project'=>'tpl','name'=>$templateName,'type'=>'0','content'=>$templateSource])['status']===401,'template source editing requires administrator authentication');
+    foreach (['tpl'=>'template','css'=>'css','scrap'=>'template/scrap','inc'=>'template/inc','show'=>'template/show'] as $templateType=>$templateDirectory) {
+        $extension=$templateType==='css'?'.css':'.html';
+        $templateFile=dirname(__DIR__).'/'.$templateDirectory.'/'.$templateName.$extension;
+        $files[]=$templateFile;
+        $source=$templateType==='css'?'body { color:#123456; }':$templateSource;
+        $templateData=['_csrf'=>$newToken,'project'=>$templateType,'name'=>$templateName,'type'=>'0','content'=>$source];
+        $templateSave=request('POST',$templateRoute.'&operate=save',$cookies,$templateData);
+        expect_check(($templateSave['json']['status']??'')==='y' && is_file($templateFile) && file_get_contents($templateFile)===$source,'template manager creates exact source: '.$templateType);
+        $templateEdit=request('GET',$templateRoute.'&operate=update&project='.$templateType.'&name='.$templateName,$cookies);
+        preg_match('~<textarea\b[^>]*name="content"[^>]*>(.*?)</textarea>~s',$templateEdit['body'],$templateTextarea);
+        expect_check($templateEdit['status']===200 && isset($templateTextarea[1]) && html_entity_decode($templateTextarea[1],ENT_QUOTES|ENT_HTML5,'UTF-8')===$source,'template source reopens without executing or double escaping: '.$templateType);
+        $templateDuplicate=request('POST',$templateRoute.'&operate=save',$cookies,$templateData);
+        expect_check(($templateDuplicate['json']['status']??'')==='e' && file_get_contents($templateFile)===$source,'new template cannot overwrite an existing name: '.$templateType);
+        $templateData['type']='1';$templateData['content']='';
+        $emptyTemplate=request('POST',$templateRoute.'&operate=save',$cookies,$templateData);
+        clearstatcache(true,$templateFile);
+        expect_check(($emptyTemplate['json']['status']??'')==='y' && filesize($templateFile)===0,'zero-byte template save is successful: '.$templateType);
+        $templateData['content']=$source;
+        expect_check((request('POST',$templateRoute.'&operate=save',$cookies,$templateData)['json']['status']??'')==='y' && file_get_contents($templateFile)===$source,'template manager updates exact source: '.$templateType);
+        $templateList=request('GET',$templateRoute.'&project='.$templateType,$cookies);
+        preg_match_all('~class="art_title_txt"><a[^>]*>([^<]+)</a>~',$templateList['body'],$listedTemplates);
+        $orderedTemplates=array_map(static fn($name)=>html_entity_decode($name,ENT_QUOTES|ENT_HTML5,'UTF-8'),$listedTemplates[1]);
+        $expectedTemplates=$orderedTemplates;
+        usort($expectedTemplates,static fn($a,$b)=>strnatcasecmp($a,$b) ?: strcmp($a,$b));
+        expect_check($orderedTemplates===$expectedTemplates && in_array($templateName.$extension,$orderedTemplates,true),'template list sorts file names A-Z: '.$templateType);
+        expect_check(!glob(dirname($templateFile).'/.fengcms-*'),'template writes clean up temporary files: '.$templateType);
+    }
+    $db->query('UPDATE f_article SET template="/'.$templateName.'.html" WHERE id='.(int)$articleId);
+    $renderedTemplate=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
+    expect_check($renderedTemplate['status']===200 && str_contains($renderedTemplate['body'],'模板回归 '.$tag) && !str_contains($renderedTemplate['body'],'{$title}'),'new template can render a frontend article');
+    $db->query('UPDATE f_article SET template="/article_content.html" WHERE id='.(int)$articleId);
+    expect_check(request('GET','/template/'.$templateName.'.html',$cookies)['status']===404,'new template source is not publicly downloadable');
+    expect_check(request('GET','/css/'.$templateName.'.css',$cookies)['body']==='body { color:#123456; }','saved stylesheet is served by Nginx');
+    foreach ([['name'=>'../escape'],['name'=>'nested/file'],['name'=>'x.php/evil'],['name'=>['array']],['project'=>'../template'],['type'=>'2'],['type'=>['0']],['content'=>['array']]] as $invalidTemplate) {
+        $invalidTemplateSave=request('POST',$templateRoute.'&operate=save',$cookies,array_replace(['_csrf'=>$newToken,'project'=>'tpl','name'=>$templateName,'type'=>'0','content'=>'valid'],$invalidTemplate));
+        expect_check($invalidTemplateSave['status']===400,'invalid template save parameters are rejected');
+    }
+    $missingTemplate=request('POST',$templateRoute.'&operate=save',$cookies,['_csrf'=>$newToken,'project'=>'tpl','name'=>'qa_missing_'.$tag,'type'=>'1','content'=>'missing']);
+    expect_check($missingTemplate['status']===404,'template update cannot create a missing file');
+    $symlinkName='qa_link_'.$tag;$symlinkPath=dirname(__DIR__).'/template/'.$symlinkName.'.html';
+    symlink(dirname(__DIR__).'/config.php',$symlinkPath);$files[]=$symlinkPath;
+    $symlinkSave=request('POST',$templateRoute.'&operate=save',$cookies,['_csrf'=>$newToken,'project'=>'tpl','name'=>$symlinkName,'type'=>'1','content'=>'no']);
+    expect_check($symlinkSave['status']===400,'template save refuses symbolic links');
     foreach (['add', 'update&id='.$articleId] as $operation) {
         $formPage=request('GET','/admin/index.php?controller=module&project=article&operate='.$operation,$cookies);
         preg_match('/<form\b[^>]*>/i', $formPage['body'], $formTag);

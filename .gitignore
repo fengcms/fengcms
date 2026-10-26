@@ -7,6 +7,8 @@
 /admin/app/dbbackup/
 **/error/logs/
 /var/
+/template/**/.fengcms-*
+/css/.fengcms-*
 .DS_Store
 
 # Local editor metadata and temporary files

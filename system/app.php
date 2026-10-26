@@ -110,11 +110,13 @@ final class app {
         cms_route_guard($controller, $action, $admin);
         // Rich text has a parser-based policy at save time. Do not run the old
         // keyword WAF over those authenticated fields (it rejects normal prose).
+        // Template administrators also submit source code, including script tags.
+        // This exception only applies after the authenticated POST/CSRF guard.
         $wafPost = $_POST;
         if ($admin && $action === 'save' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $richFields = match ($controller) {
                 'module' => cms_richtext_fields($_GET['project']),
-                'base' => ['copyright'], 'classify' => ['intro'], default => [],
+                'base' => ['copyright'], 'classify' => ['intro'], 'tplmanage' => ['content'], default => [],
             };
             foreach ($richFields as $field) { unset($wafPost[$field]); }
         }

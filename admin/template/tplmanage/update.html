@@ -23,12 +23,13 @@
 {if $_GET['project']=="css"}{$project="CSS"}{/if}
 {if $_GET['project']=="scrap"}{$project="碎片"}{/if}
 {if $_GET['project']=="inc"}{$project="碎片"}{/if}
+{if $_GET['project']=="show"}{$project="广告"}{/if}
 
 <form method="post" action="?controller=tplmanage&operate=save" class="form">
 	<div id="main_top">
 		<dl id="article_ico">
 			<dd class="art_ico_8"><a href="#" id="save">保存{$project}</a></dd>
-			<dd class="art_ico_9"><a href="?controller=tplmanage&project={$_GET['project']}" id="save">返回列表</a></dd>
+			<dd class="art_ico_9"><a href="?controller=tplmanage&project={$_GET['project']}">返回列表</a></dd>
 		</dl>
 	</div>
 	<div id="art_body">
@@ -54,13 +55,13 @@
 			{/if}
 			<tr>
 				<th>{$project}名称：</th>
-				<td width="350"><input name="name" type="text" id="name" class="inputxt bgccc" style="width:300px" datatype="s1-255" errormsg="文件名称至少6个字符！" nullmsg="文件名称不能为空！" value="{$name}" readonly="true"/></td>
+				<td width="350"><input name="name" type="text" id="name" class="inputxt bgccc" style="width:300px" datatype="*1-120" errormsg="文件名称需为1–120个字符！" nullmsg="文件名称不能为空！" value="{$name}" readonly="true"/></td>
 				<td class="colorf60">* 不需要填写后缀名</td>
 			</tr>
 			<tr>
 				<th>{$project}内容：</th>
 				<td colspan="2">
-				<textarea name="content" id="content" altercss="gray" class="gray" style="width:100%;height:600px;color:#555;font-size:14px;line-height:1.5" datatype="*" errormsg="文件内容不能为空！" nullmsg="文件内容不能为空！" >{htmlspecialchars($content)}</textarea>
+				<textarea name="content" id="content" altercss="gray" class="gray" style="width:100%;height:600px;color:#555;font-size:14px;line-height:1.5" >{htmlspecialchars($content)}</textarea>
 				</td>
 			</tr>
 		</table>

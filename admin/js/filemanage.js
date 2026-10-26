@@ -8,9 +8,9 @@ $(function(){
 			if(data.status=="y"){
 				location.href =	"?controller=tplmanage&operate=execution&re=1&project="+data.project;
 			}else if(data.status=="e"){
-				alert("文件已存在！")
+				alert("文件已存在，请换一个名称。")
 			}else{
-				location.href =	"?controller=tplmanage&operate=execution&re=0&project="+data.project;
+				alert(data.message || "保存失败，请稍后重试。");
 
 			}
 		}

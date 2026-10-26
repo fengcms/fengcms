@@ -32,12 +32,12 @@
 		<table cellspacing="0" class="add_art">
 			<tr>
 				<th>{$project}名称：</th>
-				<td width="350"><input name="name" type="text" id="name" class="inputxt" style="width:300px" datatype="s1-255" errormsg="{$project}名称至少6个字符！" nullmsg="{$project}名称不能为空！" value="" /></td>
+				<td width="350"><input name="name" type="text" id="name" class="inputxt" style="width:300px" datatype="*1-120" errormsg="{$project}名称需为1–120个字符！" nullmsg="{$project}名称不能为空！" value="" /></td>
 				<td class="colorf60">* 不需要填写后缀名</td>
 			</tr>
 			<tr>
 				<th>{$project}内容：</th>
-				<td colspan="2"><textarea name="content" id="content" altercss="gray" class="gray" style="width:100%;height:600px" datatype="*" errormsg="{$project}内容不能为空！" nullmsg="{$project}内容不能为空！" ></textarea></td>
+				<td colspan="2"><textarea name="content" id="content" altercss="gray" class="gray" style="width:100%;height:600px" ></textarea></td>
 			</tr>
 		</table>
 	</div>
