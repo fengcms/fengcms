@@ -10,6 +10,7 @@
 - `system/`：框架、数据库驱动、模板编译、安全函数；`system/common/security.php` 负责认证、CSRF、路径等公共防护；`richtext.php` 负责服务端富文本清洗。
 - `template/`、`admin/template/`：前台及后台模板。原有 `{$变量}`、`{$record['fy']}` 语法必须保留。
 - `admin/js/editor.js`、`admin/css/editor.css`：wangEditor 适配与样式；`resource-picker.js`：资源选择器；`admin/api/`：上传、列表、缩略图接口。
+- 后台只有 `super_admin` 与 `editor` 两种固定角色；编辑可管理“内容”“相关”，不能访问“系统”“模块”和账号管理。路由、模型 `project`、独立 API 都要在服务端校验；权限与迁移见 `docs/ADMIN_ROLES.md`。
 - `admin/public/wangeditor/`：wangEditor 5.1.23（MIT）；`system/vendor/htmlpurifier/`：HTML Purifier 4.19.1（LGPL）。这些是部署所需源码，应纳入 Git。
 - `docker/`、`compose.yaml`、`bin/dev`：本地容器；`tools/`：初始化、迁移、检查；`tests/regression.php`：HTTP/数据库回归。
 - `install/index.php`、`system/common/install_schema.php`：共享主机的一次性网页安装与开发初始化共用数据导入；首次安装步骤见 `docs/INSTALLATION.md`。本地 Docker 显式关闭网页入口。

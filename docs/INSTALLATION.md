@@ -37,6 +37,8 @@ return 'REPLACE_WITH_YOUR_OWN_RANDOM_INSTALL_SECRET';
 
 新安装的系统表默认使用 InnoDB/utf8mb4；已有网站不会自动转换。存量数据库的盘点与副本迁移步骤见[数据库迁移说明](SCHEMA_MIGRATION.md)。
 
+后台提供固定的超级管理员和编辑角色。编辑账号由超级管理员在后台创建；已有站点升级涉及管理员表迁移，步骤和回退限制见[后台角色说明](ADMIN_ROLES.md)。
+
 ## 故障排查
 
 | 现象 | 处理 |
