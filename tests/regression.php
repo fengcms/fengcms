@@ -48,7 +48,7 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
-$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null; $backupId=null;
+$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=null; $backupId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
@@ -546,6 +546,13 @@ try {
     expect_check(D(substr($fixture,2))->where(['id'=>$id])->getone()['note']===$text,'prepared update binds values and conditions');
     $backupRoute='/admin/index.php?controller=dbmanage';
     $backupDir=dirname(__DIR__).'/admin/app/dbbackup';
+    $db->query("CREATE VIEW `$viewFixture` AS SELECT id,name FROM `f_view_field`");
+    $beforeRejected=glob($backupDir.'/*.json') ?: [];
+    $multipleViews=request('POST',$backupRoute.'&operate=create',$cookies,['_csrf'=>$newToken]);
+    expect_check($multipleViews['status']===500 &&
+        (glob($backupDir.'/*.json') ?: [])===$beforeRejected &&
+        str_contains($multipleViews['body'],'多个视图'), 'dependent views are refused before publishing a backup');
+    $db->query("DROP VIEW `$viewFixture`");
     $before=glob($backupDir.'/*.json') ?: [];
     expect_check(request('GET',$backupRoute.'&operate=dbregain',$cookies)['status']===404,'unsafe web restore is unavailable');
     expect_check(request('GET',$backupRoute.'&operate=create',$cookies)['status']===405,'backup creation requires POST');
@@ -610,6 +617,7 @@ try {
     expect_check($rate['status']===429,'login rate limit enforced');
     echo "All $passed regression checks passed.\n";
 } finally {
+    $db->query("DROP VIEW IF EXISTS `$viewFixture`");
     if ($backupId !== null) {
         foreach (['sql','json'] as $extension) {
             $file=dirname(__DIR__).'/admin/app/dbbackup/'.$backupId.'.'.$extension;

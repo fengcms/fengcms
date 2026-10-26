@@ -78,6 +78,12 @@ final class CmsBackup
             $objects[] = ['name'=>$name, 'type'=>$type, 'ddl'=>$ddl, 'columns'=>$columns];
         }
         if (!$objects) { throw new RuntimeException('数据库没有可备份的表。'); }
+        // SHOW FULL TABLES is alphabetic, not dependency order. A second view
+        // might reference the first; publishing either order as restorable is
+        // unsafe until view dependencies can be resolved on both DB engines.
+        if (count(array_filter($objects, static fn($o) => $o['type'] === 'VIEW')) > 1) {
+            throw new RuntimeException('数据库包含多个视图，当前无法保证恢复顺序；请使用主机备份工具。');
+        }
         return $objects;
     }
 
