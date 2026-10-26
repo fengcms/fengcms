@@ -2,7 +2,9 @@
 .cms-editor > div:first-child { border-bottom:1px solid #ccc; }
 .cms-editor > div:nth-child(2) { height:360px; overflow-y:auto; }
 .cms-editor [data-slate-editor] { min-height:300px; }
-.cms-editor .w-e-full-screen-container { z-index:10000; }
+.cms-editor.w-e-full-screen-container { position:fixed; z-index:10000; border:0; }
+.cms-editor.w-e-full-screen-container > div:first-child { flex:0 0 auto; }
+.cms-editor.w-e-full-screen-container > div:nth-child(2) { flex:1 1 auto; min-height:0; height:auto; overflow:hidden; }
 .cms-picker { width:min(700px,90vw); max-height:80vh; padding:20px; border:1px solid #777; background:white; color:#222; }
 .cms-picker::backdrop { background:rgba(0,0,0,.4); }
 .cms-picker button { margin:4px; padding:7px 12px; cursor:pointer; }

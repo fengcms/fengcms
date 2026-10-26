@@ -17,6 +17,31 @@
         } finally { pending--; }
     }
     function sync() { instances.forEach((editor, textarea) => { textarea.value = editor.isEmpty() ? '' : editor.getHtml(); }); }
+    // The administration shell embeds forms in an iframe. Expand that frame
+    // while an editor is fullscreen; removing the class restores its layout.
+    function updateFullscreenFrame() {
+        const active = document.querySelector('.cms-editor.w-e-full-screen-container');
+        try {
+            const frame = window.frameElement;
+            if (!frame) return;
+            const parentDocument = frame.ownerDocument;
+            if (!parentDocument.getElementById('cms-editor-frame-style')) {
+                const style = parentDocument.createElement('style'); style.id = 'cms-editor-frame-style';
+                style.textContent = '.cms-editor-fullscreen-frame{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:100000!important;}';
+                parentDocument.head.append(style);
+            }
+            frame.classList.toggle('cms-editor-fullscreen-frame', !!active);
+        } catch (_) { /* Standalone or cross-origin embedding: fill this viewport. */ }
+    }
+    function restoreFullscreenFrame() {
+        try { window.frameElement?.classList.remove('cms-editor-fullscreen-frame'); } catch (_) {}
+    }
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            instances.forEach(editor => { if (editor.isFullScreen) editor.unFullScreen(); });
+            updateFullscreenFrame();
+        }
+    });
     function mount(textarea) {
         if (instances.has(textarea)) return;
         const wrapper = document.createElement('div'); wrapper.className = 'cms-editor';
@@ -40,6 +65,9 @@
             button.setAttribute('aria-label', button.getAttribute('data-tooltip').split('\n')[0]);
         });
         body.setAttribute('aria-label', textarea.name || textarea.id || '富文本编辑区');
+        const fullscreenObserver = new MutationObserver(updateFullscreenFrame);
+        fullscreenObserver.observe(wrapper, {attributes:true, attributeFilter:['class']});
+        editor.on('destroyed', () => { fullscreenObserver.disconnect(); updateFullscreenFrame(); });
         instances.set(textarea, editor); textarea.hidden = true;
     }
     function setField(id, urls, multiple) {
@@ -102,6 +130,7 @@
     document.addEventListener('submit',function(event){if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
     function start(){document.querySelectorAll('textarea[data-cms-editor]').forEach(mount);}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
-    window.addEventListener('pagehide',event=>{if(!event.persisted){instances.forEach(editor=>editor.destroy());instances.clear();}});
+    window.addEventListener('pageshow', updateFullscreenFrame);
+    window.addEventListener('pagehide',event=>{restoreFullscreenFrame();if(!event.persisted){instances.forEach(editor=>editor.destroy());instances.clear();}});
     window.FengEditor={sync,upload};
 }());
