@@ -52,6 +52,7 @@ $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
+$importProject='qa_copy_'.$tag; $importFixtureId=null;
 $originalBase=$db->query('SELECT name,copyright FROM f_base LIMIT 1')->fetch_assoc();
 $originalName=$originalBase['name'];
 $settingsPath=(getenv('APP_RUNTIME_PATH') ?: dirname(__DIR__).'/var/runtime').'/site.json';
@@ -121,6 +122,11 @@ try {
     $moduleRow=$db->query("SELECT id FROM f_module WHERE project='$moduleProject'")->fetch_assoc();
     $moduleFixtureId=$moduleRow['id']??null;
     expect_check(($createdModule['json']['status']??'')==='y' && $moduleFixtureId,'custom module can be created');
+    $moduleEdit=request('POST','/admin/index.php?controller=modulemanage&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$moduleFixtureId,'name'=>'回归模型已修改','item'=>'商品','unit'=>'件','status'=>'1']);
+    expect_check(($moduleEdit['json']['status']??'')==='y' &&
+        $db->query('SELECT name FROM f_module WHERE id='.(int)$moduleFixtureId)->fetch_row()[0]==='回归模型已修改',
+        'model edit succeeds when disabled project input is absent');
     $fieldRoute='/admin/index.php?controller=fieldmanage&project='.$moduleProject;
     $fieldPage=request('GET',$fieldRoute.'&operate=system',$cookies);
     expect_check($fieldPage['status']===200 && !str_contains($fieldPage['body'],'data.id') && str_contains($fieldPage['body'],'name="_csrf"'),'system field form has CSRF and does not build an undefined field ID');
@@ -162,6 +168,35 @@ try {
     $customFieldSave=request('POST',$fieldRoute.'&operate=save',$cookies,$customFieldData);
     expect_check(($customFieldSave['json']['status']??'')==='y' && (int)($customFieldSave['json']['id']??0)>0,'custom field creation returns its real record ID');
     expect_check($db->query("SHOW COLUMNS FROM `f_$moduleProject` LIKE '".$customFieldData['name']."'")->num_rows===1,'custom field creation updates the declared module table');
+    $export=request('GET','/admin/index.php?controller=modulemanage&operate=elicit&id='.$moduleFixtureId,$cookies);
+    $package=json_decode($export['body'],true);
+    expect_check($export['status']===200 && ($package['format']??'')==='fengcms-model-v1' &&
+        ($package['source_project']??'')===$moduleProject && count($package['fields'])>=10,
+        'model export returns structured portable definition');
+    $modelRoute='/admin/index.php?controller=modulemanage';
+    expect_check(request('GET',$modelRoute.'&operate=preview',$cookies)['status']===405,'model preview requires POST');
+    $badPackage=$package;$badPackage['columns'][1]['name']='title`; DROP TABLE f_manage; --';
+    $invalidPreview=request('POST',$modelRoute.'&operate=preview',$cookies,['_csrf'=>$newToken,'project'=>$importProject,'package_json'=>json_encode($badPackage)]);
+    expect_check($invalidPreview['status']===400 && !$db->query("SHOW TABLES LIKE 'f_$importProject'")->num_rows,
+        'model preview rejects injected column names before DDL');
+    $preview=request('POST',$modelRoute.'&operate=preview',$cookies,['_csrf'=>$newToken,'project'=>$importProject,'package_json'=>$export['body']]);
+    preg_match('/name="nonce" value="([a-f0-9]{32})"/',$preview['body'],$previewNonce);
+    expect_check($preview['status']===200 && isset($previewNonce[1]) && str_contains($preview['body'],$customFieldData['name']),
+        'model preview shows all custom fields without creating a table');
+    expect_check(request('POST',$modelRoute.'&operate=loading',$cookies,['_csrf'=>$newToken,'modulecode'=>'legacy-sql'])['status']===400,
+        'legacy SQL import code cannot execute');
+    $import=request('POST',$modelRoute.'&operate=loading',$cookies,['_csrf'=>$newToken,'nonce'=>$previewNonce[1]]);
+    $importFixtureId=$db->query("SELECT id FROM f_module WHERE project='$importProject'")->fetch_row()[0]??null;
+    expect_check($import['status']===303 && $importFixtureId!==null,
+        'confirmed model preview imports into a new project');
+    $originalColumns=array_column($db->query("SHOW COLUMNS FROM `f_$moduleProject`")->fetch_all(MYSQLI_ASSOC),'Field');
+    $importColumns=array_column($db->query("SHOW COLUMNS FROM `f_$importProject`")->fetch_all(MYSQLI_ASSOC),'Field');
+    $importFields=$db->query('SELECT name,type FROM f_module_field WHERE module_id='.(int)$importFixtureId)->fetch_all(MYSQLI_ASSOC);
+    expect_check($originalColumns===$importColumns && count($importFields)===count($package['fields']) &&
+        in_array($customFieldData['name'],array_column($importFields,'name'),true),
+        'imported model retains physical columns and field metadata');
+    expect_check(request('POST',$modelRoute.'&operate=loading',$cookies,['_csrf'=>$newToken,'nonce'=>$previewNonce[1]])['status']===400,
+        'model import confirmation cannot be replayed');
     $customFieldData['id']=$customFieldSave['json']['id'];
     expect_check((request('POST',$fieldRoute.'&operate=save',$cookies,$customFieldData)['json']['status']??'')==='y','unchanged custom field metadata can be saved again');
     $classifyRoute='/admin/index.php?controller=classify';
@@ -537,6 +572,11 @@ try {
         $db->query('DELETE FROM f_module_field WHERE module_id='.(int)$moduleFixtureId);
         $db->query('DELETE FROM f_module WHERE id='.(int)$moduleFixtureId);
     }
+    if ($importFixtureId) {
+        $db->query('DELETE FROM f_module_field WHERE module_id='.(int)$importFixtureId);
+        $db->query('DELETE FROM f_module WHERE id='.(int)$importFixtureId);
+    }
+    $db->query("DROP TABLE IF EXISTS `f_$importProject`");
     $db->query("DROP TABLE IF EXISTS `f_$moduleProject`");
     foreach ($files as $file) { if (is_file($file)) { unlink($file); } }
     foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }

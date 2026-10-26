@@ -120,6 +120,9 @@ final class app {
             };
             foreach ($richFields as $field) { unset($wafPost[$field]); }
         }
+        if ($admin && $controller === 'modulemanage' && $action === 'preview') {
+            unset($wafPost['package_json']);
+        }
         include_once COMMON_PATH.'waf.php';
         $_WORKER['controller'] = $controller.'Controller';
         $_WORKER['operate'] = $action;

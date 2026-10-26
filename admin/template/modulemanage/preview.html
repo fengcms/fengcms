@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>确认导入模型</title>
+<link href="css/css.css" rel="stylesheet">
+</head>
+<body>
+<div id="main">
+    <form method="post" action="?controller=modulemanage&operate=loading">
+        <div id="main_top"><dl id="article_ico">
+            <dd class="art_ico_8"><button type="submit" onclick="this.disabled=true;this.form.submit()">确认创建</button></dd>
+            <dd class="art_ico_9"><a href="?controller=modulemanage&operate=load">返回修改</a></dd>
+        </dl></div>
+        <input type="hidden" name="nonce" value="{$nonce}">
+        <div id="art_body"><table cellspacing="0" class="add_art">
+            <tr><th colspan="2" style="text-align:center;font-size:16px">导入预览</th></tr>
+            <tr><th>模型名称：</th><td>{$package['module']['name']}</td></tr>
+            <tr><th>来源模型：</th><td>{$package['source_project']}</td></tr>
+            <tr><th>新表名：</th><td>{$project}</td></tr>
+            <tr><th>数据库列：</th><td>{count($package['columns'])} 列</td></tr>
+            <tr><th>后台字段：</th><td>{count($package['fields'])} 项
+                <ul>{loop $package['fields'] $field}<li>{$field['name']} — {$field['aliases']}</li>{/loop}</ul>
+            </td></tr>
+            <tr><th>说明：</th><td>确认后仅创建新模型和字段，不导入文章数据，也不覆盖已有表。</td></tr>
+        </table></div>
+    </form>
+</div>
+</body>
+</html>

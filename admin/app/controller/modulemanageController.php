@@ -10,6 +10,7 @@
 // 
 
 include "admin.php";
+require_once ROOT_PATH.'/system/common/model_package.php';
 
 class modulemanageController extends Controller{
 
@@ -92,24 +93,15 @@ class modulemanageController extends Controller{
      * @return array
      */
 	public function elicit(){
-
-		$array=D("module")->where('id="'.$_GET['id'].'"')->getone();
-		
-		$path=FILES_PATH.'module/';
-
-		$file=$array['module'].md5(time()).".txt";
-
-		$sql=encrypt(M($this->model)->elicit($array,$path),"E");
-
-		if(fileWrite($sql,$file,$path)){
-
-			echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage&operate=elicitcution&re=1&url='.urlencode(replpath($path.$file)).'">';
-
-		}else{
-
-			echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage&operate=elicitcution&re=0">';
-			
-		}
+		try{$package=CmsModelPackage::export((int)($_GET['id']??0));}
+        catch(InvalidArgumentException $e){cms_fail(400,$e->getMessage());}
+        catch(Throwable $e){error_log('Model export failed: '.$e);cms_fail(500,'模型导出失败，请查看私有错误日志。');}
+        while(ob_get_level()>0){ob_end_clean();}
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="fengcms-model-'.(int)$_GET['id'].'.fengmodel.json"');
+        header('Cache-Control: no-store');
+        header('X-Content-Type-Options: nosniff');
+        echo $package;
 	}
 
     /**
@@ -121,13 +113,41 @@ class modulemanageController extends Controller{
 		return $this->display('modulemanage/load.html');
 	}
 
+    public function preview(){
+        $project=$_POST['project']??null;
+        if(!is_string($project)){cms_fail(400,'模型表名不正确。');}
+        $json=$_POST['package_json']??'';
+        if(isset($_FILES['package_file']) && $_FILES['package_file']['error']!==UPLOAD_ERR_NO_FILE){
+            $file=$_FILES['package_file'];
+            if($file['error']!==UPLOAD_ERR_OK || $file['size']>1048576 || !is_uploaded_file($file['tmp_name'])){
+                cms_fail(400,'模型文件不正确或超过 1 MB。');
+            }
+            $json=file_get_contents($file['tmp_name']);
+        }
+        if(!is_string($json)){cms_fail(400,'模型文件不正确。');}
+        try{$package=CmsModelPackage::parse($json,$project);}
+        catch(InvalidArgumentException $e){cms_fail(400,$e->getMessage());}
+        $_SESSION['model_import_preview']=['project'=>$project,'package'=>$package,'created'=>time(),'nonce'=>bin2hex(random_bytes(16))];
+        $this->display('modulemanage/preview.html',[
+            'project'=>$project,'package'=>$package,'nonce'=>$_SESSION['model_import_preview']['nonce'],
+        ]);
+    }
+
     /**
      * 模块导入
      *
      * @return array
      */
 	public function loading(){
-		echo json_encode(M($this->model)->loading($_POST));
+		$preview=$_SESSION['model_import_preview']??null;
+        $nonce=$_POST['nonce']??null;
+        if(!is_array($preview) || !is_string($nonce) || !hash_equals($preview['nonce'],$nonce) ||
+            time()-(int)$preview['created']>600){cms_fail(400,'导入预览已过期，请重新选择模型。');}
+        unset($_SESSION['model_import_preview']);
+        try{CmsModelPackage::import($preview['package'],$preview['project']);}
+        catch(InvalidArgumentException $e){cms_fail(400,$e->getMessage());}
+        catch(Throwable $e){error_log('Model import failed: '.$e);cms_fail(500,'模型导入失败，请查看私有错误日志。');}
+        header('Location: ?controller=modulemanage&imported=1',true,303);
 	}
 
     /**
@@ -144,9 +164,6 @@ class modulemanageController extends Controller{
      *
      * @return array
      */
-	public function elicitcution(){
-		return $this->display('modulemanage/elicitcution.html');
-	}
 }
 
 
