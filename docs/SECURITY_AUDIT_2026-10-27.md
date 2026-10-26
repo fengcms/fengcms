@@ -142,6 +142,10 @@
 | 模型包 | `system/common/model_package.php`：JSON 精确键集合、列名/类型白名单、必需系统字段、字段类型与目标站一致性核对、`GET_LOCK`、失败回滚建表 | 未发现 DDL 注入；仅超级管理员可达 |
 | 备份管理 | `admin/app/controller/dbmanageController.php`：`backup_id` 正则、上传 `is_uploaded_file`、预览 nonce + 10 分钟过期 + SHA-256 复核、写操作 POST + CSRF | 未发现越权读取/删除任意文件 |
 | 缩略图 API | `admin/api/thumbnail.php`：登录校验、`cms_path_within(upload/image)`、扩展名 + `getimagesize` + MIME + 像素上限 | 未发现任意文件读取；GD 解码限制明确 |
+| 上传/列表 API | `admin/api/upload.php`、`files.php`：登录 + POST + CSRF、扩展名分组、`finfo` MIME、图片尺寸、随机命名；目录白名单、`cms_path_within`、跳过符号链接、文件数上限 | 未发现任意文件写入/读取；模板选择器仅列 `.html` |
+| 认证/账号 | `admin/app/controller/accountController.php`、`manageController.php`、`manageModel.php`：仅超级管理员管理账号、prepared、角色固定、重置超级管理员需当前密码、改密需旧密码、`auth_version` 失效会话 | 未发现越权或注入 |
+| 前台搜索/留言 | `app/controller/searchController.php`、`app/model/messageModel.php`：tags 长度/模型存在性/页码校验、POST 303、会话 60 次/分钟限流；留言字段白名单/长度、状态与时间服务端控制 | 搜索无注入；验证码缺陷沿用 FENG-008 |
+| 路由/控制器加载 | `system/app.php:100-120,151-162`：controller/action `^[a-z][a-z0-9]*$` + 读写白名单；自动加载只拼接已验证的类名 | 未发现路径穿越或任意类加载 |
 | Nginx | `docker/nginx/default.conf`：仅开放指定 PHP 入口、`/install/index.php` 单独放行、`system/app/template/tools/tests` 等目录 404、上传目录脚本扩展 404、配置/SQL/日志 404 | 与代码层防护一致；生产 Apache 需按同等规则核查 |
 | 模板路径 | 内容/栏目 `template` 字段可被编辑写入，但 `Template::Tpl()` 前置模板根目录，`createfile()` 再经 `cms_path_within()` 且只允许 `.html` | 不能借此读取任意文件或执行 PHP；可在修复 FENG-007 时顺带把模板字段限制为现有模板白名单 |
 
@@ -159,6 +163,7 @@
 | L-08 | `admin/app/controller/messageController.php:25`、`signupController.php:25` | `$where` 未定义即传入 `sqlpage()`，产生警告 | 初始化为空串 |
 | L-09 | `system/core/controller.php:33` | `extract(..., EXTR_SKIP)`；模板变量来自控制器/数据库 | 保持 `EXTR_SKIP`；新增模板变量时避免与局部变量同名 |
 | L-10 | `system/core/page.php:307-313` | `wap` 分页把 `$_GET` 原值拼入 `postfield`，默认 `pagetype='web'` 不可达 | 若启用 wap 分页，对键值统一转义 |
+| L-11 | `app/controller/homeController.php:18-24` | `$_POST['param']` 未校验字符串类型；数组输入在 PHP 8 触发 `TypeError` 并返回 500 | 先 `is_string()` 校验，失败时统一返回“验证码不正确” |
 
 ## 7. 未测与待验证边界
 
