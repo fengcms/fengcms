@@ -96,7 +96,8 @@ try {
     expect_check($licensePage['status']===200 && str_contains($licensePage['body'],'MIT License') &&
         !str_contains($licensePage['body'],'非商业运用') && !str_contains($licensePage['body'],'必须在FengCms官方论坛首发'),
         'admin home displays the current MIT terms without obsolete restrictions');
-    expect_check(preg_match('~id="current-version">v1\.35\s*</span>~',$licensePage['body'])===1 &&
+    $currentVersion=trim(file_get_contents(__DIR__.'/../admin/version.php'));
+    expect_check(str_contains($licensePage['body'],'id="current-version">'.htmlspecialchars($currentVersion,ENT_QUOTES,'UTF-8')) &&
         str_contains($licensePage['body'],'js/version-check.js') &&
         str_contains($licensePage['body'],'https://github.com/fengcms/fengcms/releases') &&
         !str_contains($licensePage['body'],'http://www.fengcms.com'),

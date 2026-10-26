@@ -2,7 +2,7 @@
 
 本向导用于**新网站的首次安装**。已有 FengCMS 网站不能用它覆盖升级；请先备份代码、数据库、上传文件和私有配置，再按[安全升级记录](SECURITY_UPGRADE.md)迁移。
 
-此功能已在仓库源码实现，**尚未包含在 v1.35 发布包中**。对外安装请等待包含此功能的新版本发布。
+网页安装器从 **v1.36** 起随 [GitHub Releases](https://github.com/fengcms/fengcms/releases) 的发布包提供；v1.35 发布包不包含此功能。
 
 已在隔离环境验证网页安装、首页和后台登录：PHP 8.4.27 + MySQL 8.4.11（Nginx 与 Apache），以及 PHP 8.3.36 + MariaDB 10.11.19（Apache）。后一个组合尚未完成整套 CMS 的业务回归；LiteSpeed 和第三方共享主机面板也尚未实测。
 
