@@ -43,7 +43,7 @@
             	<th colspan="2">
 				{if $_GET['type']=="save"}
 				【<a href="?controller=fieldmanage&project={$_GET['project']}&operate=add">继续添加</a>】
-				【<a href="?controller=fieldmanage&project={$_GET['project']}&operate=update&id={$_GET['id']}">继续修改</a>】
+				{if !empty($_GET['id'])}【<a href="?controller=fieldmanage&project={$_GET['project']}&operate=update&id={$_GET['id']}">继续修改</a>】{/if}
 				{/if}
 				【<a href="?controller=fieldmanage&project={$_GET['project']}">返回字段管理</a>】
 				</th>

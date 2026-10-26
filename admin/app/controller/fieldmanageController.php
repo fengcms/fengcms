@@ -33,7 +33,7 @@ class fieldmanageController extends Controller{
      */
 	public function system(){
 		return $this->display('fieldmanage/system.html',array(
-			'systemfield'	=>	M("fieldtype")->findall('f=0'),
+			'systemfield'	=>	M($this->model)->systemfields($_GET['project']),
 			'field'			=>	M($this->model)->findall('project="'.$_GET['project'].'"')
 			));
 	}
@@ -62,7 +62,7 @@ class fieldmanageController extends Controller{
      * @return array
      */
 	public function systemsave(){
-		echo json_encode(M($this->model)->systemsave(array_filter($_POST)));
+		echo json_encode(M($this->model)->systemsave($_POST));
 	}
 
     /**

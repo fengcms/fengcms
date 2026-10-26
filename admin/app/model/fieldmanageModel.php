@@ -188,35 +188,53 @@ class fieldmanageModel{// extends model{
      *
      * @return array
      */
-	public function systemsave($array){
+    // Physical names differ from type classes for the built-in hidden fields.
+    public function systemfields($project){
+        $existing=array_column($this->findall(['project'=>$project]), 'name');
+        $fields=D($this->d_name.'_type')->where(['f'=>0])->getall();
+        foreach($fields as &$field){
+            $field['field_name']=match((int)$field['id']){15=>'status',16=>'html',default=>$field['class']};
+            $field['selected']=in_array($field['field_name'],$existing,true);
+        }
+        unset($field);
+        return $fields;
+    }
 
-		if(!is_array($array['record'])){
-			return array('status' => 'e');
-		}else{
- 
-			$module=D("module")->where('project="'.$array['project'].'"')->getone();
-			foreach($array['record'] as $k => $v){
-
-				$filed=D($this->d_name.'_type')->where('id="'.$v.'"')->getone();
-				
-				$arr['module_id']	= $module['id'];
-				$arr['sort']		= intval(D($this->v_name)->where('module_id="'.$arr['module_id'].'"')->getcount()-1);
-				$arr['name']		= $filed['class'];
-				$arr['aliases']		= $filed['name'];
-				$arr['type']		= $filed['id'];
-				$arr['enable']		= $this->enable($filed['class']);
-
-				$type=$this->fieldtype($arr['name'],$arr['type']);
-
-				D($this->model)->query("ALTER TABLE `".DB_PREFIX.$array['project']."`".$type.";");
-
-				$re=D($this->d_name)->insert($arr);
-
-				if(!$re) return array('status' => 'n'); 
-			}
-				return array('status' => 'y');
-		}
-	}
+    public function systemsave($array){
+        $project=$array['project']??null;
+        if(!is_string($project) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,29}$/D',$project)){
+            cms_fail(400,'模型名称不正确。');
+        }
+        $module=D('module')->where(['project'=>$project])->getone();
+        if(!$module){cms_fail(404,'模型不存在。');}
+        $records=$array['record']??[];
+        if(!is_array($records) || count($records)>100){cms_fail(400,'字段选择不正确。');}
+        if(!$records){return ['status'=>'e'];}
+        $available=array_column($this->systemfields($project),null,'id');
+        $selected=[];
+        // Validate the whole batch before changing the table or field metadata.
+        foreach($records as $id){
+            if(!is_string($id) || !preg_match('/^[0-9]{1,10}$/D',$id) || !isset($available[(int)$id])){
+                cms_fail(400,'系统字段不正确。');
+            }
+            $selected[(int)$id]=$available[(int)$id];
+        }
+        $table=model::identifier(DB_PREFIX.$project);
+        foreach($selected as $field){
+            if($field['selected']){continue;}
+            $name=$field['field_name'];
+            model::identifier($name);
+            $record=[
+                'module_id'=>$module['id'],
+                'sort'=>(int)D($this->d_name)->where(['module_id'=>$module['id']])->getcount()-1,
+                'name'=>$name,'aliases'=>$field['name'],'type'=>$field['id'],
+                'enable'=>$this->enable($name),
+            ];
+            D($this->d_name)->query('ALTER TABLE '.$table.$this->fieldtype($name,$field['id']));
+            if(!D($this->d_name)->insert($record)){return ['status'=>'n'];}
+        }
+        return ['status'=>'y'];
+    }
 
     /**
      * 字段类型

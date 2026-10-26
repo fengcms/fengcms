@@ -50,6 +50,7 @@ $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
 $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $testId=$legacyId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
+$moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
 $originalBase=$db->query('SELECT name,copyright FROM f_base LIMIT 1')->fetch_assoc();
 $originalName=$originalBase['name'];
 $settingsPath=(getenv('APP_RUNTIME_PATH') ?: dirname(__DIR__).'/var/runtime').'/site.json';
@@ -84,6 +85,33 @@ try {
     expect_check((request('POST','/admin/index.php?controller=admin',$cookies,$login)['json']['status']??'')==='y','modern login succeeds');
     expect_check($sid!==$cookies['fengcms_session'],'session ID rotates');
     $newToken=token($cookies,true); expect_check($newToken!==$csrf,'CSRF rotates');
+    $createdModule=request('POST','/admin/index.php?controller=modulemanage&operate=save',$cookies,['_csrf'=>$newToken,'project'=>$moduleProject,'name'=>'回归模型','item'=>'商品','unit'=>'件']);
+    $moduleRow=$db->query("SELECT id FROM f_module WHERE project='$moduleProject'")->fetch_assoc();
+    $moduleFixtureId=$moduleRow['id']??null;
+    expect_check(($createdModule['json']['status']??'')==='y' && $moduleFixtureId,'custom module can be created');
+    $fieldRoute='/admin/index.php?controller=fieldmanage&project='.$moduleProject;
+    $fieldPage=request('GET',$fieldRoute.'&operate=system',$cookies);
+    expect_check($fieldPage['status']===200 && !str_contains($fieldPage['body'],'data.id') && str_contains($fieldPage['body'],'name="_csrf"'),'system field form has CSRF and does not build an undefined field ID');
+    expect_check(preg_match('/name="record\[\]" value="15" checked disabled/',$fieldPage['body']) && preg_match('/name="record\[\]" value="16" checked disabled/',$fieldPage['body']),'existing status and URL fields cannot be selected again');
+    expect_check(request('GET',$fieldRoute.'&operate=systemsave',$cookies)['status']===405,'system field addition requires POST');
+    expect_check(request('POST',$fieldRoute.'&operate=systemsave',$cookies,['project'=>$moduleProject,'record'=>['2']])['status']===403,'system field addition requires CSRF');
+    foreach (['2', [['2']], ['2 OR 1=1'], ['2','17'], ['2','0']] as $invalidRecords) {
+        $invalidFields=request('POST',$fieldRoute.'&operate=systemsave',$cookies,['_csrf'=>$newToken,'project'=>$moduleProject,'record'=>$invalidRecords]);
+        expect_check($invalidFields['status']===400,'system field selection rejects invalid values before DDL');
+    }
+    expect_check(!$db->query("SHOW COLUMNS FROM `f_$moduleProject` LIKE 'classid'")->num_rows,'invalid batches do not partially add columns');
+    $systemFields=request('POST',$fieldRoute.'&operate=systemsave',$cookies,['_csrf'=>$newToken,'project'=>$moduleProject,'record'=>['2','3','12']]);
+    expect_check(($systemFields['json']['status']??'')==='y','system field batch addition succeeds');
+    $moduleColumns=array_column($db->query("SHOW COLUMNS FROM `f_$moduleProject`")->fetch_all(MYSQLI_ASSOC),'Field');
+    expect_check(!array_diff(['classid','attrib_j','attrib_g','attrib_t','attrib_r','attrib_d','attrib_h','date'],$moduleColumns),'batch addition creates all selected physical columns');
+    expect_check($db->query('SELECT id FROM f_module_field WHERE module_id='.(int)$moduleFixtureId.' AND name IN ("classid","attrib","date")')->num_rows===3,'system field metadata matches physical columns');
+    $fieldRepeat=request('POST',$fieldRoute.'&operate=systemsave',$cookies,['_csrf'=>$newToken,'project'=>$moduleProject,'record'=>['2','3','12','12','15','16']]);
+    expect_check(($fieldRepeat['json']['status']??'')==='y' && $db->query('SELECT id FROM f_module_field WHERE module_id='.(int)$moduleFixtureId)->num_rows===10,'repeated system field submission does not duplicate columns or metadata');
+    $fieldEmpty=request('POST',$fieldRoute.'&operate=systemsave',$cookies,['_csrf'=>$newToken,'project'=>$moduleProject]);
+    expect_check(($fieldEmpty['json']['status']??'')==='e','empty system field selection keeps the existing prompt');
+    $fieldResult=request('GET',$fieldRoute.'&operate=execution&type=save&re=1',$cookies);
+    expect_check($fieldResult['status']===200 && str_contains($fieldResult['body'],'操作成功') && !str_contains($fieldResult['body'],'继续修改'),'batch result page works without a single field ID');
+    expect_check(request('GET',$fieldRoute.'&operate=execution&type=save&re=1&id=undefined',$cookies)['status']===400,'invalid numeric query parameters remain rejected');
     expect_check(request('GET','/admin/index.php?controller=module&project=manage',$cookies)['status']===404,'content editor cannot address administrator table');
     $articleTitle='probe_'.$tag.' <b data-probe="title">';
     $rich='<p>安全回归正文 '.$tag.'</p>';
@@ -279,6 +307,11 @@ try {
     expect_check($rate['status']===429,'login rate limit enforced');
     echo "All $passed regression checks passed.\n";
 } finally {
+    if ($moduleFixtureId) {
+        $db->query('DELETE FROM f_module_field WHERE module_id='.(int)$moduleFixtureId);
+        $db->query('DELETE FROM f_module WHERE id='.(int)$moduleFixtureId);
+    }
+    $db->query("DROP TABLE IF EXISTS `f_$moduleProject`");
     foreach ($files as $file) { if (is_file($file)) { unlink($file); } }
     foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }
     foreach ([$testId,$legacyId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
