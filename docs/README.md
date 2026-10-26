@@ -7,3 +7,5 @@
 - [富文本编辑器安全评估](EDITOR_SECURITY_ASSESSMENT.md)：现状、风险边界和替换建议。
 
 - [wangEditor 迁移记录](EDITOR_MIGRATION.md)：组件版本、接口、清洗规则、验证与回退。
+
+- [资源选择器调整记录](RESOURCE_PICKER_UI_PLAN.md)：图片、多图、附件、模板选择与上传队列的实现和验收。

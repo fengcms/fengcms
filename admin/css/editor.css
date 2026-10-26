@@ -46,6 +46,7 @@
 .rp-file-info { padding:10px; min-width:0; display:flex; flex-direction:column; gap:3px; }
 .rp-filename { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:500; }
 .rp-file-details,.rp-file-time { font-size:11px; color:#7a8a9b; }
+.rp-file-path { font-size:11px; color:#718599; overflow-wrap:anywhere; }
 .rp-preview-button { position:absolute; right:6px; top:78px; border:1px solid #dbe4ef; border-radius:5px; padding:2px 7px; color:#385d86; background:#ffffffee; font-size:11px!important; }
 .rp-list { display:flex; flex-direction:column; gap:6px; }
 .rp-list .rp-entry { display:flex; align-items:center; }
@@ -83,6 +84,7 @@
 .rp-upload-info { flex:1; min-width:120px; overflow-wrap:anywhere; }
 .rp-upload-info strong { display:block; font-weight:500; }
 .rp-upload-info span,.rp-upload-state { font-size:12px; color:#6e849a; }
+.rp-upload-row.is-error .rp-upload-state { color:#b54436; }
 .rp-upload-row progress { width:100%; height:6px; accent-color:#4279b5; }
 .rp-preview { width:min(900px,92vw); max-height:90vh; border:0; border-radius:10px; padding:16px; margin:auto; }
 .rp-preview-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; overflow-wrap:anywhere; }

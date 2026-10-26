@@ -13,7 +13,7 @@
         const title=isTemplate?'选择模板':isImage?(multiple?'选择多张图片':'选择图片'):'选择附件';
         const rootLabel=isTemplate?'模板目录':isImage?'图片库':'附件库';
         const selected=new Map(), queue=[];
-        let path='', page=1, pages=1, view=isImage?'grid':'list', tab='library', busy=false, running=false, closed=false, requestId=0, searchTimer;
+        let path='', page=1, pages=1, view=isImage?'grid':'list', tab='library', running=false, closed=false, requestId=0, searchTimer, queueOverflow=false;
         let listingController, uploadController;
         const dialog=el('dialog','cms-picker');dialog.setAttribute('aria-label',title);
         const header=el('header','rp-header');
@@ -120,7 +120,7 @@
             modal.addEventListener('close',()=>modal.remove());dialog.append(modal);modal.showModal();
         }
         async function load() {
-            listingController?.abort();listingController=new AbortController();const id=++requestId;busy=true;
+            listingController?.abort();listingController=new AbortController();const id=++requestId;
             previous.disabled=next.disabled=true;list.setAttribute('aria-busy','true');list.replaceChildren(el('div','rp-empty','正在读取资源…'));renderBreadcrumbs();
             gridButton.setAttribute('aria-pressed',String(view==='grid'));listButton.setAttribute('aria-pressed',String(view==='list'));
             list.className='rp-files rp-'+view;
@@ -140,6 +140,7 @@
                     const info=el('div','rp-file-info');info.append(el('span','rp-filename',item.filename));
                     const details=item.is_dir?'文件夹':(item.width?item.width+' × '+item.height+' · ':'')+sizeText(item.filesize);
                     info.append(el('span','rp-file-details',details),el('span','rp-file-time',item.datetime));
+                    if(isTemplate && !item.is_dir)info.append(el('span','rp-file-path',item.url));
                     entry.append(info);card.append(entry);
                     if(!item.is_dir)entry.ondblclick=()=>{if(!multiple){selected.clear();selected.set(item.url,item);renderSelection();commit();}};
                     if(isImage && item.is_photo){const zoom=button('预览','rp-preview-button',()=>preview(item));zoom.setAttribute('aria-label','预览 '+item.filename);card.append(zoom);}
@@ -149,12 +150,12 @@
                 setStatus(search.value?'仅搜索当前目录，不包含子目录。':'');renderSelection();
             } catch(error) {
                 if(error.name==='AbortError' || closed || id!==requestId)return;
-                list.replaceChildren(el('div','rp-empty','资源加载失败'));setStatus(error.message,true);
-            } finally {if(id===requestId && !closed){busy=false;list.setAttribute('aria-busy','false');previous.disabled=page<=1;next.disabled=page>=pages;}}
+                pages=page=1;pageInfo.textContent='';list.replaceChildren(el('div','rp-empty','资源加载失败'));setStatus(error.message,true);
+            } finally {if(id===requestId && !closed){list.setAttribute('aria-busy','false');previous.disabled=page<=1;next.disabled=page>=pages;}}
         }
         function enqueue(files) {
             const room=60-queue.length;
-            if(files.length>room)setStatus('一次最多上传 60 个文件，超出部分未加入队列。',true);
+            queueOverflow=files.length>room;
             files.slice(0,room).forEach(file=>{
                 const ext=file.name.split('.').pop().toLowerCase();let error='';
                 if(!(formats[kind] || []).includes(ext))error='不支持此文件格式';else if(file.size===0 || file.size>10*1024*1024)error='文件必须大于 0 且不超过 10MB';
@@ -169,7 +170,7 @@
                 const state=el('span','rp-upload-state',item.state==='done'?'上传完成':item.state==='uploading'?'上传中 '+item.progress+'%':item.state==='waiting'?'等待上传':item.error);row.append(state);
                 if(item.state==='uploading'){const progress=el('progress');progress.max=100;progress.value=item.progress;progress.setAttribute('aria-label',item.file.name+' 上传进度');row.append(progress);}
                 if(item.state==='error')row.append(button('重试','rp-button',()=>{item.state='waiting';item.error='';renderQueue();runQueue();}));
-                if(item.state==='invalid')row.classList.add('is-error');queueList.append(row);
+                if(item.state==='invalid' || item.state==='error')row.classList.add('is-error');queueList.append(row);
             });renderSelection();
         }
         async function runQueue() {
@@ -184,7 +185,14 @@
                 }catch(error){item.state='error';item.error=error.name==='AbortError'?'上传已取消':error.message;}
                 if(!closed)renderQueue();
             }
-            running=false;if(!closed){renderQueue();setStatus('上传完成的文件已加入选择，点击底部按钮使用。');}
+            running=false;if(!closed){
+                renderQueue();
+                const done=queue.filter(item=>item.state==='done').length;
+                const failed=queue.filter(item=>item.state==='error' || item.state==='invalid').length;
+                setStatus('上传完成 '+done+' 个'+(failed?'，失败 '+failed+' 个，请查看原因。':'。')+
+                    (done?'请确认下方已选列表后使用。':'')+
+                    (queueOverflow?'一次最多上传 60 个文件，超出部分未加入队列。':''),failed>0 || queueOverflow);
+            }
         }
         // Native dialog contains focus; cancel/close never writes back to the form.
         dialog.addEventListener('keydown',event=>{if(event.key==='Escape')event.stopPropagation();});
