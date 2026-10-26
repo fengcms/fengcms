@@ -20,7 +20,7 @@ class classifyController extends Controller{
      * @return template,array
      */
 	public function index(){
-		$where=($_GET['id'])?'classid="'.$_GET['id'].'"':"classid=0";
+		$where=['classid'=>(int)($_GET['id']??0)];
 		return $this->display('classify/index.html',array("classify"	=>	M($this->model)->findall($where)));
 	}
 
@@ -48,7 +48,7 @@ class classifyController extends Controller{
      * @return template,array
      */
     public function sorts(){
-		$where=$_GET['classid']?'classid="'.$_GET['classid'].'"':'classid="0"';
+		$where=['classid'=>(int)($_GET['classid']??0)];
         return $this->display("classify/sorts.html",array("classify" => M($this->model)->findall($where)));
     }
     /**
@@ -65,7 +65,7 @@ class classifyController extends Controller{
      * @return template,array
      */
 	public function update(){
-		return $this->display('classify/update.html',M($this->model)->findone('id="'.$_GET['id'].'"'));
+		return $this->display('classify/update.html',M($this->model)->findone(['id'=>(int)$_GET['id']]));
 	}
 
     /**
@@ -126,11 +126,11 @@ class classifyController extends Controller{
      * @return array
      */
 	public function delete(){
-        $arr=M($this->model)->where('id="'.$_GET['id'].'"')->getone();
+        $arr=M($this->model)->where(['id'=>(int)$_GET['id']])->getone();
 
-        if(M($this->model)->where('classid="'.$_GET['id'].'"')->getcount()>0){
+        if(M($this->model)->where(['classid'=>(int)$_GET['id']])->getcount()>0){
             
-                $re=$this->traversaldelete(M($this->model)->classifytree(M($this->model)->findall(),$_GET['id']),$arr['project'])&&D($this->model)->where('id="'.$_GET['id'].'"')->delete();
+                $re=$this->traversaldelete(M($this->model)->classifytree(M($this->model)->findall(),$_GET['id']),$arr['project'])&&D($this->model)->where(['id'=>(int)$_GET['id']])->delete();
 
             if($re){
                 echo '<script type="text/javascript">alert("删除成功！");</script>';
@@ -139,13 +139,13 @@ class classifyController extends Controller{
 
         }else{
             
-		  if(D($arr['project'])->where('classid="'.$_GET['id'].'"')->getcount()>0){
+		  if(D($arr['project'])->where(['classid'=>(int)$_GET['id']])->getcount()>0){
 
-			  $re=D($arr['project'])->where('classid="'.$_GET['id'].'"')->delete()&&D($this->model)->where('id="'.$_GET['id'].'"')->delete();
+			  $re=D($arr['project'])->where(['classid'=>(int)$_GET['id']])->delete()&&D($this->model)->where(['id'=>(int)$_GET['id']])->delete();
 
 		  }else{
 
-			  $re=D($this->model)->where('id="'.$_GET['id'].'"')->delete();
+			  $re=D($this->model)->where(['id'=>(int)$_GET['id']])->delete();
 
 		  }
 
@@ -166,9 +166,9 @@ class classifyController extends Controller{
      */
 	public function emptys(){
 
-        $arr=M($this->model)->where('id="'.$_GET['id'].'"')->getone();
+        $arr=M($this->model)->where(['id'=>(int)$_GET['id']])->getone();
         
-        if(M($this->model)->where('classid="'.$_GET['id'].'"')->getcount()>0){
+        if(M($this->model)->where(['classid'=>(int)$_GET['id']])->getcount()>0){
             
             if($this->traversaldelete(M($this->model)->classifytree(M($this->model)->findall(),$_GET['id']),$arr['project'],false)){
                 echo '<script type="text/javascript">alert("清空成功！");</script>';
@@ -177,7 +177,7 @@ class classifyController extends Controller{
 
         }else{
 
-            if(D($arr['project'])->where('classid="'.$arr['id'].'"')->delete()){
+            if(D($arr['project'])->where(['classid'=>(int)$arr['id']])->delete()){
                 echo '<script type="text/javascript">alert("清空成功！");</script>';
                 echo '<meta http-equiv="refresh" content="0;url=?controller=classify">';
             }else{
@@ -213,38 +213,38 @@ class classifyController extends Controller{
 
         foreach($array as $v){
 
-            $arr=M($this->model)->findone('id="'.$v.'"');
+            $arr=M($this->model)->findone(['id'=>(int)$v]);
 
             if($arr['type']=="module"){
 
-                if(M($this->model)->where('classid="'.$arr['id'].'"')->getcount()>0){
+                if(M($this->model)->where(['classid'=>(int)$arr['id']])->getcount()>0){
 
-                    $re=D($this->model)->where('id="'.$arr['id'].'"')->delete()&&$this->traversaldelete(M($this->model)->classifytree(M($this->model)->findall(),$arr['id']),$arr['project']);
+                    $re=D($this->model)->where(['id'=>(int)$arr['id']])->delete()&&$this->traversaldelete(M($this->model)->classifytree(M($this->model)->findall(),$arr['id']),$arr['project']);
 
                 }else{
-                    if(D($arr['project'])->where('classid="'.$arr['id'].'"')->getcount()>0){
+                    if(D($arr['project'])->where(['classid'=>(int)$arr['id']])->getcount()>0){
                      
-                        $re=D($arr['project'])->where('classid="'.$arr['id'].'"')->delete()&&D($this->model)->where('id="'.$arr['id'].'"')->delete();
+                        $re=D($arr['project'])->where(['classid'=>(int)$arr['id']])->delete()&&D($this->model)->where(['id'=>(int)$arr['id']])->delete();
 
                     }else{
-                        $re=D($this->model)->where('id="'.$arr['id'].'"')->delete();
+                        $re=D($this->model)->where(['id'=>(int)$arr['id']])->delete();
                     }
 
                 }
 
             }elseif($arr['type']=="url"){
 
-                $re=D($this->model)->where('id="'.$arr['id'].'"')->delete();
+                $re=D($this->model)->where(['id'=>(int)$arr['id']])->delete();
 
             }elseif($arr['type']=="single"){
 
                
-                    if(D($arr['project'])->where('classid="'.$arr['id'].'"')->getcount()>0){
+                    if(D($arr['project'])->where(['classid'=>(int)$arr['id']])->getcount()>0){
                      
-                         $re=D($arr['project'])->where('classid="'.$arr['id'].'"')->delete()&&D($this->model)->where('id="'.$arr['id'].'"')->delete();
+                         $re=D($arr['project'])->where(['classid'=>(int)$arr['id']])->delete()&&D($this->model)->where(['id'=>(int)$arr['id']])->delete();
 
                     }else{
-                        $re=D($this->model)->where('id="'.$arr['id'].'"')->delete();
+                        $re=D($this->model)->where(['id'=>(int)$arr['id']])->delete();
                     }
             }
         }
@@ -271,19 +271,19 @@ class classifyController extends Controller{
             if($w){
                 
                 if($v['type']=='module'){
-					if(D($table)->where('classid="'.$v['id'].'"')->getcount()>0){
-						D($table)->where('classid="'.$v['id'].'"')->delete();
+					if(D($table)->where(['classid'=>(int)$v['id']])->getcount()>0){
+						D($table)->where(['classid'=>(int)$v['id']])->delete();
 					}
-					D($this->model)->where('id="'.$v['id'].'"')->delete();
+					D($this->model)->where(['id'=>(int)$v['id']])->delete();
                 }elseif($v['type']=='url'){
                     
-                    if(!D($this->model)->where('id="'.$v['id'].'"')->delete()) return false;                
+                    if(!D($this->model)->where(['id'=>(int)$v['id']])->delete()) return false;
 
                 }
 
             }else{
 
-                D($table)->where('classid="'.$v['id'].'"')->delete();
+                D($table)->where(['classid'=>(int)$v['id']])->delete();
 
             }
 

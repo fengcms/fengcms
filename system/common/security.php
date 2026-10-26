@@ -361,6 +361,9 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         // Keep this below PHP's usual max_input_vars (1000), so truncated oversized forms fail closed.
         $_POST['record']=cms_id_list($_POST['record']??[], '记录编号', 500);
     }
+    if ($admin && $controller==='classify' && $action==='batch') {
+        $_POST['classify']=cms_id_list($_POST['classify']??[], '栏目编号', 500);
+    }
     unset($_POST['_csrf']);
 }
 

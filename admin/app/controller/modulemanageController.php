@@ -43,7 +43,7 @@ class modulemanageController extends Controller{
      * @return template,array
      */
 	public function update(){
-		return $this->display('modulemanage/update.html',M($this->model)->findone('id="'.$_GET['id'].'"'));
+		return $this->display('modulemanage/update.html',M($this->model)->findone(['id'=>(int)$_GET['id']]));
 	}
 
     /**
@@ -66,11 +66,12 @@ class modulemanageController extends Controller{
      * @return array
      */
 	public function delete(){
-		$arr=M($this->model)->findone('id="'.$_GET['id'].'"');
+		$arr=M($this->model)->findone(['id'=>(int)$_GET['id']]);
+		if(!$arr){cms_fail(404,'模型不存在。');}
 
 		$deltable=D($arr['project'])->droptable();
-		$delmodule=M($this->model)->delete('id="'.$arr['id'].'"');
-		$delfield=M("fieldmanage")->delete('module_id="'.$arr['id'].'"');
+		$delmodule=M($this->model)->delete(['id'=>(int)$arr['id']]);
+		$delfield=M("fieldmanage")->delete(['module_id'=>(int)$arr['id']]);
 
 		if($deltable&&$delmodule&&$delfield){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage">';

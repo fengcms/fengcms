@@ -39,19 +39,35 @@ class classifyModel extends model{
      */
 	public function children($id){
 
-		$arr=$this->findall('classid = "'.$id.'"','id,classid');
+		$arr=$this->findall(['classid'=>(int)$id],'id,classid');
 
 			foreach($arr as $k => $v){				
 
-				$array.='classid = "'.$v['id'].'" or ';
+				$array.='classid = "'.(int)$v['id'].'" or ';
 
-				if(D($this->d_name)->where('classid="'.$v['id'].'"')->getcount()>0){
+				if(D($this->d_name)->where(['classid'=>(int)$v['id']])->getcount()>0){
 
 					$array.=$this->children($v['id']);
 				}
 			}
 
 		return $array;
+	}
+
+	public function descendantIds(int $id): array{
+		$children=[];
+		foreach(D($this->d_name)->field('id,classid')->getall() as $row){
+			$children[(int)$row['classid']][]=(int)$row['id'];
+		}
+		$seen=[];
+		$pending=[$id];
+		while($pending){
+			$current=array_pop($pending);
+			if(isset($seen[$current])){continue;}
+			$seen[$current]=true;
+			foreach($children[$current]??[] as $child){$pending[]=$child;}
+		}
+		return array_keys($seen);
 	}
 
 
@@ -168,7 +184,7 @@ class classifyModel extends model{
 	private function topid($classid){
 
 		if($classid>0){
-			$arr=D($this->d_name)->where('id="'.$classid.'"')->getone();
+			$arr=D($this->d_name)->where(['id'=>(int)$classid])->getone();
 			if($arr['topid']>0){
 				return $arr['topid'];
 			}else{
@@ -210,7 +226,7 @@ class classifyModel extends model{
 
 			$id=D($this->d_name)->insert($array);
 
-			$re=D($this->d_name)->where('id="'.$id.'"')->update(array(
+			$re=D($this->d_name)->where(['id'=>(int)$id])->update(array(
 				'html'	=>	'/'.$classify['project'].'_'.$array['enname'].'_'.$id.'.html'
 				));
 			if(!$re) return array('status' => 'n','id' => $id);

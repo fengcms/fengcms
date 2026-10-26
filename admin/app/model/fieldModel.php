@@ -38,7 +38,7 @@ class fieldModel extends model{
      * @return array
      */
 	public function findexists($project,$field){
-		if(D($this->v_name)->where('name="'.$field.'" and project="'.$project.'"')->getcount()>0){
+		if(D($this->v_name)->where(['name'=>$field,'project'=>$project])->getcount()>0){
 			return true;
 		}else{
 			return false;

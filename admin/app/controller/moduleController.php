@@ -35,7 +35,7 @@ class moduleController extends Controller{
 	}
 
 	public function module($project){
-		return M($this->model)->findone('project="'.$project.'"');
+		return M($this->model)->findone(['project'=>$project]);
 	}
 
 	public function field($where){
@@ -83,9 +83,11 @@ class moduleController extends Controller{
 			$where.="attrib_h=1";
 		}
 		
-		if($array['classid']){
+		if(!empty($array['classid'])){
 			if($where)$where.=" and ";
-			$where.=M("classify")->children($array['classid'])." classid=".$array['classid'];
+			$classIds=M('classify')->descendantIds((int)$array['classid']);
+			$where.='classid IN ('.implode(',',array_fill(0,count($classIds),'?')).')';
+			array_push($params,...$classIds);
 		}
 
 
@@ -98,7 +100,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function add(){
-		return $this->display('module/add.html',M($this->model)->findone('project="'.$_GET['project'].'"'));
+		return $this->display('module/add.html',M($this->model)->findone(['project'=>$_GET['project']]));
 	}
 
     /**
@@ -107,7 +109,7 @@ class moduleController extends Controller{
      * @return array
      */
 	public function batchadd(){
-		return $this->display('module/batchadd.html',M($this->model)->findone('project="'.$_GET['project'].'"'));
+		return $this->display('module/batchadd.html',M($this->model)->findone(['project'=>$_GET['project']]));
 	}
 
     /**
@@ -116,7 +118,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function update(){
-		return $this->display('module/update.html',M($this->model)->findone('project="'.$_GET['project'].'"'));
+		return $this->display('module/update.html',M($this->model)->findone(['project'=>$_GET['project']]));
 
 	}
 
@@ -126,7 +128,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function deleteone(){
-		if(D($_GET['project'])->where('id="'.$_GET['id'].'"')->delete()){
+		if(D($_GET['project'])->where(['id'=>(int)$_GET['id']])->delete()){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
@@ -139,7 +141,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function recoverone(){
-		if(D($_GET['project'])->where('id="'.$_GET['id'].'"')->update("status=-1")){
+		if(D($_GET['project'])->where(['id'=>(int)$_GET['id']])->update(['status'=>-1])){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';

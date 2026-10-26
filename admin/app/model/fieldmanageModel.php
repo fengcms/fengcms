@@ -44,7 +44,8 @@ class fieldmanageModel{// extends model{
 	}
 
     public function fielddel($id){
-        $arr=D($this->v_name)->where('id="'.$id.'"')->getone();
+        $arr=D($this->v_name)->where(['id'=>(int)$id])->getone();
+        if(!$arr){return false;}
         return D($arr['project'])->dropalter($arr['name']);
     }
 

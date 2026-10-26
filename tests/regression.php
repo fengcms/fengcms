@@ -254,6 +254,11 @@ try {
         (int)$categoryAfterForge['classid']!==9999 && (int)$categoryAfterForge['sort']!==9999 &&
         (int)$categoryAfterForge['time']!==1,
         'category save rejects hierarchy and internal field overposting');
+    $badCategoryBatch=request('POST','/admin/index.php?controller=classify&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'classify'=>['1 OR 1=1']]);
+    expect_check($badCategoryBatch['status']===400 &&
+        $db->query('SELECT id FROM f_classify WHERE id='.(int)$editorCategoryId)->num_rows===1,
+        'category batch rejects malformed IDs before mutation');
     $articleSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'title'=>'editor_article_'.$tag,'content'=>'<p>编辑正文</p>','info'=>'编辑导读',
             'status'=>'1','classid'=>'0','template'=>'/article_content.html','time'=>(string)time(),
