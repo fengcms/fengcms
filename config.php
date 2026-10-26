@@ -10,19 +10,25 @@
 
 defined('TPL_INCLUDE') or die( 'Restricted access'); 
 
+// The one-time web installer writes this private file; environment variables
+// keep precedence for existing container deployments.
+$localConfigFile = ROOT_PATH.'/config.local.php';
+$localConfig = is_file($localConfigFile) ? require $localConfigFile : [];
+if (!is_array($localConfig)) { throw new RuntimeException('Invalid local configuration.'); }
+
 /*---------------- MYSQL 数据库选项 ------------------------*/
 
-	define('DB_HOST', getenv('DB_HOST') !== false ? getenv('DB_HOST') : 'localhost');												//地址
+	define('DB_HOST', getenv('DB_HOST') !== false ? getenv('DB_HOST') : ($localConfig['db_host'] ?? 'localhost'));												//地址
 
-	define('DB_USER', getenv('DB_USER') !== false ? getenv('DB_USER') : 'root');													//用户
+	define('DB_USER', getenv('DB_USER') !== false ? getenv('DB_USER') : ($localConfig['db_user'] ?? 'root'));													//用户
 
-	define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '123456');													//密码
+	define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : ($localConfig['db_pass'] ?? '123456'));													//密码
 
-	define('DB_NAME', getenv('DB_NAME') !== false ? getenv('DB_NAME') : 'fengcms');												//库名
+	define('DB_NAME', getenv('DB_NAME') !== false ? getenv('DB_NAME') : ($localConfig['db_name'] ?? 'fengcms'));												//库名
 
 	define('DB_TYPE','mysqli');													//类型 支持mysql和mysqli的方式，默认安装为mysqli方式
 
-	define('DB_PREFIX', getenv('DB_PREFIX') !== false ? getenv('DB_PREFIX') : 'f_');													//表扩展名 安装后请勿修改
+	define('DB_PREFIX', getenv('DB_PREFIX') !== false ? getenv('DB_PREFIX') : ($localConfig['db_prefix'] ?? 'f_'));													//表扩展名 安装后请勿修改
 
 	define('DB_VIEW_PREFIX',DB_PREFIX.'view_');									//视图表扩展名 请勿修改
 
@@ -30,9 +36,9 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 
 	$runtimePath = getenv('APP_RUNTIME_PATH') ?: ROOT_PATH.'/var/runtime';
     $siteSettings = is_readable($runtimePath.'/site.json') ? json_decode(file_get_contents($runtimePath.'/site.json'), true) : [];
-    define('URL_TYPE', (int)($siteSettings['url_type'] ?? 0));														//访问地址方法，0动态1伪静态
+    define('URL_TYPE', (int)($siteSettings['url_type'] ?? ($localConfig['url_type'] ?? 0)));														//访问地址方法，0动态1伪静态
 
-	define('ADMIN_CODE', getenv('ADMIN_CODE') !== false ? getenv('ADMIN_CODE') : '8888');												//认证码  只能是四位
+	define('ADMIN_CODE', getenv('ADMIN_CODE') !== false ? getenv('ADMIN_CODE') : ($localConfig['admin_code'] ?? '8888'));												//认证码  只能是四位
 
 /*---------------- 网站调试模式是否开启 --------------------*/
 
@@ -46,7 +52,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 
 	define('DEFAULT_OPERATE','index');											//默认方法
 
-	define('KEYS', getenv('APP_KEY') ?: 'admin123');													//键值
+	define('KEYS', getenv('APP_KEY') ?: ($localConfig['app_key'] ?? 'admin123'));													//键值
 
 	define('SESSION_EXT', 'se_');												//SESSION扩展
 

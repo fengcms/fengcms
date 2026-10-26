@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+/config.local.php
+/install/authorize.php
 /upload/
 /app/cache/
 /admin/app/cache/
