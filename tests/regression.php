@@ -216,6 +216,11 @@ try {
     expect_check((request('POST',$classifyRoute.'&operate=order',$cookies,$missingCategorySort)['json']['status']??'')==='n' &&
         (int)$db->query('SELECT sort FROM f_classify WHERE id='.(int)$categoryIds[0])->fetch_row()[0]===3,'missing category sort ID leaves prior rows unchanged');
     expect_check(request('POST',$classifyRoute.'&operate=save',$cookies,$categorySort)['status']===400,'ID arrays remain forbidden on single-category saves');
+    $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('qa_nested_$tag','url','article',".(int)$categoryIds[0].",0)");
+    $categoryIds[]=$db->insert_id;
+    $mapPage=request('GET','/map.html',$cookies);
+    expect_check($mapPage['status']===200 && preg_match('~qa_category_'.preg_quote($tag,'~').'_1</a>\s*<ul>\s*<li><a[^>]*>qa_nested_'.preg_quote($tag,'~').'~',$mapPage['body'])===1,
+        'site map renders nested categories from one tree');
     foreach ([['module',$moduleProject],['classify',null],['fieldmanage',$moduleProject],['modulemanage',null],['message',null],['signup',null],['recover',$moduleProject],['tplmanage','tpl']] as [$resultController,$resultProject]) {
         foreach (['0','1'] as $resultState) {
             $resultRoute='/admin/index.php?controller='.$resultController.'&operate=execution&type=save&re='.$resultState.($resultProject?'&project='.$resultProject:'');
@@ -262,6 +267,21 @@ try {
     $searchPost=request('POST','/?controller=search',$cookies,['project'=>'','tags'=>'搜索']);
     expect_check($searchPost['status']===303 && preg_match('~^Location: /\?controller=search&tags=%E6%90%9C%E7%B4%A2\s*$~m',$searchPost['headers'])===1,'all-model search form redirects without an empty project parameter');
     expect_check(request('GET','/?controller=search&project=article&tags='.rawurlencode('搜索'),$cookies)['status']===200,'named-model search still works');
+    $pageInsert=$db->prepare("INSERT INTO f_article (title,content,info,template,classid,status,time,date) VALUES (?,'','','/article_content.html',0,1,UNIX_TIMESTAMP(),CURDATE())");
+    $pageTitle=''; $pageInsert->bind_param('s',$pageTitle);
+    for ($i=0; $i<12; $i++) { $pageTitle='page_'.$tag.'_'.$i; $pageInsert->execute(); $articleIds[]=$db->insert_id; }
+    $pageQuery='/?controller=search&project=article&tags='.rawurlencode('page_'.$tag);
+    $firstPage=request('GET',$pageQuery,$cookies);
+    $secondPage=request('GET',$pageQuery.'&page=2',$cookies);
+    preg_match_all('~<strong><a [^>]*>page_'.preg_quote($tag,'~').'_\d+</a></strong>~',$firstPage['body'],$firstMatches);
+    preg_match_all('~<strong><a [^>]*>page_'.preg_quote($tag,'~').'_\d+</a></strong>~',$secondPage['body'],$secondMatches);
+    expect_check($firstPage['status']===200 && $secondPage['status']===200 &&
+        count($firstMatches[0])===10 && count($secondMatches[0])===2 &&
+        str_contains($firstPage['body'],'12条') && str_contains($secondPage['body'],'12条'),
+        'search uses bounded database pagination with a correct total');
+    expect_check(request('GET',$pageQuery.'&page=101',$cookies)['status']===400 &&
+        request('GET','/?controller=search&tags='.str_repeat('a',81),$cookies)['status']===400,
+        'search bounds page and keyword length');
     expect_check(request('GET','/?controller=search&project='.rawurlencode('../admin').'&tags=test',$cookies)['status']===400,'malformed search model remains rejected');
     expect_check(request('GET','/?controller=content&project=&id='.$articleId,$cookies)['status']===400,'empty project remains forbidden outside search');
     $edit=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,['_csrf'=>$newToken,'id'=>$articleId,'title'=>'updated_'.$tag,'info'=>'updated','content'=>$rich]);

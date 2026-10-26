@@ -12,6 +12,7 @@
 class classifyModel extends model{
 
 	private $d_name		 = "classify";
+	private ?array $childMap = null;
 
 	public function __construct(){
 		unset($this->options);
@@ -40,21 +41,30 @@ class classifyModel extends model{
      * @return array
      */
 	public function children($id){
+		$root=(int)$id;
+		$ids=[]; $seen=[];
+		$this->collectChildren($root, $ids, $seen);
+		return implode(',', array_map(static fn($child) => 'classid = "'.$child.'"', $ids)).',';
+	}
 
-		$arr=D($this->d_name)->field('id,classid')->where('classid = "'.$id.'"')->getall();
+	private function tree(): array {
+		if ($this->childMap !== null) { return $this->childMap; }
+		$rows=D($this->d_name)->excsql('SELECT id,classid,name,html FROM '.model::identifier(DB_PREFIX.$this->d_name).' ORDER BY sort ASC,id ASC');
+		$this->childMap=[];
+		foreach ($rows as $row) { $this->childMap[(int)$row['classid']][]=$row; }
+		return $this->childMap;
+	}
 
-			foreach($arr as $k => $v){				
-
-				$array.='classid = "'.$v['id'].'",';
-
-				if(D($this->d_name)->field('id')->where('classid="'.$v['id'].'"')->getcount()>0){
-
-					$array.=$this->children($v['id']).',';
-				}
-			}
-			$array.='classid = "'.$id.'",';
-
-		return $array;
+	private function collectChildren(int $id, array &$ids, array &$seen): void {
+		if (isset($seen[$id])) { return; }
+		$seen[$id]=true;
+		foreach ($this->tree()[$id] ?? [] as $child) {
+			$childId=(int)$child['id'];
+			if (isset($seen[$childId])) { continue; }
+			$ids[]=$childId;
+			$this->collectChildren($childId, $ids, $seen);
+		}
+		$ids[]=$id;
 	}
 
     /**
@@ -99,20 +109,21 @@ class classifyModel extends model{
      * @return array
      */
 	public function map($classid=0){
+		$seen=[];
+		return cms_html($this->renderMap((int)$classid, $seen));
+	}
 
-		$arr=D($this->d_name)->field('id,classid,name,html')->where('classid = "'.$classid.'"')->sort("sort")->getall();
-
-		foreach($arr as $v){
-
-		$array.='<li><a href="'.cms_escape(cms_safe_url(url($v['html']))).'">'.cms_escape($v['name']).'</a>';
-
-			if(D($this->d_name)->field('id')->where('classid="'.$v['id'].'"')->getcount()>0){
-				$array.="<ul>".$this->map($v['id'])."</ul></li>";
-			}else{
-				$array.="</li>";
-			}
+	private function renderMap(int $parent, array &$seen): string {
+		$html='';
+		foreach ($this->tree()[$parent] ?? [] as $row) {
+			$id=(int)$row['id'];
+			if (isset($seen[$id])) { continue; }
+			$seen[$id]=true;
+			$html.='<li><a href="'.cms_escape(cms_safe_url(url($row['html']))).'">'.cms_escape($row['name']).'</a>';
+			$nested=$this->renderMap($id, $seen);
+			$html.=$nested!=='' ? '<ul>'.$nested.'</ul></li>' : '</li>';
 		}
-		return cms_html($array ?? '');
+		return $html;
 	}
 }
 

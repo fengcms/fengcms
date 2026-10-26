@@ -203,7 +203,17 @@ class moduleModel extends model{
             if ($hasTags) { $params[] = $needle; }
         }
         if (!$queries) { return arraypage([], $num); }
-        return arraypage(D($this->d_name)->excsql('SELECT * FROM ('.implode(' UNION ', $queries).') search_results ORDER BY time DESC', $params), $num);
+        $source = ' FROM ('.implode(' UNION ', $queries).') search_results';
+        $repository = D($this->d_name);
+        $count = $repository->excsql('SELECT COUNT(*) AS total'.$source, $params);
+        $pager = new page((int)($count[0]['total'] ?? 0), $num);
+        $info = $pager->getinfo();
+        $offset = ($info['curpage'] - 1) * $info['pageper'];
+        return [
+            'list' => $repository->excsql('SELECT *'.$source.' ORDER BY time DESC, id DESC, html ASC LIMIT '.$offset.','.$info['pageper'], $params),
+            'fy' => $pager->getpage(),
+            'total' => $info['total'],
+        ];
     }
 
 	/*
@@ -255,16 +265,21 @@ class moduleModel extends model{
 	}
 
 	private function atags($string){
-		$arr=explode(",",$string);
-		foreach($arr as $v){
-			if(D("tags")->where(['name'=>$v])->getcount()>0){
-				$atags=D("tags")->where(['name'=>$v])->getone();
-				$array[]='<a href="/?controller=search&amp;tags='.rawurlencode($atags['name']).'" target="_blank">'.cms_escape($atags['name']).'</a>';
-			}else{
-				$array[]=cms_escape($v);
-			}
+		$names=explode(',',(string)$string);
+		$unique=array_values(array_unique($names));
+		$found=[];
+		if ($unique) {
+			$placeholders=implode(',',array_fill(0,count($unique),'?'));
+			$rows=D('tags')->excsql('SELECT name FROM '.model::identifier(DB_PREFIX.'tags').' WHERE name IN ('.$placeholders.')', $unique);
+			foreach ($rows as $row) { $found[$row['name']]=true; }
 		}
-		return implode(",",$array);
+		$links=[];
+		foreach ($names as $name) {
+			$links[]=isset($found[$name])
+				? '<a href="/?controller=search&amp;tags='.rawurlencode($name).'" target="_blank">'.cms_escape($name).'</a>'
+				: cms_escape($name);
+		}
+		return implode(',',$links);
 	}
 
 	/*
