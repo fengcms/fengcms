@@ -59,7 +59,7 @@ class signupModel extends model{
      *
      * @return array
      */
-	public function delete($id){
+	public function delete($id=null){
 		if($id){
 			return D($this->d_name)->where(['id'=>(int)$id])->delete();
 		}else{
@@ -84,15 +84,30 @@ class signupModel extends model{
      * @return array
      */
 	public function save($array){
-
-		if(D($this->d_name."_base")->update($array)){
-
-			return array('status' => 'y');
-
-		}else{
-
-			return array('status' => 'n');
+		$table=$this->d_name.'_base';
+		try{
+			$columns=D($table)->getdbfields(DB_PREFIX.$table);
+			$keys=D($table)->excsql('SHOW INDEX FROM '.model::identifier(DB_PREFIX.$table).' WHERE Key_name=?',['PRIMARY']);
+			$count=(int)D($table)->field('*')->getcount();
+		}catch(Throwable $e){
+			error_log('Signup settings schema check failed: '.$e->getMessage());
+			cms_fail(409,'报名设置表不可用，请先核对表结构。');
 		}
+		if(!$keys || $count!==1){cms_fail(409,'报名设置必须有主键且只有一行。');}
+		$primary=[];
+		foreach($keys as $key){$primary[]=$key['Column_name'];}
+		if(array_diff($primary,$columns)){cms_fail(409,'报名设置主键不完整。');}
+		$record=D($table)->getone();
+		if(!$record){return ['status'=>'n'];}
+		$where=[];
+		foreach($primary as $column){$where[$column]=$record[$column];}
+		// 客户端仅能修改表单字段；修改时间由服务器生成，其他列保持原值。
+		$allowed=array_intersect(['name','phone','qq','pnumber','fmail','smail'],$columns);
+		$values=array_intersect_key($array,array_fill_keys($allowed,true));
+		foreach($values as $value){if(!is_string($value) && !is_int($value)){cms_fail(400,'报名设置内容不正确。');}}
+		if(in_array('time',$columns,true) && array_key_exists('time',$array)){$values['time']=time();}
+		$re=$values?D($table)->where($where)->update($values):false;
+		return ['status'=>$re?'y':'n'];
 	}
 
 }

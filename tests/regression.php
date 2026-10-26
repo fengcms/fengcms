@@ -54,6 +54,7 @@ $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_se
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
 $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId=null;
 $counterTagIds=[]; $counterAuthorId=null;
+$signupFixtureCreated=false;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
@@ -261,6 +262,33 @@ try {
     expect_check($badCategoryBatch['status']===400 &&
         $db->query('SELECT id FROM f_classify WHERE id='.(int)$editorCategoryId)->num_rows===1,
         'category batch rejects malformed IDs before mutation');
+    if ($db->query("SHOW TABLES LIKE 'f_signup_base'")->num_rows) {
+        throw new RuntimeException('Refusing to replace an existing signup settings table.');
+    }
+    $db->query('CREATE TABLE f_signup_base (id int PRIMARY KEY, name varchar(100), phone varchar(100), qq varchar(100), pnumber varchar(100), fmail text, smail text, time int, secret varchar(100)) ENGINE=InnoDB');
+    $signupFixtureCreated=true;
+    $db->query("INSERT INTO f_signup_base (id,name,secret,time) VALUES (1,'original','keep',100)");
+    $signupSave=request('POST','/admin/index.php?controller=signup&operate=save',$cookies,
+        ['_csrf'=>$newToken,'name'=>'updated_'.$tag,'secret'=>'forged','time'=>'1','unknown_field'=>'x']);
+    $signupRow=$db->query('SELECT name,secret,time FROM f_signup_base WHERE id=1')->fetch_assoc();
+    expect_check(($signupSave['json']['status']??'')==='y' && $signupRow['name']==='updated_'.$tag &&
+        $signupRow['secret']==='keep' && (int)$signupRow['time']!==1,
+        'signup settings update only allowed fields in the unique settings row');
+    $db->query("INSERT INTO f_signup_base (id,name,secret,time) VALUES (2,'second','keep',100)");
+    $ambiguousSignup=request('POST','/admin/index.php?controller=signup&operate=save',$cookies,
+        ['_csrf'=>$newToken,'name'=>'must-not-write']);
+    expect_check($ambiguousSignup['status']===409 &&
+        (int)$db->query("SELECT COUNT(*) FROM f_signup_base WHERE name='must-not-write'")->fetch_row()[0]===0,
+        'signup settings refuse ambiguous multiple rows');
+    $db->query('DELETE FROM f_signup_base WHERE id=2');
+    $db->query('ALTER TABLE f_signup_base DROP PRIMARY KEY');
+    $unkeyedSignup=request('POST','/admin/index.php?controller=signup&operate=save',$cookies,
+        ['_csrf'=>$newToken,'name'=>'must-not-write']);
+    expect_check($unkeyedSignup['status']===409 &&
+        $db->query('SELECT name FROM f_signup_base WHERE id=1')->fetch_row()[0]==='updated_'.$tag,
+        'signup settings refuse a row without a stable primary key');
+    $db->query('DROP TABLE f_signup_base');
+    $signupFixtureCreated=false;
     $articleSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'title'=>'editor_article_'.$tag,'content'=>'<p>编辑正文</p>','info'=>'编辑导读',
             'status'=>'1','classid'=>'0','template'=>'/article_content.html','time'=>(string)time(),
@@ -996,6 +1024,7 @@ try {
     expect_check($rate['status']===429,'login rate limit enforced');
     echo "All $passed regression checks passed.\n";
 } finally {
+    if ($signupFixtureCreated) { $db->query('DROP TABLE f_signup_base'); }
     $db->query("DROP VIEW IF EXISTS `$viewFixture`");
     if ($backupId !== null) {
         foreach (['sql','json'] as $extension) {
