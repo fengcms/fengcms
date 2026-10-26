@@ -15,8 +15,8 @@ class manageModel extends model
         $user = $array['user'] ?? '';
         $password = $array['newpassword'] ?? '';
         if (!is_string($user) || !is_string($password) || strlen($user) < 3 || strlen($user) > 255 ||
-            strlen($password) < 12 || strlen($password) > 72 || $password !== ($array['newpasswords'] ?? null)) {
-            return ['status' => 'n', 'info' => '用户名至少3个字符，新密码须为12至72字节且两次输入一致。'];
+            !cms_account_password_valid($password) || $password !== ($array['newpasswords'] ?? null)) {
+            return ['status' => 'n', 'info' => '用户名至少3个字符，新密码须至少8个字符且不超过72字节，两次输入须一致。'];
         }
         if (D('manage')->where(['admin' => $user])->getone() && $user !== $_SESSION['manage']) {
             return ['status' => 'n', 'info' => '用户名已存在。'];

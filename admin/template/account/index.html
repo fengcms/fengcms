@@ -12,7 +12,8 @@
 .account-actions button { border:0; background:none; color:#295283; cursor:pointer; font-size:12px; }
 .account-actions button:hover { color:#f60; text-decoration:underline; }
 .account-actions .account-delete { color:#b03a3a; }
-.account-actions .inputxt { width:150px; }
+.account-actions .inputxt { width:135px; }
+.account-actions .operator-password { width:135px; }
 </style>
 </head>
 <body>
@@ -27,7 +28,8 @@
         <form id="account-create" method="post" action="?controller=account&operate=create" class="form">
             <table cellspacing="0" class="add_art">
                 <tr><th>用户名：</th><td><input class="inputxt" name="username" required minlength="5" maxlength="64" pattern="[A-Za-z][A-Za-z0-9_.-]{4,63}" autocomplete="off" style="width:300px"></td></tr>
-                <tr><th>初始密码：</th><td><input class="inputxt" name="password" type="password" required minlength="12" maxlength="72" autocomplete="new-password" style="width:300px"> <span class="color999">当前要求 12–72 字节</span></td></tr>
+                <tr><th>初始密码：</th><td><input class="inputxt" name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password" style="width:300px"> <span class="color999">至少 8 个字符，最多 72 字节</span></td></tr>
+                <tr><th>账号类型：</th><td><select class="inputxt" name="role" required style="width:312px"><option value="editor">编辑</option><option value="super_admin">超级管理员</option></select> <span class="color999">超级管理员可以管理后台全部功能和账号</span></td></tr>
             </table>
         </form>
         <div id="art_list">
@@ -46,9 +48,23 @@
                         </form>
                         <form method="post" action="?controller=account&operate=reset" class="form" onsubmit="return confirm('确定重置此账号的密码和认证码吗？')">
                             <input type="hidden" name="id" value="{$account['id']}">
-                            <input class="inputxt" type="password" name="password" required minlength="12" maxlength="72" placeholder="新密码" autocomplete="new-password">
+                            <input class="inputxt" type="password" name="password" required minlength="8" maxlength="72" placeholder="新密码（至少 8 位）" autocomplete="new-password">
                             <button type="submit">重置凭据</button>
                         </form>
+                        <form method="post" action="?controller=account&operate=delete" class="form" onsubmit="return confirm('确定永久删除这个编辑账号吗？删除后该账号立即不能登录。')">
+                            <input type="hidden" name="id" value="{$account['id']}">
+                            <button class="account-delete" type="submit">删除</button>
+                        </form>
+                        {else}
+                        {if $account['id']!=$_SESSION['manage_id']}
+                        <form method="post" action="?controller=account&operate=reset" class="form" onsubmit="return confirm('确定重置此超级管理员的密码和认证码吗？')">
+                            <input type="hidden" name="id" value="{$account['id']}">
+                            <input class="inputxt" type="password" name="password" required minlength="8" maxlength="72" placeholder="目标账号新密码" autocomplete="new-password">
+                            <input class="inputxt operator-password" type="password" name="operator_password" required placeholder="您的登录密码" autocomplete="current-password">
+                            <button type="submit">重置凭据</button>
+                        </form>
+                        {else}<span class="color999">当前账号请在个人设置修改密码</span>
+                        {/if}
                         {/if}
                     </td>
                 </tr>

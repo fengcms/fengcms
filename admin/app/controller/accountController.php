@@ -1,7 +1,7 @@
 <?php
 include 'admin.php';
 
-// The two roles are fixed. Only a super administrator may manage editor accounts.
+// The two roles are fixed. Only a super administrator may manage accounts.
 class accountController extends Controller
 {
     private function connection(): mysqli
@@ -34,17 +34,19 @@ class accountController extends Controller
     {
         $name=$_POST['username']??null;
         $password=$_POST['password']??null;
+        $role=$_POST['role']??null;
         if (!is_string($name) || !preg_match('/^[A-Za-z][A-Za-z0-9_.-]{4,63}$/D',$name) ||
-            !is_string($password) || strlen($password)<12 || strlen($password)>72) {
-            cms_fail(400, '用户名须为 5–64 位英文字母、数字、点、横线或下划线；密码须为 12–72 字节。');
+            !is_string($password) || !cms_account_password_valid($password) ||
+            !in_array($role,['editor','super_admin'],true)) {
+            cms_fail(400, '用户名须为 5–64 位英文字母、数字、点、横线或下划线；密码至少 8 个字符且不超过 72 字节，并选择账号类型。');
         }
-        $code=bin2hex(random_bytes(16));
+        $code=$this->newCode();
         $hash=password_hash($password,PASSWORD_DEFAULT);
         $codeHash=password_hash($code,PASSWORD_DEFAULT);
         $db=$this->connection();
         try {
-            $stmt=$db->prepare('INSERT INTO '.$this->table()." (admin,password,role,enabled,auth_version,login_code_hash,datetime) VALUES (?,?,'editor',1,1,?,NOW())");
-            $stmt->bind_param('sss',$name,$hash,$codeHash);
+            $stmt=$db->prepare('INSERT INTO '.$this->table()." (admin,password,role,enabled,auth_version,login_code_hash,datetime) VALUES (?,?,?,1,1,?,NOW())");
+            $stmt->bind_param('ssss',$name,$hash,$role,$codeHash);
             $stmt->execute();
             $id=$db->insert_id;
             $stmt->close();
@@ -52,11 +54,16 @@ class accountController extends Controller
             if ($e->getCode()===1062) { cms_fail(409, '用户名已存在。'); }
             throw $e;
         } finally { $db->close(); }
-        error_log('Editor account created: id='.$id.' by admin id='.(int)$_SESSION['manage_id']);
-        $this->show($code,'编辑账号已创建。请立即保存并单独交付下方认证码；页面关闭后无法再次查看。');
+        error_log('Admin account created: id='.$id.' role='.$role.' by admin id='.(int)$_SESSION['manage_id']);
+        $this->show($code,'账号已创建。请立即保存并单独交付下方认证码；页面关闭后无法再次查看。');
     }
 
-    private function editorId(): int
+    private function newCode(): string
+    {
+        return sprintf('%04d',random_int(0,9999));
+    }
+
+    private function accountId(): int
     {
         $id=$_POST['id']??null;
         if (!is_string($id) || !preg_match('/^[1-9][0-9]{0,9}$/D',$id)) { cms_fail(400,'账号编号不正确。'); }
@@ -65,7 +72,7 @@ class accountController extends Controller
 
     public function toggle(): void
     {
-        $id=$this->editorId();
+        $id=$this->accountId();
         $enabled=$_POST['enabled']??null;
         if (!in_array($enabled,['0','1'],true)) { cms_fail(400,'账号状态不正确。'); }
         $db=$this->connection();
@@ -83,23 +90,66 @@ class accountController extends Controller
 
     public function reset(): void
     {
-        $id=$this->editorId();
+        $id=$this->accountId();
         $password=$_POST['password']??null;
-        if (!is_string($password) || strlen($password)<12 || strlen($password)>72) {
-            cms_fail(400,'新密码须为 12–72 字节。');
+        if (!is_string($password) || !cms_account_password_valid($password)) {
+            cms_fail(400,'新密码至少 8 个字符且不超过 72 字节。');
         }
-        $code=bin2hex(random_bytes(16));
-        $hash=password_hash($password,PASSWORD_DEFAULT);
-        $codeHash=password_hash($code,PASSWORD_DEFAULT);
         $db=$this->connection();
         try {
-            $stmt=$db->prepare('UPDATE '.$this->table()." SET password=?,login_code_hash=?,auth_version=auth_version+1 WHERE id=? AND role='editor'");
-            $stmt->bind_param('ssi',$hash,$codeHash,$id);
+            $stmt=$db->prepare('SELECT role FROM '.$this->table().' WHERE id=?');
+            $stmt->bind_param('i',$id);
+            $stmt->execute();
+            $target=$stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$target) { cms_fail(404,'账号不存在。'); }
+            $role=$target['role'];
+            if ($role==='super_admin') {
+                if ($id===(int)$_SESSION['manage_id']) { cms_fail(403,'请在个人设置中修改自己的密码。'); }
+                $operatorPassword=$_POST['operator_password']??null;
+                if (!is_string($operatorPassword) || $operatorPassword==='') { cms_fail(403,'请先核验当前管理员密码。'); }
+                $stmt=$db->prepare('SELECT password FROM '.$this->table()." WHERE id=? AND role='super_admin' AND enabled=1");
+                $actorId=(int)$_SESSION['manage_id'];
+                $stmt->bind_param('i',$actorId);
+                $stmt->execute();
+                $actor=$stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if (!$actor || !cms_password_verify($operatorPassword,$actor['password'])) {
+                    cms_fail(403,'当前管理员密码不正确。');
+                }
+            } elseif ($role!=='editor') { cms_fail(403,'账号类型不正确。'); }
+            $code=$this->newCode();
+            $hash=password_hash($password,PASSWORD_DEFAULT);
+            $codeHash=password_hash($code,PASSWORD_DEFAULT);
+            $stmt=$db->prepare('UPDATE '.$this->table().' SET password=?,login_code_hash=?,auth_version=auth_version+1 WHERE id=? AND role=?');
+            $stmt->bind_param('ssis',$hash,$codeHash,$id,$role);
+            $stmt->execute();
+            if ($stmt->affected_rows!==1) { cms_fail(404,'账号不存在。'); }
+            $stmt->close();
+        } finally { $db->close(); }
+        error_log('Admin credentials reset: id='.$id.' role='.$role.' by admin id='.(int)$_SESSION['manage_id']);
+        $this->show($code,'账号密码和认证码已重置，旧会话立即失效。请保存并交付新的认证码。');
+    }
+
+    public function delete(): void
+    {
+        $id=$this->accountId();
+        $db=$this->connection();
+        try {
+            $stmt=$db->prepare('SELECT role FROM '.$this->table().' WHERE id=?');
+            $stmt->bind_param('i',$id);
+            $stmt->execute();
+            $target=$stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$target) { cms_fail(404,'账号不存在。'); }
+            if ($target['role']!=='editor') { cms_fail(403,'超级管理员账号不能删除。'); }
+            $stmt=$db->prepare('DELETE FROM '.$this->table()." WHERE id=? AND role='editor'");
+            $stmt->bind_param('i',$id);
             $stmt->execute();
             if ($stmt->affected_rows!==1) { cms_fail(404,'编辑账号不存在。'); }
             $stmt->close();
         } finally { $db->close(); }
-        error_log('Editor credentials reset: id='.$id.' by admin id='.(int)$_SESSION['manage_id']);
-        $this->show($code,'编辑账号密码和认证码已重置，旧会话立即失效。请保存并交付新的认证码。');
+        error_log('Editor account deleted: id='.$id.' by admin id='.(int)$_SESSION['manage_id']);
+        header('Location: ?controller=account',true,303);
     }
 }

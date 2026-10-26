@@ -132,6 +132,11 @@ function cms_password_verify(string $password, string $hash): bool
     return password_verify($password, $hash);
 }
 
+function cms_account_password_valid(string $password): bool
+{
+    return mb_check_encoding($password, 'UTF-8') && mb_strlen($password, 'UTF-8') >= 8 && strlen($password) <= 72;
+}
+
 // Mark only HTML produced by audited renderers or administrator rich-text fields.
 // Ordinary strings (including request input) never acquire this type automatically.
 final class CmsHtml implements Stringable
@@ -298,7 +303,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         'search' => 'index', 'single' => 'index', 'tags' => 'index',
     ];
     $write = $admin ? [
-        'admin' => 'index', 'manage' => 'save quit', 'account' => 'create toggle reset', 'base' => 'save',
+        'admin' => 'index', 'manage' => 'save quit', 'account' => 'create toggle reset delete', 'base' => 'save',
         'module' => 'deleteone recoverone batch shift save batchsave',
         'classify' => 'order delete emptys batch save',
         'fieldmanage' => 'systemsave save enable sort delete',

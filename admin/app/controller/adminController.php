@@ -18,7 +18,7 @@ class adminController extends Controller
         $expires = $now + 900;
         $buckets = [
             hash_hmac('sha256', 'ip:'.($_SERVER['REMOTE_ADDR'] ?? ''), KEYS) => 60,
-            hash_hmac('sha256', 'user:'.mb_strtolower($user, 'UTF-8'), KEYS) => 10,
+            hash_hmac('sha256', 'user:'.mb_strtolower($user, 'UTF-8'), KEYS) => 5,
         ];
         foreach ($buckets as $bucket => $limit) {
             $db->query("INSERT INTO $attempts (bucket, attempts, expires_at) VALUES (?,1,?)

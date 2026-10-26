@@ -48,8 +48,8 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
-$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=null; $backupId=null;
-$editorUser='editor_'.$tag; $editorPassword=bin2hex(random_bytes(16));
+$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=null; $backupId=null;
+$editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
 $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=null;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
@@ -107,20 +107,52 @@ try {
     expect_check(str_contains($systemMenu['body'],'系统账号管理') &&
         !str_contains($systemMenu['body'],'>编辑账号</a>'),
         'system account management appears in system menu, not top bar');
+    $shortPassword=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
+        ['_csrf'=>$newToken,'username'=>'short_'.$tag,'password'=>'1234567','role'=>'editor']);
+    expect_check($shortPassword['status']===400,'account creation rejects passwords shorter than eight characters');
+    $badRole=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
+        ['_csrf'=>$newToken,'username'=>'role_'.$tag,'password'=>$editorPassword,'role'=>'owner']);
+    expect_check($badRole['status']===400,'account creation accepts only fixed roles');
     $createdEditor=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
-        ['_csrf'=>$newToken,'username'=>$editorUser,'password'=>$editorPassword]);
-    preg_match('/本次生成的认证码：<strong[^>]*>([a-f0-9]{32})<\/strong>/',$createdEditor['body'],$editorCodeMatch);
+        ['_csrf'=>$newToken,'username'=>$editorUser,'password'=>$editorPassword,'role'=>'editor']);
+    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$createdEditor['body'],$editorCodeMatch);
     $editorId=$db->query("SELECT id FROM f_manage WHERE admin='".$editorUser."'")->fetch_row()[0]??null;
     expect_check($createdEditor['status']===200 && isset($editorCodeMatch[1]) && $editorId!==null,
         'super administrator creates editor with a one-time code');
     $editorCode=$editorCodeMatch[1];
     $editorCookies=[]; $editorCsrf=token($editorCookies);
     $editorLogin=['_csrf'=>$editorCsrf,'user'=>$editorUser,'password'=>$editorPassword,'admincode'=>$editorCode];
-    $wrongCode=$editorLogin; $wrongCode['admincode']=getenv('ADMIN_CODE');
+    $wrongCode=$editorLogin; $wrongCode['admincode']=sprintf('%04d',((int)$editorCode+1)%10000);
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$wrongCode)['json']['status']??'')==='n',
         'sitewide code cannot log in as editor');
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
         'editor logs in with independent code');
+    $createdSuper=request('POST','/admin/index.php?controller=account&operate=create',$cookies,
+        ['_csrf'=>$newToken,'username'=>$extraSuperUser,'password'=>$editorPassword,'role'=>'super_admin']);
+    preg_match('/本次生成的认证码：<strong[^>]*>([0-9]{4})<\/strong>/',$createdSuper['body'],$superCodeMatch);
+    $extraSuperId=$db->query("SELECT id FROM f_manage WHERE admin='".$extraSuperUser."'")->fetch_row()[0]??null;
+    expect_check($createdSuper['status']===200 && isset($superCodeMatch[1]) && $extraSuperId!==null &&
+        $db->query('SELECT role FROM f_manage WHERE id='.(int)$extraSuperId)->fetch_row()[0]==='super_admin',
+        'super administrator can create another super administrator');
+    $superCookies=[]; $superToken=token($superCookies);
+    $superLogin=['_csrf'=>$superToken,'user'=>$extraSuperUser,'password'=>$editorPassword,'admincode'=>$superCodeMatch[1]];
+    expect_check((request('POST','/admin/index.php?controller=admin',$superCookies,$superLogin)['json']['status']??'')==='y' &&
+        request('GET','/admin/index.php?controller=account',$superCookies)['status']===200,
+        'new super administrator can log in and manage accounts');
+    $superToken=token($superCookies,true);
+    expect_check(request('POST','/admin/index.php?controller=account&operate=delete',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$extraSuperId])['status']===403 &&
+        request('POST','/admin/index.php?controller=account&operate=toggle',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$extraSuperId,'enabled'=>'0'])['status']!==303,
+        'super administrator cannot be deleted or disabled');
+    expect_check(request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$extraSuperId,'password'=>$editorPassword])['status']===403,
+        'another super administrator reset requires operator password');
+    $resetSuper=request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$extraSuperId,'password'=>'NewPass8!','operator_password'=>$password]);
+    expect_check($resetSuper['status']===200 && str_contains($resetSuper['body'],'本次生成的认证码') &&
+        request('GET','/admin/index.php',$superCookies)['status']===302,
+        'operator password permits super administrator reset and revokes session');
     $editorToken=token($editorCookies,true);
     $editorHome=request('GET','/admin/index.php',$editorCookies);
     expect_check($editorHome['status']===200 && str_contains($editorHome['body'],'<span>相关</span>') &&
@@ -231,10 +263,18 @@ try {
     $editorCookies=[]; $editorLogin['_csrf']=token($editorCookies);
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
         're-enabled editor can log in again');
+    $editorToken=token($editorCookies,true);
+    expect_check(request('POST','/admin/index.php?controller=account&operate=delete',$editorCookies,
+        ['_csrf'=>$editorToken,'id'=>(string)$editorId])['status']===403,
+        'editor cannot delete accounts');
     $resetEditor=request('POST','/admin/index.php?controller=account&operate=reset',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$editorId,'password'=>$editorPassword]);
     expect_check($resetEditor['status']===200 && request('GET','/admin/index.php',$editorCookies)['status']===302,
         'credential reset revokes editor sessions');
+    expect_check(request('POST','/admin/index.php?controller=account&operate=delete',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$editorId])['status']===303 &&
+        $db->query('SELECT id FROM f_manage WHERE id='.(int)$editorId)->num_rows===0,
+        'super administrator deletes editor account');
     $licensePage=request('GET','/admin/index.php?controller=home&operate=main',$cookies);
     expect_check($licensePage['status']===200 && str_contains($licensePage['body'],'MIT License') &&
         !str_contains($licensePage['body'],'非商业运用') && !str_contains($licensePage['body'],'必须在FengCms官方论坛首发'),
@@ -769,7 +809,7 @@ try {
     expect_check(!cms_admin_valid() && empty($_SESSION['manage_id']),'idle admin session expiry is enforced');
     $_SESSION=$originalCliSession;
     $oldPasswordHash=$db->query('SELECT password FROM f_manage WHERE id='.(int)$testId)->fetch_row()[0];
-    $newPassword=bin2hex(random_bytes(16));
+    $newPassword='NewPass8!';
     $change=request('POST','/admin/index.php?controller=manage&operate=save',$cookies,['_csrf'=>$newToken,'user'=>$user,'password'=>$password,'newpassword'=>$newPassword,'newpasswords'=>$newPassword]);
     expect_check(($change['json']['status']??'')==='y','administrator changes own password');
     $own=$db->query('SELECT password FROM f_manage WHERE id='.(int)$testId)->fetch_assoc();
@@ -808,7 +848,7 @@ try {
     $db->query("DROP TABLE IF EXISTS `f_$moduleProject`");
     foreach ($files as $file) { if (is_file($file)) { unlink($file); } }
     foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }
-    foreach ([$testId,$legacyId,$editorId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
+    foreach ([$testId,$legacyId,$editorId,$extraSuperId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
     foreach ($articleIds as $id) { $db->query('DELETE FROM f_article WHERE id='.(int)$id); }
     if ($editorArticleId) { $db->query('DELETE FROM f_article WHERE id='.(int)$editorArticleId); }
     if ($editorCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$editorCategoryId); }
