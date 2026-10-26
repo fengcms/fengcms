@@ -124,6 +124,10 @@ try {
         expect_check(request('GET','/admin/index.php?controller='.$allowed,$editorCookies)['status']===200,
             'editor business route allowed: '.$allowed);
     }
+    expect_check(request('GET','/admin/index.php?controller=classify&operate=classify&p=article',$editorCookies)['status']===200 &&
+        request('GET','/admin/index.php?controller=classify&operate=type&t=module',$editorCookies)['status']===200 &&
+        request('GET','/admin/index.php?controller=classify&operate=genre&f=one',$editorCookies)['status']===200,
+        'editor category form helper routes render');
     foreach (['base','modulemanage','fieldmanage&project=article','tplmanage','dbmanage&operate=dbbackup','safe','cache','signup','account'] as $denied) {
         expect_check(request('GET','/admin/index.php?controller='.$denied,$editorCookies)['status']===403,
             'editor system route denied: '.$denied);
