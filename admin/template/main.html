@@ -10,12 +10,7 @@
 <!--[if IE]><script src="public/jquery/jquery-1.11.1.min.js"></script><![endif]-->
 <!--[if !IE]><!--><script src="public/jquery/jquery-2.1.1.min.js"></script><!--<![endif]-->
 <script src="js/tab.js"></script>
-<script>
-	$(document).ready(function() {
-		// Remote security widgets are not loaded in the administration session.
-		//$("#version").load('?controller=safe&operate=serverversion');
-	});
-</script>
+<script src="js/version-check.js"></script>
 </head>
 
 <body>
@@ -49,14 +44,11 @@
 						<div class="main_box_h3"><h3>网站程序信息</h3></div>
 						<div class="main_box_con">
 							<ul id="copyinfo">
-								<li><em>程序版本:</em> {$version}</li>
-								<li><em>最新版本:</em> <span id="version">请查看项目更新记录</span></li>
-								<li><em>升级提示:</em> 如果程序版本低于最新版本，请及时更新。</li>
-								<li><em>开发团队:</em> <strong><a href="http://www.hezewangzhan.com">地方网络工作室</a></strong> FengCms开发团队</li>
-								<li><em>官方网站:</em> <a href="http://www.fengcms.com" target="_blank">www.fengcms.com</a></li>
-								<li><em>交流论坛:</em> <a href="http://bbs.fengcms.com" target="_blank">bbs.fengcms.com</a></li>
-								<li><em>联系邮箱:</em> web@fengcms.com</li>
-								<li><em>联系QQ: </em> 61572536</li>
+								<li><em>程序版本:</em> <span id="current-version">{$version}</span></li>
+								<li><em>最新版本:</em> <span id="version">正在查询 GitHub…</span> <button type="button" id="version-refresh">重新查询</button></li>
+								<li><em>版本状态:</em> <span id="version-status">请稍候</span></li>
+								<li><em>发布记录:</em> <a href="https://github.com/fengcms/fengcms/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a></li>
+								<li><em>项目仓库:</em> <a href="https://github.com/fengcms/fengcms" target="_blank" rel="noopener noreferrer">fengcms/fengcms</a></li>
 								<br />
 							</ul>
 						</div>
@@ -64,9 +56,9 @@
 				</td>
 				<td>
 					<div class="main_box">
-						<div class="main_box_h3"><h3>FengCms 使用帮助</h3><a href="http://bbs.fengcms.com/" target="_blank">更多内容</a></div>
+							<div class="main_box_h3"><h3>FengCms 使用帮助</h3><a href="https://github.com/fengcms/fengcms/issues" target="_blank" rel="noopener noreferrer">反馈问题</a></div>
 						<div class="main_box_con">
-							<div id="main_help">FengCms 使用帮助正在构建中。请点击右上角“更多帮助信息”登陆FengCms官方论坛查看使用教程。</div>
+							<div id="main_help">使用说明见项目仓库 docs 目录；遇到问题可在 GitHub Issues 反馈。</div>
 						</div>
 					</div>
 				</td>

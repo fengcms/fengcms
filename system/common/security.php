@@ -133,7 +133,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         'message' => 'index reply execution',
         'signup' => 'index signup detail signupinfo execution',
         'recover' => 'index execution', 'tplmanage' => 'index add update execution',
-        'dbmanage' => 'index dbbackup dbregain dbmanages', 'safe' => 'index serverversion',
+		'dbmanage' => 'index dbbackup dbregain dbmanages', 'safe' => 'index',
     ] : [
         'home' => 'index vccore validate', 'classify' => 'index', 'content' => 'index',
         'down' => 'index', 'map' => 'index', 'message' => 'index add',

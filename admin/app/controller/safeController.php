@@ -25,16 +25,6 @@ class safeController extends Controller{
 		return $this->display('safe/index.html',$array);
 	}
 
-	/**
-     * 网站本地版权信息
-     * @access public
-     * @return template,array
-     */
-	public function serverversion(){
-		echo file_get_contents("http://www.fengcms.com/version.txt");
-	}
-
-
 	/*读取360网站安全信息*/
 	function safe($url){
 		$safeurl=file_get_contents("http://www.so.com/s?ie=utf-8&src=360sou_home&ms=s34438&q=site%3A%2F%2F".$url);
