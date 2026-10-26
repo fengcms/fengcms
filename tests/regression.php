@@ -995,6 +995,9 @@ try {
     if($ipBefore===null){unset($_SERVER['REMOTE_ADDR']);}else{$_SERVER['REMOTE_ADDR']=$ipBefore;}
     if($forwardedBefore===null){unset($_SERVER['HTTP_X_FORWARDED_FOR']);}else{$_SERVER['HTTP_X_FORWARDED_FOR']=$forwardedBefore;}
     expect_check($reportedIp==='192.0.2.10','IP helper ignores untrusted forwarded headers');
+    $legacySlugUrl=url('/article_a&controller=home_7.html');
+    expect_check(!str_contains($legacySlugUrl,'&controller=home') && str_contains($legacySlugUrl,'%26controller%3Dhome'),
+        'dynamic URL conversion encodes imported category slugs');
     $Message='<script>auditError()</script>'; $File='" onload="auditError()'; $Line='1"><svg/onload=alert(1)>';
     foreach(['app/error/error.php','admin/app/error/error.php'] as $errorTemplate){
         ob_start(); include ROOT_PATH.'/'.$errorTemplate; $errorPage=ob_get_clean();

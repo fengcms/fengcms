@@ -374,9 +374,9 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 				$url=explode('_',$u[0]);
 
 				if(substr($url[0],1)=='content'){
-					return "?controller=content&project=".$url[1]."&id=".$url[2];
+					return '?controller=content&project='.rawurlencode($url[1]??'').'&id='.rawurlencode($url[2]??'');
 				}else{
-					return "?controller=classify&project=".substr($url[0],1)."&classify=".($url[1] ?? '')."&classid=".($url[2] ?? '');
+					return '?controller=classify&project='.rawurlencode(substr($url[0],1)).'&classify='.rawurlencode($url[1]??'').'&classid='.rawurlencode($url[2]??'');
 				}
 			}
 		}
