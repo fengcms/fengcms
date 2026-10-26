@@ -49,6 +49,7 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
     return request('POST','/admin/api/upload.php?dir='.rawurlencode($dir),$cookies,$body,['Content-Type'=>'multipart/form-data; boundary='.$b]);
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
+$extraBaseCopyright='audit_extra_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
 $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=null; $backupId=null;
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
@@ -586,6 +587,13 @@ try {
     $customFieldData=['_csrf'=>$newToken,'module_id'=>$moduleFixtureId,'project'=>$moduleProject,'name'=>'qa_extra_'.$tag,'aliases'=>'回归字段','type'=>'17'];
     $customFieldSave=request('POST',$fieldRoute.'&operate=save',$cookies,$customFieldData);
     expect_check(($customFieldSave['json']['status']??'')==='y' && (int)($customFieldSave['json']['id']??0)>0,'custom field creation returns its real record ID');
+    $fieldStatusBefore=$db->query('SELECT status FROM f_module_field WHERE id='.(int)$customFieldSave['json']['id'])->fetch_row()[0];
+    $badFieldStatus=request('POST',$fieldRoute.'&operate=enable&id='.$customFieldSave['json']['id'].'&status=2',
+        $cookies,['_csrf'=>$newToken]);
+    $fieldStatusAfter=$db->query('SELECT status FROM f_module_field WHERE id='.(int)$customFieldSave['json']['id'])->fetch_row()[0];
+    $db->query('UPDATE f_module_field SET status='.(int)$fieldStatusBefore.' WHERE id='.(int)$customFieldSave['json']['id']);
+    expect_check($badFieldStatus['status']===400 && $fieldStatusAfter===$fieldStatusBefore,
+        'field state rejects values outside zero and one');
     expect_check($db->query("SHOW COLUMNS FROM `f_$moduleProject` LIKE '".$customFieldData['name']."'")->num_rows===1,'custom field creation updates the declared module table');
     $export=request('GET','/admin/index.php?controller=modulemanage&operate=elicit&id='.$moduleFixtureId,$cookies);
     $package=json_decode($export['body'],true);
@@ -768,6 +776,21 @@ try {
 
     $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');
+    $baseForge=request('POST','/admin/index.php?controller=base&operate=save',$cookies,
+        ['_csrf'=>$newToken,'name'=>'base_safe_'.$tag,'time'=>'1','unlisted'=>'injected','url_type'=>'1']);
+    $baseAfterForge=$db->query('SELECT name,time FROM f_base LIMIT 1')->fetch_assoc();
+    expect_check(($baseForge['json']['status']??'')==='y' && $baseAfterForge['name']==='base_safe_'.$tag &&
+        (string)$baseAfterForge['time']!=='1','site settings ignore unknown and client-owned fields');
+    $extraBase=$db->prepare('INSERT INTO f_base (name,copyright) VALUES (?,?)');
+    $extraBaseName='extra_'.$tag; $extraBase->bind_param('ss',$extraBaseName,$extraBaseCopyright);
+    $extraBase->execute(); $extraBase->close();
+    $ambiguousBase=request('POST','/admin/index.php?controller=base&operate=save',$cookies,
+        ['_csrf'=>$newToken,'name'=>'should_not_write_'.$tag,'url_type'=>'1']);
+    $ambiguousBaseRows=$db->query("SELECT COUNT(*) FROM f_base WHERE name='should_not_write_".$tag."'")->fetch_row()[0];
+    $deleteExtra=$db->prepare('DELETE FROM f_base WHERE copyright=?');
+    $deleteExtra->bind_param('s',$extraBaseCopyright); $deleteExtra->execute(); $deleteExtra->close();
+    expect_check($ambiguousBase['status']===409 && (int)$ambiguousBaseRows===0,
+        'site settings refuse an ambiguous multi-row table');
     expect_check(request('GET','/tags.html',$cookies)['status']===200,'tag cloud URL works in pseudo-static mode');
     $copyrightSave=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'copyright'=>$attack,'url_type'=>'1']);
     $copyright=$db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_assoc()['copyright'];
@@ -1151,6 +1174,8 @@ try {
     if ($batchMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$batchMessageId); }
     if ($messageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$messageId); }
     if ($fieldFixtureId) { $db->query('DELETE FROM f_module_field WHERE id='.(int)$fieldFixtureId); }
+    $cleanupExtra=$db->prepare('DELETE FROM f_base WHERE copyright=?');
+    $cleanupExtra->bind_param('s',$extraBaseCopyright); $cleanupExtra->execute(); $cleanupExtra->close();
     $restore=$db->prepare('UPDATE f_base SET name=?,copyright=?'); $restore->bind_param('ss',$originalName,$originalBase['copyright']); $restore->execute();
     if ($originalSettings===null) { if (is_file($settingsPath)) { unlink($settingsPath); } }
     else { file_put_contents($settingsPath,$originalSettings); }

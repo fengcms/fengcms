@@ -54,8 +54,9 @@ class fieldmanageModel{// extends model{
      *
      * @return array
      */
-	public function status($where="",$status){
-		return D($this->d_name)->where($where)->update(array(
+	public function status($id,$status){
+		if(!in_array((string)$status,['0','1'],true)){cms_fail(400,'字段状态不正确。');}
+		return D($this->d_name)->where(['id'=>(int)$id])->update(array(
 			'status'	=>	$status
 			));
 	}	

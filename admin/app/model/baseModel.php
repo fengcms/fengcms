@@ -41,24 +41,22 @@ class baseModel extends model{
      * @return array
      */
     public function save($array){
-        if (array_key_exists('copyright', $array)) { $array['copyright']=cms_clean_html($array['copyright']); }
-        if($this->url_type($array['url_type'])){
-            
-            unset($array['url_type']);
-
-            if(D($this->d_name)->update($array)){
-
-                return array('status' => 'y');
-
-            }else{
-
-                return array('status' => 'n');
-            }
-        }else{
-
-            return array('status' => 'n');
-
-        }
+        $urlType=$array['url_type']??null;
+        if(!in_array($urlType,['0','1'],true)){cms_fail(400,'伪静态设置不正确。');}
+        $db=new db_mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME);
+        $table=model::identifier(DB_PREFIX.$this->d_name);
+        $row=$db->assoc($db->query("SELECT COUNT(*) AS total FROM $table"));
+        if((int)$row['total']!==1){cms_fail(409,'网站基本信息必须恰好有一行，保存已取消。');}
+        $allowed=['name','title','domran','key','description','copyright','template'];
+        $values=array_intersect_key($array,array_fill_keys($allowed,true));
+        foreach($values as $value){if(!is_string($value)){cms_fail(400,'网站设置内容不正确。');}}
+        if(array_key_exists('copyright',$values)){$values['copyright']=cms_clean_html($values['copyright']);}
+        if(!$this->url_type($urlType)){return ['status'=>'n'];}
+        $values['time']=(string)time();
+        $sets=[];
+        foreach($values as $field=>$value){$sets[]=model::identifier($field).'=?';}
+        $db->query('UPDATE '.$table.' SET '.implode(',',$sets).' LIMIT 1',array_values($values));
+        return ['status'=>'y'];
     }
 
     /**

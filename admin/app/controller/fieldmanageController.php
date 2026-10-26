@@ -80,7 +80,8 @@ class fieldmanageController extends Controller{
      * @return array
      */
     public function enable(){
-        if(M($this->model)->status('id="'.$_GET['id'].'"',$_GET['status'])){
+        if(!in_array($_GET['status']??null,['0','1'],true)){cms_fail(400,'字段状态不正确。');}
+        if(M($this->model)->status((int)$_GET['id'],$_GET['status'])){
             echo '<meta http-equiv="refresh" content="0;url=?controller=fieldmanage&project='.$_GET['project'].'">';
         }else{
             echo '<meta http-equiv="refresh" content="0;url=?controller=fieldmanage&project='.$_GET['project'].'">';
