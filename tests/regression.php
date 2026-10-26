@@ -245,6 +245,15 @@ try {
     expect_check($tamperedCategory['status']===403 &&
         $db->query('SELECT project FROM f_classify WHERE id='.(int)$editorCategoryId)->fetch_row()[0]==='article',
         'editor cannot retarget category at administrator table');
+    $forgedCategory=request('POST','/admin/index.php?controller=classify&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$editorCategoryId,'name'=>'允许修改'.$tag,
+            'topid'=>'9999','classid'=>'9999','sort'=>'9999','time'=>'1','unknown_field'=>'x']);
+    $categoryAfterForge=$db->query('SELECT name,topid,classid,sort,time FROM f_classify WHERE id='.(int)$editorCategoryId)->fetch_assoc();
+    expect_check(($forgedCategory['json']['status']??'')==='y' &&
+        $categoryAfterForge['name']==='允许修改'.$tag && (int)$categoryAfterForge['topid']!==9999 &&
+        (int)$categoryAfterForge['classid']!==9999 && (int)$categoryAfterForge['sort']!==9999 &&
+        (int)$categoryAfterForge['time']!==1,
+        'category save rejects hierarchy and internal field overposting');
     $articleSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'title'=>'editor_article_'.$tag,'content'=>'<p>编辑正文</p>','info'=>'编辑导读',
             'status'=>'1','classid'=>'0','template'=>'/article_content.html','time'=>(string)time(),
@@ -290,6 +299,14 @@ try {
     expect_check(($articleEdit['json']['status']??'')==='y' &&
         $db->query('SELECT title FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]==='editor_updated_'.$tag,
         'editor updates article content');
+    $forgedArticle=request('POST','/admin/index.php?controller=module&project=article&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'id'=>(string)$editorArticleId,'title'=>'allowed_'.$tag,
+            'hits'=>'999999','html'=>'/forged.html','time'=>'1','password'=>'injected','unknown_field'=>'x']);
+    $articleAfterForge=$db->query('SELECT title,hits,html,time FROM f_article WHERE id='.(int)$editorArticleId)->fetch_assoc();
+    expect_check(($forgedArticle['json']['status']??'')==='y' &&
+        $articleAfterForge['title']==='allowed_'.$tag && (int)$articleAfterForge['hits']!==999999 &&
+        $articleAfterForge['html']!=='/forged.html' && (int)$articleAfterForge['time']!==1,
+        'article save ignores client-owned and unknown fields while keeping editable title');
     $db->query("INSERT INTO f_message (title,content,status,time) VALUES ('editor_msg_$tag','hello',0,UNIX_TIMESTAMP())");
     $editorMessageId=$db->insert_id;
     foreach ([[$editorMessageId=>'x'], [[$editorMessageId]], ['1 OR 1=1'], ['0'], array_fill(0,1001,(string)$editorMessageId)] as $record) {
@@ -306,6 +323,12 @@ try {
     expect_check(($reply['json']['status']??'')==='y' &&
         $db->query('SELECT reply FROM f_message WHERE id='.(int)$editorMessageId)->fetch_row()[0]==='编辑回复',
         'editor replies to visitor message');
+    $forgedReply=request('POST','/admin/index.php?controller=message&operate=save',$editorCookies,
+        ['_csrf'=>$editorToken,'id'=>(string)$editorMessageId,'reply'=>'二次回复','time'=>'1','unknown_field'=>'x']);
+    $messageAfterForge=$db->query('SELECT reply,time FROM f_message WHERE id='.(int)$editorMessageId)->fetch_assoc();
+    expect_check(($forgedReply['json']['status']??'')==='y' && $messageAfterForge['reply']==='二次回复' &&
+        (int)$messageAfterForge['time']!==1,
+        'message reply ignores submitted creation time and unknown fields');
     expect_check(request('POST','/admin/index.php?controller=module&project=article&operate=recoverone&id='.$editorArticleId,
         $editorCookies,['_csrf'=>$editorToken])['status']===200 &&
         (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===-1,

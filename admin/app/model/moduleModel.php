@@ -64,53 +64,47 @@ class moduleModel extends model{
      * @return array
      */
 	public function save($array){
-        $array = cms_clean_record($array, $_GET['project']);
-
-		if($array['id']){
-
-			$id=$array['id'];unset($array['id']);
-
-			if(M("field")->findexists($_GET['project'],"attrib")){
-
-				$array['attrib_j']=($array['attrib_j']?1:0);
-				$array['attrib_g']=($array['attrib_g']?1:0);
-				$array['attrib_t']=($array['attrib_t']?1:0);
-				$array['attrib_r']=($array['attrib_r']?1:0);
-				$array['attrib_d']=($array['attrib_d']?1:0);
-				$array['attrib_h']=($array['attrib_h']?1:0);
-			}
-
-			if($array['info']=="" && $this->isfield($_GET['project'],"info")){
-				$array['info']=mb_substr(compress_html(mbStrreplace(strip_tags($array['content']))),0,200,"utf8");
-			}
-			
-			$re=D($_GET['project'])->where('id="'.$id.'"')->update($array);
-
+		$project=$_GET['project'];
+		$rawId=$array['id']??null;
+		if($rawId!==null && (!is_string($rawId) || !preg_match('/^[1-9][0-9]{0,9}$/D',$rawId))){cms_fail(400,'记录 ID 不正确。');}
+		$id=$rawId===null?null:(int)$rawId;
+		$columns=D($project)->getdbfields(DB_PREFIX.$project);
+		$physical=array_fill_keys($columns,true);
+		$fields=D('view_field')->field('name')->where(['project'=>$project,'status'=>1])->getall();
+		$writable=[];
+		$hasAttrib=false;
+		foreach($fields as $field){
+			$name=$field['name'];
+			if($name==='attrib'){$hasAttrib=true;continue;}
+			if(isset($physical[$name]) && !in_array($name,['id','hits','html','time','password'],true)){$writable[$name]=true;}
+		}
+		$attributes=['attrib_j','attrib_g','attrib_t','attrib_r','attrib_d','attrib_h'];
+		if($hasAttrib){
+			foreach($attributes as $name){if(isset($physical[$name])){$writable[$name]=true;}}
+		}
+		$array=array_intersect_key($array,$writable);
+		foreach($array as $name=>$value){if(!is_string($value) && !is_int($value)){cms_fail(400,'字段内容不正确。');}}
+		if(isset($array['status']) && !in_array((string)$array['status'],['0','1'],true)){cms_fail(400,'状态不正确。');}
+		$array=cms_clean_record($array,$project);
+		if($hasAttrib && $id!==null){
+			foreach($attributes as $name){if(isset($writable[$name])){$array[$name]=($array[$name]??null)==='1'?1:0;}}
+		}
+		if(($array['info']??null)==='' && isset($array['content'])){
+			$array['info']=mb_substr(compress_html(mbStrreplace(strip_tags($array['content']))),0,200,'utf8');
+		}
+		if(isset($physical['time']) && array_key_exists('time',$_POST)){$array['time']=time();}
+		if($id!==null){
+			$re=$array?D($project)->where(['id'=>$id])->update($array):false;
 		}else{
-
-			if($array['info']=="" && $this->isfield($_GET['project'],"info")){
-				$array['info']=mb_substr(compress_html(mbStrreplace(strip_tags($array['content']))),0,200,"utf8");
+			if(isset($physical['hits'])){$array['hits']=0;}
+			foreach(['tags','author','inputer','origin'] as $counter){
+				if(isset($array[$counter]) && $array[$counter]!==''){$this->hits($counter,$array[$counter]);}
 			}
-
-
-			if($array["tags"]!="")$this->hits("tags",$array['tags']);
-			if($array["author"]!="")$this->hits("author",$array['author']);
-			if($array["inputer"]!="")$this->hits("inputer",$array['inputer']);
-			if($array["origin"]!="")$this->hits("origin",$array['origin']);
-
-			$id=D($_GET['project'])->insert($array);
-
-			if(M("field")->findexists($_GET['project'],"html")){
-				$html='/content_'.$_GET['project'].'_'.$id.'.html';
-				$re=D($_GET['project'])->where('id="'.$id.'"')->update(array(
-					'html'	=>	$html
-					));
-			}else{
-			
-				$re=$id;
-
+			$id=D($project)->insert($array);
+			$re=$id;
+			if($id && isset($physical['html'])){
+				$re=D($project)->where(['id'=>$id])->update(['html'=>'/content_'.$project.'_'.$id.'.html']);
 			}
-
 		}
 
 		if($re){
@@ -123,7 +117,7 @@ class moduleModel extends model{
 	}
 
 	public function isfield($project,$field){
-		if(D("view_field")->where('project="'.$project.'" and  name="'.$field.'"')->getcount()>0){
+		if(D("view_field")->where(['project'=>$project,'name'=>$field])->getcount()>0){
 			return true;
 		}else{
 			return false;

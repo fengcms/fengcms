@@ -66,7 +66,9 @@ class messageModel{// extends model{
     public function save($array){
         $id=$array['id']??'';
         if(!is_string($id) || !preg_match('/^[0-9]{1,10}$/D',$id) || (int)$id<1){cms_fail(400,'留言 ID 不正确。');}
-        unset($array['id']);
+        $array=array_intersect_key($array,array_fill_keys(['title','name','qq','tel','mail','content','reply','status','rtime'],true));
+        foreach($array as $value){if(!is_string($value) && !is_int($value)){cms_fail(400,'留言内容不正确。');}}
+        if(isset($array['status']) && !in_array((string)$array['status'],['0','1'],true)){cms_fail(400,'留言状态不正确。');}
         $exists=D($this->d_name)->where(['id'=>$id])->getone();
         $saved=$exists && $array && D($this->d_name)->where(['id'=>$id])->update($array)>=0;
         return ['status'=>$saved?'y':'n','id'=>$id];

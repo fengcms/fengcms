@@ -124,37 +124,33 @@ class classifyModel extends model{
      * @return array
      */
 	public function save($array){
-        if (array_key_exists('intro', $array)) { $array['intro']=cms_clean_html($array['intro']); }
-
-		//$array=array_filter($array);
-
-		if($array['id']){
-
-			$id=$array['id'];unset($array['id']);
-
-			$re=D('classify')->where('id="'.$id.'"')->update($array);
-
+		$rawId=$array['id']??null;
+		if($rawId!==null && (!is_string($rawId) || !preg_match('/^[1-9][0-9]{0,9}$/D',$rawId))){cms_fail(400,'栏目 ID 不正确。');}
+		$id=$rawId===null?null:(int)$rawId;
+		$common=['name','nav','intro','img','key','description','channel_template','classify_template','content_template','url_type'];
+		if($id!==null){
+			$existing=D($this->d_name)->where(['id'=>$id])->getone();
+			if(!$existing){return ['status'=>'n','id'=>$id];}
+			// 栏目归属与层级在修改表单中不可编辑，外链地址仅供外链栏目修改。
+			$allowed=$common;
+			if($existing['type']==='url'){$allowed[]='html';}
 		}else{
-
-			if($array['type']=='single'){
-
-				$array['project']="single";
-					
-			}
-
-			$array['topid'] = $this->topid($array['classid']);
-			
+			$allowed=array_merge($common,['type','project','enname','classid']);
+			if(($array['type']??null)==='url'){$allowed[]='html';}
+		}
+		$array=array_intersect_key($array,array_fill_keys($allowed,true));
+		foreach($array as $value){if(!is_string($value) && !is_int($value)){cms_fail(400,'栏目内容不正确。');}}
+		if(array_key_exists('intro',$array)){$array['intro']=cms_clean_html($array['intro']);}
+		if(array_key_exists('time',$_POST)){$array['time']=time();}
+		if($id!==null){
+			$re=$array?D($this->d_name)->where(['id'=>$id])->update($array):false;
+		}else{
+			if(($array['type']??null)==='single'){$array['project']='single';}
+			$array['topid']=$this->topid($array['classid']??0);
 			$id=D($this->d_name)->insert($array);
-			
-			if($array['type']=="url"){
-
-				$re=$id;
-
-			}else{
-
-				$re=D($this->d_name)->where('id="'.$id.'"')->update(array(
-					'html'	=>	'/'.$array['project'].'_'.$array['enname'].'_'.$id.'.html'
-					));
+			$re=$id;
+			if($id && $array['type']!=='url'){
+				$re=D($this->d_name)->where(['id'=>$id])->update(['html'=>'/'.$array['project'].'_'.$array['enname'].'_'.$id.'.html']);
 			}
 		}
 
