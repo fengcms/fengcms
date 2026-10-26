@@ -745,6 +745,18 @@ try {
     expect_check(upload($cookies,$newToken,'test.php','<?php echo 1;')['status']===400,'executable upload rejected');
     expect_check(upload($cookies,$newToken,'test.png','<?php echo 1;')['status']===400,'spoofed image rejected');
     $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aQ1cAAAAASUVORK5CYII=');
+    expect_check(upload($cookies,$newToken,'shell.php.png',$png)['status']===400,
+        'script double extension is rejected even when image bytes are valid');
+    expect_check(upload($cookies,$newToken,'pixel.png',$png,'../image')['status']===400,
+        'upload directory traversal is rejected');
+    expect_check(upload($cookies,$newToken,'fake.pdf','plain text','file')['status']===400,
+        'attachment extension must match detected MIME');
+    $hugePng=substr_replace($png,pack('NN',50000,50000),16,8);
+    $hugePng=substr_replace($hugePng,hash('crc32b',substr($hugePng,12,17),true),29,4);
+    expect_check(upload($cookies,$newToken,'huge.png',$hugePng)['status']===400,
+        'image pixel count is bounded independently of byte size');
+    expect_check(in_array(upload($cookies,$newToken,'oversize.png',str_repeat('x',10*1024*1024+1))['status'],[400,413],true),
+        'oversize upload is rejected');
     $uploaded=upload($cookies,$newToken,'pixel.png',$png);
     expect_check($uploaded['status']===200 && ($uploaded['json']['error']??-1)===0,'authenticated image upload succeeds');
     $url=$uploaded['json']['url']; $files[]=dirname(__DIR__).$url;
@@ -914,6 +926,21 @@ try {
     expect_check(request('POST',$importPreviewRoute,$cookies,$multipart,
         ['Content-Type'=>'multipart/form-data; boundary='.$boundary])['status']===400 &&
         (glob($backupDir.'/.import-*.sql') ?: [])===$beforeUploads,'arbitrary SQL upload rejected and cleaned');
+    $wrongHeader=str_replace('-- FengCMS logical backup; restore into an empty database only.',
+        '-- FengCMS logical backup v999.',file_get_contents($backupDir.'/'.$backupId.'.sql'));
+    $wrongFormat="--$boundary\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$newToken\r\n";
+    $wrongFormat.="--$boundary\r\nContent-Disposition: form-data; name=\"backup_file\"; filename=\"wrong.sql\"\r\nContent-Type: application/octet-stream\r\n\r\n$wrongHeader\r\n--$boundary--\r\n";
+    expect_check(request('POST',$importPreviewRoute,$cookies,$wrongFormat,
+        ['Content-Type'=>'multipart/form-data; boundary='.$boundary])['status']===400 &&
+        (glob($backupDir.'/.import-*.sql') ?: [])===$beforeUploads,
+        'database import rejects unsupported backup format marker');
+    $oversizeImport="--$boundary\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$newToken\r\n";
+    $oversizeImport.="--$boundary\r\nContent-Disposition: form-data; name=\"backup_file\"; filename=\"large.sql\"\r\nContent-Type: application/octet-stream\r\n\r\n";
+    $oversizeImport.=str_repeat('x',8*1024*1024+1)."\r\n--$boundary--\r\n";
+    expect_check(request('POST',$importPreviewRoute,$cookies,$oversizeImport,
+        ['Content-Type'=>'multipart/form-data; boundary='.$boundary])['status']===400 &&
+        (glob($backupDir.'/.import-*.sql') ?: [])===$beforeUploads,
+        'database import rejects packages above the backend limit');
     $anonymous=[];
     expect_check(request('POST',$backupRoute.'&operate=download',$anonymous,['_csrf'=>$newToken,'backup_id'=>$backupId])['status']===401,
         'anonymous backup download rejected');
@@ -921,6 +948,9 @@ try {
         'backup download requires CSRF');
     expect_check(request('POST',$backupRoute.'&operate=download',$cookies,['_csrf'=>$newToken,'backup_id'=>'../config'])['status']===400,
         'backup download rejects traversal');
+    expect_check(request('POST',$backupRoute.'&operate=download',$cookies,
+        ['_csrf'=>$newToken,'backup_id'=>str_repeat('a',32)])['status']===404,
+        'backup download rejects a forged but well-formed ID');
     $download=request('POST',$backupRoute.'&operate=download',$cookies,['_csrf'=>$newToken,'backup_id'=>$backupId]);
     expect_check($download['status']===200 && hash('sha256',$download['body'])===$meta['sha256'] &&
         strlen($download['body'])===$meta['bytes'] && str_contains($download['body'],' VIEW `') &&

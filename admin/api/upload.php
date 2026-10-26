@@ -34,6 +34,10 @@ $mimeTypes = [
     'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
 ];
 $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+if (strlen($file['name']) > 255 || strpbrk($file['name'], "/\\\0\r\n") !== false ||
+    preg_match('~(?:^|\.)(?:php[0-9]*|phtml|phar|cgi|pl|asp|aspx|jsp|shtml|html?|svg|js)(?=\.|$)~i', $file['name'])) {
+    cms_fail(400, '文件名不允许。');
+}
 if (!is_string($dir) || !isset($groups[$dir]) || !in_array($ext, $groups[$dir], true)) {
     cms_fail(400, '文件类型不允许。');
 }
