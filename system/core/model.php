@@ -238,10 +238,7 @@ class model{
 			$this ->options['field']=implode(",",$array);
 		}else{
 			if(is_array($field)){
-				foreach($field as $v){
-					$f.=$this->prefixname.$v.',';
-				}
-				return $f;
+				$this->options['field']=implode(',',array_map([self::class,'identifier'],$field));
 			}else{
 				$this ->options['field']=$field;
 			}
@@ -312,6 +309,7 @@ class model{
 	 * 生成查询SQL
 	 */
 	public function buildselectsql(){
+		$options=$this->options;
 		if(isset($options['page'])){
 			// 根据页数计算limit
 			if(strpos($options['page'],',')){
@@ -323,7 +321,7 @@ class model{
 			$page		= $page?$page:1;//页码
 			$listRows	= isset($listRows)?$listRows:(is_numeric($options['limit'])?$options['limit']:20); //当前页显示记录数
 			$offset		= $listRows*((int)$page-1);//当前页起始记录数
-			$options['limit']= $offset.','.$listRows;
+			$this->options['limit']= $offset.','.$listRows;
 		}
 
 		$limit	= !empty($this ->options['limit'])?' limit '.$this->options['limit']:'';//解析limit

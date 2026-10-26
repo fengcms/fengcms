@@ -77,6 +77,7 @@ class classifyModel extends model{
      * @return option
      */
 	public function procoption($array,$vle=0,$w=false,$i=0){
+		$arr='';
 		if(is_array($array)){
 			if(count($array)>0){
 				foreach($array as $k => $v) {
@@ -185,6 +186,7 @@ class classifyModel extends model{
 
 		if($classid>0){
 			$arr=D($this->d_name)->where(['id'=>(int)$classid])->getone();
+			if(!$arr){cms_fail(400,'父栏目不存在。');}
 			if($arr['topid']>0){
 				return $arr['topid'];
 			}else{
@@ -203,26 +205,27 @@ class classifyModel extends model{
      */
 	public function batchsave($classify){
 
-		foreach(explode("\n",$classify['name']) as $v){
+		foreach(explode("\n",$classify['name']??'') as $v){
+			$array=[];
 
 			$c=explode("|",$v);
 
 			$array['name']				=	$c[0];
-			$array['enname']			=	trim($c[1]);
+			$array['enname']			=	trim($c[1]??'');
 
-			$array['topid']				=	$this->topid($classify['classid']);
+			$array['topid']				=	$this->topid($classify['classid']??0);
 
-			$array['classid']			=	$classify['classid'];
-			$array['type']				=	$classify['type'];			
-			$array['project']			=	$classify['project'];
-			$array['intro']				=	$classify['intro'];
-			$array['img']				=	$classify['img'];
-			$array['key']				=	$classify['key'];
-			$array['description']		=	$classify['description'];
+			$array['classid']			=	$classify['classid']??0;
+			$array['type']				=	$classify['type']??'';
+			$array['project']			=	$classify['project']??'';
+			$array['intro']				=	$classify['intro']??'';
+			$array['img']				=	$classify['img']??'';
+			$array['key']				=	$classify['key']??'';
+			$array['description']		=	$classify['description']??'';
 			$array['time']				=	time();
-			$array['channel_template']	=	$classify['channel_template'];
-			$array['classify_template']	=	$classify['classify_template'];
-			$array['content_template']	=	$classify['content_template'];
+			$array['channel_template']	=	$classify['channel_template']??'';
+			$array['classify_template']	=	$classify['classify_template']??'';
+			$array['content_template']	=	$classify['content_template']??'';
 
 			$id=D($this->d_name)->insert($array);
 

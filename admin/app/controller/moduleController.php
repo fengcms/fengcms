@@ -58,27 +58,27 @@ class moduleController extends Controller{
 			$params[]='%'.$array['title'].'%';
 		}
 
-		if($array['attrib_j']==1){
+		if(($array['attrib_j']??null)==1){
 			if($where)$where.=" and ";
 			$where.="attrib_j=1";
 		}
-		if($array['attrib_g']==1){
+		if(($array['attrib_g']??null)==1){
 			if($where)$where.=" and ";
 			$where.="attrib_g=1";
 		}
-		if($array['attrib_t']==1){
+		if(($array['attrib_t']??null)==1){
 			if($where)$where.=" and ";
 			$where.="attrib_t=1";
 		}
-		if($array['attrib_r']==1){
+		if(($array['attrib_r']??null)==1){
 			if($where)$where.=" and ";
 			$where.="attrib_r=1";
 		}
-		if($array['attrib_d']==1){
+		if(($array['attrib_d']??null)==1){
 			if($where)$where.=" and ";
 			$where.="attrib_d=1";
 		}
-		if($array['attrib_h']==1){
+		if(($array['attrib_h']??null)==1){
 			if($where)$where.=" and ";
 			$where.="attrib_h=1";
 		}
@@ -100,7 +100,11 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function add(){
-		return $this->display('module/add.html',M($this->model)->findone(['project'=>$_GET['project']]));
+		$_GET['classid']=$_GET['classid']??'0';
+		$module=M($this->model)->findone(['project'=>$_GET['project']]);
+		$columns=D($_GET['project'])->getdbfields(DB_PREFIX.$_GET['project']);
+		$module['info']=array_fill_keys($columns,'');
+		return $this->display('module/add.html',$module);
 	}
 
     /**
@@ -118,6 +122,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function update(){
+		$_GET['classid']=$_GET['classid']??'0';
 		return $this->display('module/update.html',M($this->model)->findone(['project'=>$_GET['project']]));
 
 	}

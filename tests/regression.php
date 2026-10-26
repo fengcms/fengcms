@@ -1,5 +1,7 @@
 <?php
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+// Keep CLI progress output from breaking the in-process session/header checks.
+ob_start();
 require dirname(__DIR__).'/tools/migrate.php';
 require_once dirname(__DIR__).'/system/common/filter.php';
 $db = migration_connection();
@@ -840,6 +842,13 @@ try {
     expect_check(($message['status']??'')==='y' && (int)$savedMessage['status']===0 && $savedMessage['reply']===null && (int)$savedMessage['time']>1,'public message cannot set publication, reply or time');
     $messagePage=request('GET','/admin/index.php?controller=message',$cookies);
     expect_check(str_contains($messagePage['body'],'&lt;b data-probe=&quot;message&quot;&gt;') && !str_contains($messagePage['body'],'<b data-probe="message">'),'visitor message is escaped in admin');
+    $unansweredMessages=request('GET','/admin/index.php?controller=message&status=0',$cookies);
+    expect_check($unansweredMessages['status']===200 && str_contains($unansweredMessages['body'],'message_'.$tag),
+        'unanswered message filter still lists unpublished visitor messages');
+    require_once dirname(__DIR__).'/system/core/email.php';
+    $smtpFixture=new smtp('smtp.example.test',2525,false,'test-user','test-pass');
+    expect_check($smtpFixture->relay_host==='smtp.example.test' && $smtpFixture->smtp_port===2525 &&
+        $smtpFixture->user==='test-user','legacy SMTP helper initializes on PHP 8');
     $replyData=['_csrf'=>$newToken,'id'=>$messageId,'reply'=>'谢谢反馈，已处理。','status'=>'1','rtime'=>(string)time()];
     $replySave=request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData);
     expect_check(($replySave['json']['status']??'')==='y' && (int)($replySave['json']['id']??0)===(int)$messageId,'message reply returns the actual saved record ID');

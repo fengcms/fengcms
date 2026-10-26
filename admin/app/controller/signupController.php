@@ -22,6 +22,7 @@ class signupController extends Controller{
      * @return template,array
      */
 	public function index(){
+		$where='';
 		return $this->display('signup/index.html',sqlpage($this->model,"20","*",$where,"id desc"));
 	}
 

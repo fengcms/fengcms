@@ -28,7 +28,7 @@ class smtp{
 	var $sock;
 
 	/* Constractor */
-	public function smtp($relay_host = "", $smtp_port = 25,$auth = false,$user,$pass){
+	public function __construct($relay_host = "", $smtp_port = 25,$auth = false,$user = "",$pass = ""){
 		$this->debug = FALSE;
 		$this->smtp_port = $smtp_port;
 		$this->relay_host = $relay_host;
@@ -43,12 +43,15 @@ class smtp{
 
 		$this->sock = FALSE;
 	}
+	public function smtp($relay_host = "", $smtp_port = 25,$auth = false,$user = "",$pass = ""){
+		$this->__construct($relay_host,$smtp_port,$auth,$user,$pass);
+	}
 
 	/* Main public function */
-	public function sendmail($to, $from, $subject = "", $body = "", $mailtype, $cc = "", $bcc = "", $additional_headers = ""){
+	public function sendmail($to, $from, $subject = "", $body = "", $mailtype = "TXT", $cc = "", $bcc = "", $additional_headers = ""){
 
 		$mail_from = $this->get_address($this->strip_comment($from));
-		$body = ereg_replace("(^|(\r\n))(\\.)", "\\1.\\3", $body);
+		$body = preg_replace('/(^|\r\n)\./', '$1..', $body);
 
 		$header = "MIME-Version:1.0\r\n";
 		if($mailtype=="HTML"){
@@ -163,7 +166,7 @@ class smtp{
 	}
 
 	public function smtp_sockopen_mx($address){
-		$domain = ereg_replace("^.+@([^@]+)$", "\\1", $address);
+		$domain = preg_replace('/^.+@([^@]+)$/', '$1', $address);
 		if (!@getmxrr($domain, $MXHOSTS)) {
 		$this->log_write("Error: Cannot resolve MX \"".$domain."\"\n");
 		return FALSE;
@@ -315,10 +318,6 @@ class smtp{
 	function mailto($array,$arrays){
 
 		if(is_array($array) && is_array($arrays)){
-
-			$from_header = "MIME-Version: 1.0"."\r\n";
-			$from_header .= "Content-type: text/html; charset=utf-8"."\r\n";
-			$from_header .= "From: ".$fr;
 
 			$Smtp=new smtp($array['em_server'],25,true,$array['em_user'],$array['em_pass']);//參數3的true是表示使用身份验证
 			$Smtp->debug = false;

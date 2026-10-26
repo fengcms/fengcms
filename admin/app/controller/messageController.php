@@ -22,7 +22,7 @@ class messageController extends Controller{
      * @return template,array
      */
 	public function index(){
-		if($_GET['status']=="0"){$where='status=0';}
+		$where=($_GET['status']??null)==='0'?'status=0':'';
 		return $this->display('message/index.html',sqlpage($this->model,"20","*",$where,"id desc"));
 	}
 
