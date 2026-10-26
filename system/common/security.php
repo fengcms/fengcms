@@ -168,6 +168,11 @@ function cms_safe_url($value): string
     return $scheme && !in_array(strtolower($scheme), ['http','https','mailto','tel'], true) ? '' : $value;
 }
 
+function cms_template_write_enabled(): bool
+{
+    return getenv('FENGCMS_DISABLE_TEMPLATE_WRITE')!=='1';
+}
+
 function cms_captcha_verify($value): bool
 {
     $code=$_SESSION['authnum']??null;

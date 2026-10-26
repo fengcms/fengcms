@@ -995,6 +995,24 @@ try {
     if($ipBefore===null){unset($_SERVER['REMOTE_ADDR']);}else{$_SERVER['REMOTE_ADDR']=$ipBefore;}
     if($forwardedBefore===null){unset($_SERVER['HTTP_X_FORWARDED_FOR']);}else{$_SERVER['HTTP_X_FORWARDED_FOR']=$forwardedBefore;}
     expect_check($reportedIp==='192.0.2.10','IP helper ignores untrusted forwarded headers');
+    $Message='<script>auditError()</script>'; $File='" onload="auditError()'; $Line='1"><svg/onload=alert(1)>';
+    foreach(['app/error/error.php','admin/app/error/error.php'] as $errorTemplate){
+        ob_start(); include ROOT_PATH.'/'.$errorTemplate; $errorPage=ob_get_clean();
+        expect_check(!str_contains($errorPage,'<script>auditError()') &&
+            str_contains($errorPage,'&lt;script&gt;auditError()&lt;/script&gt;') &&
+            !str_contains($errorPage,'<svg/onload='),
+            'legacy error page escapes diagnostic fields: '.$errorTemplate);
+    }
+    require_once ROOT_PATH.'/admin/app/model/fieldModel.php';
+    expect_check(!method_exists(fieldModel::class,'save'),
+        'unused field model cannot update the whole metadata table');
+    $templateSwitch=getenv('FENGCMS_DISABLE_TEMPLATE_WRITE');
+    putenv('FENGCMS_DISABLE_TEMPLATE_WRITE=1');
+    $templateReadOnly=!cms_template_write_enabled();
+    if($templateSwitch===false){putenv('FENGCMS_DISABLE_TEMPLATE_WRITE');}
+    else{putenv('FENGCMS_DISABLE_TEMPLATE_WRITE='.$templateSwitch);}
+    expect_check($templateReadOnly && cms_template_write_enabled(),
+        'site owner can disable online template writes without hiding template reads');
     $queryBefore=$_GET; $selfBefore=$_SERVER['PHP_SELF']??null;
     $_GET=['page'=>'1','probe'=>'x" onfocus="alert(1)']; $_SERVER['PHP_SELF']='/index.php';
     $wapPage=new page(20,10,['pagetype'=>'wap']);

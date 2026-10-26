@@ -38,11 +38,15 @@ class tplmanageModel extends model{
     }
 
     public function deletefile($array){
+        if(!cms_template_write_enabled()){cms_fail(403,'此站点已关闭后台模板写入。');}
         $file=$this->pathset($array['name']??null,$array['project']??null);
-        return is_file($file) && unlink($file);
+        $deleted=is_file($file) && unlink($file);
+        if($deleted){error_log('Template deleted by admin '.(int)($_SESSION['manage_id']??0).': '.$array['project'].'/'.$array['name']);}
+        return $deleted;
     }
 
     public function save($array){
+        if(!cms_template_write_enabled()){cms_fail(403,'此站点已关闭后台模板写入。');}
         $project=$array['project']??null;
         $file=$this->pathset($array['name']??null,$project);
         $mode=$array['type']??null;
@@ -61,6 +65,7 @@ class tplmanageModel extends model{
             // Publish a complete file. New templates never overwrite an existing name.
             $saved=$mode==='0' ? @link($temporary,$file) : @rename($temporary,$file);
             if(!$saved && $mode==='0' && file_exists($file)){return ['status'=>'e','project'=>$project];}
+            if($saved){error_log('Template saved by admin '.(int)($_SESSION['manage_id']??0).': '.$project.'/'.$array['name']);}
             return ['status'=>$saved?'y':'n','project'=>$project,'message'=>$saved?'保存成功。':'模板保存失败，请检查目录权限。'];
         }finally{
             if(is_file($temporary)){unlink($temporary);}
