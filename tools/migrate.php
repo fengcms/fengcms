@@ -27,6 +27,37 @@ function migrate_security(mysqli $db, string $prefix): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
+function migrate_roles(mysqli $db, string $prefix): void
+{
+    if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
+        throw new RuntimeException('Invalid database prefix.');
+    }
+    $table = $prefix.'manage';
+    $columns = array_column($db->query('SHOW COLUMNS FROM `'.$table.'`')->fetch_all(MYSQLI_ASSOC), 'Field');
+    if (!in_array('role', $columns, true)) {
+        // Existing administrators retain their original full access.
+        $db->query("ALTER TABLE `{$table}` ADD `role` varchar(20) NOT NULL DEFAULT 'super_admin'");
+    }
+    if (!in_array('enabled', $columns, true)) {
+        $db->query("ALTER TABLE `{$table}` ADD `enabled` tinyint(1) NOT NULL DEFAULT 1");
+    }
+    if (!in_array('auth_version', $columns, true)) {
+        $db->query("ALTER TABLE `{$table}` ADD `auth_version` int unsigned NOT NULL DEFAULT 1");
+    }
+    if (!in_array('login_code_hash', $columns, true)) {
+        $db->query("ALTER TABLE `{$table}` ADD `login_code_hash` varchar(255) DEFAULT NULL");
+    }
+    $db->query("ALTER TABLE `{$table}` ALTER COLUMN `role` SET DEFAULT 'editor'");
+    $duplicates = $db->query("SELECT `admin`, COUNT(*) AS total FROM `{$table}` WHERE `admin` IS NOT NULL GROUP BY `admin` HAVING total>1 LIMIT 1")->fetch_assoc();
+    if ($duplicates) {
+        throw new RuntimeException('Duplicate administrator usernames must be resolved before adding the unique index.');
+    }
+    $indexes = array_column($db->query('SHOW INDEX FROM `'.$table.'`')->fetch_all(MYSQLI_ASSOC), 'Key_name');
+    if (!in_array('admin_unique', $indexes, true)) {
+        $db->query("ALTER TABLE `{$table}` ADD UNIQUE KEY `admin_unique` (`admin`)");
+    }
+}
+
 function migrate_license_notice(mysqli $db, string $prefix): int
 {
     if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
@@ -45,6 +76,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
     $db = migration_connection();
     $prefix = getenv('DB_PREFIX') ?: 'f_';
     migrate_security($db, $prefix);
+    migrate_roles($db, $prefix);
     $updated = migrate_license_notice($db, $prefix);
     echo "Security schema migration complete; replaced $updated legacy sample license footer(s).\n";
 }

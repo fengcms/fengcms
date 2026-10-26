@@ -13,6 +13,7 @@ if ($tables) {
         throw new RuntimeException('Database is not empty and has no development marker. Refusing to initialize it.');
     }
     migrate_security($db, 'f_');
+    migrate_roles($db, 'f_');
     migrate_license_notice($db, 'f_');
     echo "Existing development database retained; administrator password unchanged.\n";
     exit;
@@ -23,6 +24,7 @@ if (!$password || strlen($password) < 12) {
 }
 cms_install_schema($db, 'f_');
 migrate_security($db, 'f_');
+migrate_roles($db, 'f_');
 cms_install_admin($db, 'f_', 'admin', $password);
 $db->query('CREATE TABLE f_dev_meta (id int PRIMARY KEY) ENGINE=InnoDB');
 $db->query('INSERT INTO f_dev_meta VALUES (1)');

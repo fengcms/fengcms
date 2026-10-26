@@ -95,10 +95,15 @@ CREATE TABLE `#prefix_manage` (
   `id` int(11) NOT NULL auto_increment,
   `admin` varchar(255) default NULL COMMENT '用户名',
   `password` varchar(255) default NULL COMMENT '密码',
+  `role` varchar(20) NOT NULL DEFAULT 'editor' COMMENT 'super_admin 或 editor',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否允许登录',
+  `auth_version` int unsigned NOT NULL DEFAULT 1 COMMENT '会话失效版本',
+  `login_code_hash` varchar(255) DEFAULT NULL COMMENT '独立后台认证码哈希',
   `datetime` datetime default NULL COMMENT '登录时间',
-  PRIMARY KEY  (`id`)
+  PRIMARY KEY  (`id`),
+  UNIQUE KEY `admin_unique` (`admin`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员';
-insert into `#prefix_manage` VALUES (1,'admin','!installation-incomplete!',NULL);
+insert into `#prefix_manage` (`id`,`admin`,`password`,`role`,`enabled`,`auth_version`,`login_code_hash`,`datetime`) VALUES (1,'admin','!installation-incomplete!','super_admin',1,1,NULL,NULL);
 CREATE TABLE `#prefix_module` (
   `id` int(11) NOT NULL auto_increment,
   `name` varchar(50) default NULL COMMENT '名称',
