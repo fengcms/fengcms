@@ -547,6 +547,15 @@ try {
     expect_check((request('POST','/admin/index.php?controller=admin',$legacyCookies,$legacyLogin)['json']['status']??'')==='y','legacy triple-MD5 login succeeds');
     $row=$db->query('SELECT password FROM f_manage WHERE id='.(int)$legacyId)->fetch_assoc();
     expect_check(strlen($row['password'])>32 && password_verify($legacyPassword,$row['password']),'legacy hash upgrades');
+    $originalCliSession=$_SESSION;
+    $_SESSION=['manage_id'=>(int)$testId,'manage'=>$user,'auth_at'=>time()-43201,
+        'last_seen'=>time(),'auth_fingerprint'=>'invalid','csrf_token'=>bin2hex(random_bytes(32))];
+    expect_check(!cms_admin_valid() && empty($_SESSION['manage_id']),'absolute admin session expiry is enforced');
+    $_SESSION=['manage_id'=>(int)$testId,'manage'=>$user,'auth_at'=>time(),
+        'last_seen'=>time()-3601,'auth_fingerprint'=>'invalid','csrf_token'=>bin2hex(random_bytes(32))];
+    expect_check(!cms_admin_valid() && empty($_SESSION['manage_id']),'idle admin session expiry is enforced');
+    $_SESSION=$originalCliSession;
+    $oldPasswordHash=$db->query('SELECT password FROM f_manage WHERE id='.(int)$testId)->fetch_row()[0];
     $newPassword=bin2hex(random_bytes(16));
     $change=request('POST','/admin/index.php?controller=manage&operate=save',$cookies,['_csrf'=>$newToken,'user'=>$user,'password'=>$password,'newpassword'=>$newPassword,'newpasswords'=>$newPassword]);
     expect_check(($change['json']['status']??'')==='y','administrator changes own password');
@@ -554,6 +563,11 @@ try {
     $other=$db->query('SELECT password FROM f_manage WHERE id='.(int)$legacyId)->fetch_assoc();
     expect_check(password_verify($newPassword,$own['password']) && password_verify($legacyPassword,$other['password']),'password change leaves other accounts intact');
     expect_check(request('GET','/admin/index.php',$cookies)['status']===302,'password change logs out');
+    $_SESSION=['manage_id'=>(int)$testId,'manage'=>$user,'auth_at'=>time(),
+        'last_seen'=>time(),'auth_fingerprint'=>hash_hmac('sha256',$oldPasswordHash,getenv('APP_KEY')),
+        'csrf_token'=>bin2hex(random_bytes(32))];
+    expect_check(!cms_admin_valid() && empty($_SESSION['manage_id']),'password change revokes other sessions');
+    $_SESSION=$originalCliSession;
     $rateCookies=[]; $rateToken=token($rateCookies);
     for ($i=0;$i<11;$i++) {
         $rate=request('POST','/admin/index.php?controller=admin',$rateCookies,['_csrf'=>$rateToken,'user'=>'absent_'.$tag,'password'=>'incorrect','admincode'=>getenv('ADMIN_CODE')]);

@@ -40,7 +40,8 @@ class adminController extends Controller
             return;
         }
         if (password_needs_rehash($account['password'], PASSWORD_DEFAULT)) {
-            $db->query("UPDATE $table SET password=? WHERE id=?", [password_hash($password, PASSWORD_DEFAULT), (int)$account['id']]);
+            $account['password']=password_hash($password, PASSWORD_DEFAULT);
+            $db->query("UPDATE $table SET password=? WHERE id=?", [$account['password'], (int)$account['id']]);
         }
         foreach ($buckets as $bucket => $limit) {
             $db->query("DELETE FROM $attempts WHERE bucket=?", [$bucket]);
@@ -49,6 +50,9 @@ class adminController extends Controller
         $_SESSION['manage'] = $account['admin'];
         $_SESSION['manage_id'] = (int)$account['id'];
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        $_SESSION['auth_at'] = time();
+        $_SESSION['last_seen'] = time();
+        $_SESSION['auth_fingerprint'] = hash_hmac('sha256',$account['password'],KEYS);
         header('Content-Type: application/json; charset=UTF-8');
         header('Cache-Control: no-store');
         echo json_encode(['status' => 'y']);

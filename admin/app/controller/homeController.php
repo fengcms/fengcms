@@ -17,7 +17,10 @@ class homeController extends Controller{
      * @access public
      */
 	public function index(){
-		return $this->display('index.html');
+		return $this->display('index.html', [
+			'sessionExpiresAt' => (int)($_SESSION['auth_at'] ?? 0) + 43200,
+			'sessionIdleAt' => (int)($_SESSION['last_seen'] ?? 0) + 3600,
+		]);
 	}
 
     /**

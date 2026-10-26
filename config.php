@@ -16,15 +16,36 @@ $localConfigFile = ROOT_PATH.'/config.local.php';
 $localConfig = is_file($localConfigFile) ? require $localConfigFile : [];
 if (!is_array($localConfig)) { throw new RuntimeException('Invalid local configuration.'); }
 
+function cms_required_setting(string $environment, string $localKey): string
+{
+    global $localConfig;
+    $value = getenv($environment);
+    if ($value === false) { $value = $localConfig[$localKey] ?? null; }
+    if (!is_string($value) || $value === '') {
+        throw new RuntimeException('Missing private configuration: '.$environment);
+    }
+    return $value;
+}
+
+foreach (['DB_HOST'=>'db_host','DB_USER'=>'db_user','DB_PASS'=>'db_pass','DB_NAME'=>'db_name','ADMIN_CODE'=>'admin_code','APP_KEY'=>'app_key'] as $environment=>$key) {
+    cms_required_setting($environment,$key);
+}
+if (in_array(cms_required_setting('DB_PASS','db_pass'), ['123456','password'], true) ||
+    cms_required_setting('ADMIN_CODE','admin_code') === '8888' ||
+    cms_required_setting('APP_KEY','app_key') === 'admin123') {
+    throw new RuntimeException('Unsafe private configuration; run the deployment preflight.');
+}
+
+
 /*---------------- MYSQL 数据库选项 ------------------------*/
 
-	define('DB_HOST', getenv('DB_HOST') !== false ? getenv('DB_HOST') : ($localConfig['db_host'] ?? 'localhost'));												//地址
+	define('DB_HOST', cms_required_setting('DB_HOST','db_host'));												//地址
 
-	define('DB_USER', getenv('DB_USER') !== false ? getenv('DB_USER') : ($localConfig['db_user'] ?? 'root'));													//用户
+	define('DB_USER', cms_required_setting('DB_USER','db_user'));													//用户
 
-	define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : ($localConfig['db_pass'] ?? '123456'));													//密码
+	define('DB_PASS', cms_required_setting('DB_PASS','db_pass'));													//密码
 
-	define('DB_NAME', getenv('DB_NAME') !== false ? getenv('DB_NAME') : ($localConfig['db_name'] ?? 'fengcms'));												//库名
+	define('DB_NAME', cms_required_setting('DB_NAME','db_name'));												//库名
 
 	define('DB_TYPE','mysqli');													//类型 支持mysql和mysqli的方式，默认安装为mysqli方式
 
@@ -38,7 +59,7 @@ if (!is_array($localConfig)) { throw new RuntimeException('Invalid local configu
     $siteSettings = is_readable($runtimePath.'/site.json') ? json_decode(file_get_contents($runtimePath.'/site.json'), true) : [];
     define('URL_TYPE', (int)($siteSettings['url_type'] ?? ($localConfig['url_type'] ?? 0)));														//访问地址方法，0动态1伪静态
 
-	define('ADMIN_CODE', getenv('ADMIN_CODE') !== false ? getenv('ADMIN_CODE') : ($localConfig['admin_code'] ?? '8888'));												//认证码  只能是四位
+	define('ADMIN_CODE', cms_required_setting('ADMIN_CODE','admin_code'));												//认证码  只能是四位
 
 /*---------------- 网站调试模式是否开启 --------------------*/
 
@@ -52,7 +73,7 @@ if (!is_array($localConfig)) { throw new RuntimeException('Invalid local configu
 
 	define('DEFAULT_OPERATE','index');											//默认方法
 
-	define('KEYS', getenv('APP_KEY') ?: ($localConfig['app_key'] ?? 'admin123'));													//键值
+	define('KEYS', cms_required_setting('APP_KEY','app_key'));													//键值
 
 	define('SESSION_EXT', 'se_');												//SESSION扩展
 

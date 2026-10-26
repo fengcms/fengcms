@@ -46,9 +46,55 @@ function cms_post_required(): void
 
 function cms_admin_required(): void
 {
-    if (empty($_SESSION['manage_id']) || empty($_SESSION['manage'])) {
-        cms_fail(401, '请先登录后台。');
+    if (!cms_admin_valid()) { cms_fail(401, '请先登录后台。'); }
+}
+
+function cms_admin_clear(): void
+{
+    foreach (['manage_id','manage','auth_at','last_seen','auth_fingerprint'] as $key) { unset($_SESSION[$key]); }
+    session_regenerate_id(true);
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function cms_admin_valid(): bool
+{
+    if (empty($_SESSION['manage_id']) || empty($_SESSION['manage'])) { return false; }
+    $now=time();
+    $login=$_SESSION['auth_at']??null;
+    $last=$_SESSION['last_seen']??null;
+    if (!is_int($login) || !is_int($last) || $login>$now || $last>$now ||
+        $now-$login>43200 || $now-$last>3600 || !is_string($_SESSION['auth_fingerprint']??null)) {
+        cms_admin_clear();
+        return false;
     }
+    try {
+        // Standalone editor APIs reach this function without system/app.php.
+        if (!defined('DB_HOST')) {
+            if (!defined('TPL_INCLUDE')) { define('TPL_INCLUDE', true); }
+            if (!defined('ROOT_PATH')) { define('ROOT_PATH', dirname(__DIR__, 2)); }
+            if (!defined('APP_PATH')) { define('APP_PATH', ROOT_PATH.'/admin/app'); }
+            require_once ROOT_PATH.'/config.php';
+        }
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/D',DB_PREFIX)) { return false; }
+        $db=new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME);
+        $db->set_charset('utf8mb4');
+        $stmt=$db->prepare('SELECT password FROM `'.DB_PREFIX.'manage` WHERE id=? LIMIT 1');
+        $id=(int)$_SESSION['manage_id'];
+        $stmt->bind_param('i',$id);
+        $stmt->execute();
+        $row=$stmt->get_result()->fetch_assoc();
+        $stmt->close(); $db->close();
+        $expected=$row ? hash_hmac('sha256',$row['password'],KEYS) : null;
+        if (!is_string($expected) || !hash_equals($expected,$_SESSION['auth_fingerprint'])) {
+            cms_admin_clear();
+            return false;
+        }
+    } catch (Throwable $e) {
+        error_log('Administrator session verification failed: '.$e);
+        return false;
+    }
+    $_SESSION['last_seen']=$now;
+    return true;
 }
 
 function cms_password_verify(string $password, string $hash): bool
@@ -153,12 +199,12 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
     $writable = in_array($action, explode(' ', $write[$controller] ?? ''), true);
     if (!$readable && !$writable) { cms_fail(404, '页面不存在。'); }
     if ($admin && $controller !== 'admin') {
-        if (empty($_SESSION['manage_id']) || empty($_SESSION['manage'])) {
+        if (!cms_admin_valid()) {
             if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
                 header('Location: /admin/login.php', true, 302);
                 exit;
             }
-            cms_admin_required();
+            cms_fail(401, '请先登录后台。');
         }
     }
     if ($writable || ($admin && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST')) {
