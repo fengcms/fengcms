@@ -23,23 +23,6 @@ class recoverModel extends model{
 		return D($this->d_name)->getall();
 	}
 
-    /**
-     * 保存信息
-     *
-     * @return array
-     */
-	public function save($array){
-
-		if(D($this->d_name)->update($_POST)){
-
-			return array('status' => 'y');
-
-		}else{
-
-			return array('status' => 'n');
-		}
-	}
-
 }
 
 ?>

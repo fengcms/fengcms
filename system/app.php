@@ -161,33 +161,6 @@ final class app {
 	   }
 	}
 
-	 /**
-	  * __call
-	  *
-	  * @access	public
-	  * @param	string	$name
-	  * @param	array	$args
-	  * @return	mixed
-	  */
-    final public function __call($name, $args) {
-        $method = substr($name, 3);
-        // 前置过滤器
-        $before = '_before_' . $method;
-        if (method_exists($this, $before)) {
-            if ($result = call_user_func_array(array(&$this, $before), $args)) {
-                $args = $result;
-            }
-        }
-        // 执行过滤器
-        $return = call_user_func_array(array(&$this, $method), $args);
-        // 后置过滤器
-        $after = '_after_' . $method;
-        if (method_exists($this, $after)) {
-            $return = call_user_func(array(&$this, $after), $return);
-        }
-        return $return;
-    }
-
 	/**
      *  静态方法, 单例统一访问入口
 	 *

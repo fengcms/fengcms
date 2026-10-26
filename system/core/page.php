@@ -48,9 +48,6 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
     );    
  
  
-    //静态地址规则
-    private $rewriteRules = array('/(.*?_)([0-9]*)(\..*)/ies', '/(.*?)(\..*)/ies');
- 
     /**
      * 构造函数
      * @access public
@@ -333,38 +330,6 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
             return " <dd><a href=\"" . $this->geturl($page) . "\" hidefocus='true'>" . $page . "</a></dd> ";
     }
  
- 
-    /**
-     * 获取静态URL变量
-     * 需要换换的话在这里改写 preg_replace模块即可
-     */
-    private function getstaticurl($page, $rewriteRules=null){
-        $rewriteRules = !empty($rewriteRules) ? $rewriteRules : $this->rewrite_rules;
- 
-        $uris = explode('/',$_SERVER['REQUEST_URI']);
-        $script_file = array_pop($uris);
- 
-        if(preg_match($rewriteRules[0], $script_file, $var)){
-            $script_file = preg_replace($rewriteRules[0], "'\\1'.curpage.'\\3'", $script_file);
-            $script_file = str_replace('curpage', $page, $script_file);
-        }
- 
-        else if(preg_match($rewriteRules[1], $script_file, $var)){
-            $script_file = preg_replace($rewriteRules[1], "'\\1'.page_index.'\\2'", $script_file);
-            $script_file = str_replace('curpage','_'.$page, $script_file);
-        }
- 
-        $url .= '/';
-        if(!empty($uris)){
-            foreach($uris as $key=>$val){
-                if(!empty($val)){
-                    $url .= $val.'/';
-                }
-            }
-        }
-
-        return $url.$script_file;
-    }
  
     /**
      * 获得当前URL的方法
