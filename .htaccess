@@ -3,6 +3,8 @@ RewriteBase /
 
 RewriteRule ^index.html index.php?controller=home&operate=index
 
+RewriteRule ^tags\.html$ index.php?controller=tags [L,QSA]
+
 RewriteRule ^content_(.*)_(.*).html index.php?controller=content&project=$1&id=$2
 
 RewriteRule ^tags/(.*)_(.*).html index.php?controller=search&tags=$1&page=$2

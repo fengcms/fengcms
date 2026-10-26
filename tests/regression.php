@@ -59,6 +59,12 @@ try {
     $cookies=[];
     $page=request('GET','/',$cookies);
     expect_check($page['status']===200 && str_contains($page['body'],'<title>') && !str_contains($page['body'],'{loop '),'homepage renders');
+    $tagsPage=request('GET','/tags.html',$cookies);
+    expect_check($tagsPage['status']===200 && str_contains($tagsPage['body'],'id="tags_list"'),'tag cloud pseudo-static URL renders its controller');
+    expect_check(str_contains(request('GET','/tags.html?source=regression',$cookies)['body'],'id="tags_list"'),'tag cloud accepts ordinary query parameters');
+    expect_check(str_contains(request('GET','/?controller=tags',$cookies)['body'],'id="tags_list"'),'dynamic tag cloud URL remains available');
+    $tagSearch=request('GET','/tags/security-test.html',$cookies);
+    expect_check($tagSearch['status']===200 && !str_contains($tagSearch['body'],'id="tags_list"') && str_contains($tagSearch['body'],'security-test'),'tag keyword search remains separate from the tag cloud');
     expect_check(request('GET','/admin/index.php',$cookies)['status']===302,'anonymous admin redirects');
     foreach (['/install/index.php','/config.php','/.env','/.git/config','/app/error/error.php','/README.md','/template/index.html','/admin/app/dbbackup/test.sql','/admin/public/htmledit/php/json.php'] as $path) {
         expect_check(request('GET',$path,$cookies)['status']===404,'private path blocked: '.$path);
@@ -152,12 +158,14 @@ try {
 
     $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');
+    expect_check(request('GET','/tags.html',$cookies)['status']===200,'tag cloud URL works in pseudo-static mode');
     $copyrightSave=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'copyright'=>$attack,'url_type'=>'1']);
     $copyright=$db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_assoc()['copyright'];
     expect_check(($copyrightSave['json']['status']??'')==='y' && !str_contains($copyright,'<script') && str_contains($copyright,'<strong>加粗</strong>'), 'copyright HTML uses the server sanitizer');
 
     expect_check(request('GET','/index.html',$cookies)['status']===200,'rewrite mode renders homepage');
     request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>$originalName,'url_type'=>'0']);
+    expect_check(request('GET','/tags.html',$cookies)['status']===200 && request('GET','/?controller=tags',$cookies)['status']===200,'tag cloud URLs work in dynamic mode');
     foreach (['home&operate=main','base','manage&operate=password','modulemanage','module&project=article','classify','message','tplmanage','dbmanage&operate=dbmanages'] as $route) {
         $page=request('GET','/admin/index.php?controller='.$route,$cookies);
         expect_check($page['status']===200 && str_contains($page['body'],'<html'),'admin screen renders: '.$route);
