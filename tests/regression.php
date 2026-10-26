@@ -96,6 +96,13 @@ try {
     expect_check($licensePage['status']===200 && str_contains($licensePage['body'],'MIT License') &&
         !str_contains($licensePage['body'],'非商业运用') && !str_contains($licensePage['body'],'必须在FengCms官方论坛首发'),
         'admin home displays the current MIT terms without obsolete restrictions');
+    expect_check(preg_match('~id="current-version">v1\.35\s*</span>~',$licensePage['body'])===1 &&
+        str_contains($licensePage['body'],'js/version-check.js') &&
+        str_contains($licensePage['body'],'https://github.com/fengcms/fengcms/releases') &&
+        !str_contains($licensePage['body'],'http://www.fengcms.com'),
+        'admin home shows the GitHub release checker and current version');
+    expect_check(request('GET','/admin/index.php?controller=safe&operate=serverversion',$cookies)['status']===404,
+        'obsolete remote version endpoint is disabled');
     expect_check(migrate_license_notice($db,'f_')===0,'legacy sample footer migration is idempotent after update');
     $legacyFooter='Copyright 20013-2015 Powered by FengCms.COM，地方网络工作室 All Rights Reserved.<br />地方网络工作室 版权所有 未经许可严禁复制或建立镜像 <br />版本号：FengCms Beta 1.0';
     $stmt=$db->prepare('UPDATE f_base SET copyright=?');

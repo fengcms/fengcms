@@ -39,4 +39,4 @@ Docker daemon 拉取镜像不一定继承 shell 代理，必要时在 Colima/Doc
 
 2026-10-26 经维护者授权，将当前 `master` 原有 16 个提交说明改为中文 Conventional Commits 标题。逐个保持文件树、作者、提交者与时间不变；父提交引用和提交哈希随历史改写而变化。原提交备份为本机已忽略的 `var/git-backups/before-chinese-history.bundle`，映射表为同目录 `chinese-history-map.json`，需要恢复时可在另一目录克隆该 bundle 检查。备份不纳入发布仓库。
 
-未执行推送，远端跟踪引用保留真实的既有状态；已有远端提交与新历史不再构成快进关系，后续发布需由维护者决定如何同步。
+发布 v1.35 时，先将旧远端保存为本机已忽略的 `var/git-backups/before-v1.35-remote.bundle`，并核对远端原三条提交与新历史前三条提交的文件树、作者和时间逐一一致。随后使用带租约的推送同步新历史并创建发布标签。原提交哈希会改变，旧克隆需要重新同步仓库。

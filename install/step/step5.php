@@ -25,7 +25,7 @@
 1、将后台<span class="f60">admin</span>目录改名，防止别人猜到你的网站后台地址。
 2、修改后台密码，默认为<span class="f60">123456</span>，修改为复杂的密码，最好包含字母数字特殊字符。
 3、在根目录的<span class="f60">config.php</span>文件中，将网站后台认证码修改。
-4、随时关注 <a href="http://www.fengcms.com/" target="_blank"><span class="f00">FengCms官方网站</span></a>，以获取最新的升级补丁。
+4、随时关注 <a href="https://github.com/fengcms/fengcms/releases" target="_blank" rel="noopener noreferrer"><span class="f00">FengCMS GitHub Releases</span></a>，查看最新版本和更新说明。
 5、手工删除<span class="f60">/install/</span>目录，或其中的文件。
 
 			</pre>

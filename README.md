@@ -11,7 +11,7 @@
 
 FengCMS 自有代码与文档采用 [MIT License](LICENSE)，允许个人和企业使用、修改、再发布及商业使用；分发软件或其重要部分时须保留版权与许可声明。无需购买商业授权，不强制保留网站页脚链接，也不要求二次开发作品在指定论坛首发。随仓库分发的第三方组件仍遵循各自许可证，见 [第三方许可说明](docs/THIRD_PARTY_LICENSES.md)。
 
-当前为安全升级开发版，不可直接覆盖运行环境和定制代码未经验证的存量站点。
+当前版本：`v1.35`。新版本和更新说明统一在 [GitHub Releases](https://github.com/fengcms/fengcms/releases) 发布；后台首页可查询最新正式版，升级仍需由站点维护者手动完成。不可直接覆盖运行环境和定制代码未经验证的存量站点。
 
 # fengcms
 FengCMS is a good and smass Content management system

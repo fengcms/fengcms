@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+tag=${1:?Usage: ./bin/package-release vX.Y[.Z]}
+if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+    echo 'Release tag must be vX.Y or vX.Y.Z.' >&2
+    exit 2
+fi
+git rev-parse -q --verify "refs/tags/$tag^{commit}" >/dev/null || {
+    echo "Tag does not exist: $tag" >&2
+    exit 2
+}
+version=$(git show "$tag:admin/version.php" | tr -d '\r\n')
+if [ "$version" != "$tag" ]; then
+    echo "Tag $tag does not match admin/version.php ($version)." >&2
+    exit 2
+fi
+
+mkdir -p var/releases
+package="var/releases/fengcms-$tag.zip"
+checksum="var/releases/fengcms-$tag.sha256"
+git archive --format=zip --prefix="fengcms-$tag/" --output="$package" "$tag"
+printf '%s  %s\n' "$(shasum -a 256 "$package" | awk '{print $1}')" "fengcms-$tag.zip" > "$checksum"
+echo "Created $package and $checksum"
