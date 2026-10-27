@@ -52,8 +52,8 @@ class classifyModel extends model{
         $key = hash('sha256', serialize([DB_HOST, DB_NAME, DB_PREFIX]));
         $revision = model::requestWriteRevision();
         if (!isset(self::$requestTrees[$key]) || self::$requestTrees[$key]['revision'] !== $revision) {
-            $rows = D($this->d_name)->excsql('SELECT id,classid,name,html,nav,url_type,type,sort FROM '.
-                model::identifier(DB_PREFIX.$this->d_name).' ORDER BY sort ASC');
+            $rows = D($this->d_name)->field('id,classid,name,html,nav,url_type,type,sort')
+                ->sort('sort', 'order', 'asc')->getall();
             $children = []; $navigation = [];
             foreach ($rows as $row) {
                 $parent = (int)$row['classid'];

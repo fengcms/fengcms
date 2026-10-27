@@ -60,8 +60,8 @@ try {
 
     $other = new model($suffix);
     $other->where(['status' => 0])->field('id');
-    $sharedId = (int)$model->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
-    $otherId = (int)$other->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
+    $sharedId = (int)$model->excsql('SELECT CONNECTION_ID() AS id', [], true)[0]['id'];
+    $otherId = (int)$other->excsql('SELECT CONNECTION_ID() AS id', [], true)[0]['id'];
     $otherRows = $other->getall();
     if ($sharedId !== $otherId || count($otherRows) !== 1 || (int)$otherRows[0]['id'] !== 2 ||
         (int)$model->getall()[0]['id'] !== 1) {

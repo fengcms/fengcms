@@ -352,17 +352,18 @@ class model{
 	 * 执行语句
 	 *
      * @param string $sql
-	 * @return bool
+	 * @param array $params 绑定参数
+	 * @param bool $trustedRead 仅供已审查且不会改变连接状态的内部读取使用
+	 * @return array
 	 */
-	 public function excsql($sql, array $params = []){
-        // Native SQL may carry transaction or session state, including inside
-        // executable comments. Share only a narrow, plain read-only subset.
-        $shareable = $this->shareableRawRead($sql);
-        if (!$shareable) { $this->isolateConnection(); }
+	 public function excsql($sql, array $params = [], bool $trustedRead = false){
+        // Arbitrary SELECT may call a stateful stored function. Native SQL is
+        // private by default; only audited, plain reads opt into the pool.
+        if (!$trustedRead) { $this->isolateConnection(); }
         $result = $this->db->query($sql, $params);
         // A native COMMIT can make writes visible after another connection
         // cached their old values. Unknown native SQL invalidates conservatively.
-        if (!$shareable) { self::$requestWriteRevision++; }
+        if (!$trustedRead) { self::$requestWriteRevision++; }
         return $this->db->fetch($result);
 	 }
 
@@ -383,11 +384,6 @@ class model{
 			return false;
 		}
 	 }
-
-    private function shareableRawRead(string $sql): bool {
-        return (bool)preg_match('/^\s*(?:SELECT|SHOW|DESCRIBE|EXPLAIN)\b/i', $sql) &&
-            !preg_match('~/\*|--|#|;|@|:=|\b(?:GET_LOCK|RELEASE_LOCK|IS_FREE_LOCK|IS_USED_LOCK|LAST_INSERT_ID)\s*\(|\bFOR\s+UPDATE\b|\bLOCK\s+IN\s+SHARE\s+MODE\b~i', $sql);
-    }
 
     private function isolateConnection(): void {
         if ($this->transactionConnection) { return; }

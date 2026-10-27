@@ -45,7 +45,7 @@ echo "PASS navigation root keeps SQL results and order\n";
 $parents = array_map(static fn($row) => (int)$row['id'], $root);
 if (!$parents) { $parents = [0]; }
 $status = D('classify');
-$before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+$before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];
 foreach ($parents as $parent) {
     $actual = M('module')->l('classify',
         'w[classid='.$parent.'&&nav=1];f[id,html,name,url_type];n[100];s[sort,2]');
@@ -53,16 +53,16 @@ foreach ($parents as $parent) {
         throw new RuntimeException('Navigation child differs from its original SQL query.');
     }
 }
-$after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+$after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];
 if ($after - $before !== count($parents) + 1) {
     throw new RuntimeException('Navigation cache still issues a query for each parent.');
 }
 echo "PASS navigation children reuse one request-local category snapshot\n";
 
 $first = M('classify')->children(0);
-$before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+$before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];
 $second = M('classify')->children(0);
-$after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+$after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];
 if ($first !== $second || $after - $before !== 1) {
     throw new RuntimeException('Category descendants did not reuse the request snapshot.');
 }
@@ -70,9 +70,9 @@ echo "PASS category descendants reuse the snapshot across model instances\n";
 
 $attribute = new ReflectionMethod(moduleModel::class, 'attrib');
 $available = $attribute->invoke(M('module'), 'article', 'tags');
-$before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+$before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];
 $again = $attribute->invoke(M('module'), 'article', 'tags');
-$after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+$after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];
 if ($available !== $again || $after - $before !== 1) {
     throw new RuntimeException('Model field capability was queried again in the same request.');
 }

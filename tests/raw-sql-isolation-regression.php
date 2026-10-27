@@ -32,7 +32,7 @@ try {
     foreach ($beginnings as $label => $begin) {
         $transaction = new model($suffix);
         $ordinary = new model($suffix);
-        $ordinaryId = (int)$ordinary->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
+        $ordinaryId = (int)$ordinary->excsql('SELECT CONNECTION_ID() AS id', [], true)[0]['id'];
         $transaction->query($begin);
         $transactionId = (int)$transaction->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
         $transaction->insert(['id'=>$number, 'status'=>1]);
@@ -55,6 +55,14 @@ try {
         throw new RuntimeException('A raw session variable leaked into the shared connection.');
     }
     echo "PASS commented session SQL remains private\n";
+
+    $selectState = new model($suffix);
+    $selectState->excsql('SELECT @fengcms_select_probe := 9 AS value');
+    $sharedSelect = (new model($suffix))->field('@fengcms_select_probe AS value')->getone()['value'];
+    if ($sharedSelect !== null) {
+        throw new RuntimeException('Stateful native SELECT leaked into the shared connection.');
+    }
+    echo "PASS native SELECT defaults to an isolated connection\n";
 
     $temporary = DB_PREFIX.'qa_temp_'.bin2hex(random_bytes(5));
     $session->query("CREATE TEMPORARY TABLE `$temporary` (id INT PRIMARY KEY)");
