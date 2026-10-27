@@ -37,6 +37,30 @@ function request(string $method, string $path, array &$cookies, array|string $da
     foreach ($matches as $m) { $cookies[$m[1]] = $m[2]; }
     return ['status'=>(int)$status[1],'headers'=>$header,'body'=>$content,'json'=>json_decode($content,true)];
 }
+function start_async_request(string $method, string $path, array $cookies, array $data = []) {
+    $body=http_build_query($data);
+    $raw="$method $path HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n";
+    if($cookies){$raw.='Cookie: '.implode('; ',array_map(static fn($k,$v)=>$k.'='.$v,array_keys($cookies),$cookies))."\r\n";}
+    if($method==='POST'){$raw.="Content-Type: application/x-www-form-urlencoded\r\nContent-Length: ".strlen($body)."\r\n";}
+    $raw.="\r\n".$body;
+    $socket=stream_socket_client('tcp://web:8080',$errno,$error,10);
+    if(!$socket){throw new RuntimeException($error);}
+    for($offset=0;$offset<strlen($raw);){
+        $written=fwrite($socket,substr($raw,$offset));
+        if(!$written){fclose($socket);throw new RuntimeException('Async HTTP write failed.');}
+        $offset+=$written;
+    }
+    return $socket;
+}
+function finish_async_request($socket,int $timeout=20): array {
+    stream_set_timeout($socket,$timeout);
+    $response=stream_get_contents($socket);
+    $timedOut=stream_get_meta_data($socket)['timed_out'];
+    fclose($socket);
+    $parts=explode("\r\n\r\n",$response,2);
+    preg_match('~HTTP/\S+ (\d+)~',$parts[0],$status);
+    return ['status'=>(int)($status[1]??0),'body'=>$parts[1]??'','timed_out'=>$timedOut];
+}
 function token(array &$cookies, bool $admin=false): string {
     $page = request('GET',$admin?'/admin/index.php':'/admin/login.php',$cookies);
     $pattern = $admin ? '/name="csrf-token" content="([a-f0-9]+)"/' : '/name="_csrf" value="([a-f0-9]+)"/';
@@ -694,7 +718,38 @@ try {
         'model preview shows all custom fields without creating a table');
     expect_check(request('POST',$modelRoute.'&operate=loading',$cookies,['_csrf'=>$newToken,'modulecode'=>'legacy-sql'])['status']===400,
         'legacy SQL import code cannot execute');
-    $import=request('POST',$modelRoute.'&operate=loading',$cookies,['_csrf'=>$newToken,'nonce'=>$previewNonce[1]]);
+    // Keep the actual import waiting at f_module while checking that its
+    // consumed nonce no longer locks out another request in the same session.
+    $lockDb=new mysqli(getenv('DB_HOST'),getenv('DB_USER'),getenv('DB_PASS'),getenv('DB_NAME'));
+    $lockDb->query('LOCK TABLES f_module WRITE');
+    $pendingImport=null;$blocked=false;$parallelRead=['status'=>0];$parallelReplay=['status'=>0];
+    try {
+        $pendingImport=start_async_request('POST',$modelRoute.'&operate=loading',$cookies,
+            ['_csrf'=>$newToken,'nonce'=>$previewNonce[1]]);
+        for($attempt=0;$attempt<60;$attempt++){
+            $processes=$db->query('SHOW FULL PROCESSLIST')->fetch_all(MYSQLI_ASSOC);
+            foreach($processes as $process){
+                if(str_contains((string)($process['State']??''),'Waiting for table') &&
+                    str_contains((string)($process['Info']??''),'f_module')){$blocked=true;break;}
+            }
+            if($blocked){break;}
+            usleep(50000);
+        }
+        if($blocked){
+            $parallelRead=finish_async_request(start_async_request('GET','/admin/api/files.php?dir=image',$cookies),2);
+            $parallelReplay=finish_async_request(start_async_request('POST',$modelRoute.'&operate=loading',$cookies,
+                ['_csrf'=>$newToken,'nonce'=>$previewNonce[1]]),2);
+        }
+    } finally {
+        $lockDb->query('UNLOCK TABLES');
+        $lockDb->close();
+    }
+    $import=$pendingImport ? finish_async_request($pendingImport) : ['status'=>0];
+    expect_check($blocked,'model import reaches a controlled database wait');
+    expect_check($parallelRead['status']===200 && empty($parallelRead['timed_out']),
+        'same-session resource request completes while model import waits');
+    expect_check($parallelReplay['status']===400 && empty($parallelReplay['timed_out']),
+        'concurrent model import cannot consume the preview nonce twice');
     $importFixtureId=$db->query("SELECT id FROM f_module WHERE project='$importProject'")->fetch_row()[0]??null;
     expect_check($import['status']===303 && $importFixtureId!==null,
         'confirmed model preview imports into a new project');
@@ -706,6 +761,18 @@ try {
         'imported model retains physical columns and field metadata');
     expect_check(request('POST',$modelRoute.'&operate=loading',$cookies,['_csrf'=>$newToken,'nonce'=>$previewNonce[1]])['status']===400,
         'model import confirmation cannot be replayed');
+    $duplicatePreview=request('POST',$modelRoute.'&operate=preview',$cookies,
+        ['_csrf'=>$newToken,'project'=>$importProject,'package_json'=>$export['body']]);
+    preg_match('/name="nonce" value="([a-f0-9]{32})"/',$duplicatePreview['body'],$duplicateNonce);
+    expect_check($duplicatePreview['status']===200 && isset($duplicateNonce[1]),
+        'duplicate model can be previewed before import checks current tables');
+    $duplicateImport=request('POST',$modelRoute.'&operate=loading',$cookies,
+        ['_csrf'=>$newToken,'nonce'=>$duplicateNonce[1]]);
+    expect_check($duplicateImport['status']===400 &&
+        request('GET','/admin/api/files.php?dir=image',$cookies)['status']===200 &&
+        request('POST',$modelRoute.'&operate=loading',$cookies,
+            ['_csrf'=>$newToken,'nonce'=>$duplicateNonce[1]])['status']===400,
+        'failed model import consumes its nonce without losing the session');
     $customFieldData['id']=$customFieldSave['json']['id'];
     expect_check((request('POST',$fieldRoute.'&operate=save',$cookies,$customFieldData)['json']['status']??'')==='y','unchanged custom field metadata can be saved again');
     $classifyRoute='/admin/index.php?controller=classify';

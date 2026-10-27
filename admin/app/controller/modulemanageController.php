@@ -146,6 +146,8 @@ class modulemanageController extends Controller{
         if(!is_array($preview) || !is_string($nonce) || !hash_equals($preview['nonce'],$nonce) ||
             time()-(int)$preview['created']>600){cms_fail(400,'导入预览已过期，请重新选择模型。');}
         unset($_SESSION['model_import_preview']);
+        // Persist nonce consumption before the potentially slow schema import.
+        cms_session_release();
         try{CmsModelPackage::import($preview['package'],$preview['project']);}
         catch(InvalidArgumentException $e){cms_fail(400,$e->getMessage());}
         catch(Throwable $e){error_log('Model import failed: '.$e);cms_fail(500,'模型导入失败，请查看私有错误日志。');}
