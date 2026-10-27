@@ -58,6 +58,24 @@ function migrate_roles(mysqli $db, string $prefix): void
     }
 }
 
+function migrate_content_write(mysqli $db, string $prefix): void
+{
+    if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
+        throw new RuntimeException('Invalid database prefix.');
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}content_recycle_state` (
+        `project` varchar(30) NOT NULL, `record_id` int unsigned NOT NULL,
+        `previous_status` tinyint NOT NULL, PRIMARY KEY (`project`,`record_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}content_create_request` (
+        `account_id` int unsigned NOT NULL, `project` varchar(30) NOT NULL,
+        `request_key` char(32) NOT NULL, `payload_hash` char(64) NOT NULL,
+        `state` varchar(16) NOT NULL, `record_id` int unsigned DEFAULT NULL,
+        `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`account_id`,`project`,`request_key`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
 function migrate_license_notice(mysqli $db, string $prefix): int
 {
     if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
@@ -77,6 +95,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
     $prefix = getenv('DB_PREFIX') ?: 'f_';
     migrate_security($db, $prefix);
     migrate_roles($db, $prefix);
+    migrate_content_write($db, $prefix);
     $updated = migrate_license_notice($db, $prefix);
-    echo "Security schema migration complete; replaced $updated legacy sample license footer(s).\n";
+    echo "Security and content-write schema migration complete; replaced $updated legacy sample license footer(s).\n";
 }

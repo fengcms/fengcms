@@ -16,6 +16,17 @@ function expect_check($condition, $name): void {
     $passed++; echo 'PASS '.$name."\n";
 }
 function request(string $method, string $path, array &$cookies, array|string $data = [], array $extra = []): array {
+    if ($method==='POST' && is_array($data) && preg_match('~^/admin/index\.php\?controller=module&project=([a-zA-Z][a-zA-Z0-9_]*)&operate=save$~',$path,$route)) {
+        $id=$data['id']??null;
+        $field=$id===null?'_create_key':'_write_token';
+        if (!array_key_exists($field,$data)) {
+            $form=request('GET','/admin/index.php?controller=module&project='.$route[1].
+                '&operate='.($id===null?'add':'update'.'&id='.rawurlencode((string)$id)),$cookies);
+            if (preg_match('/name="'.preg_quote($field,'/').'" value="([a-f0-9]+)"/',$form['body'],$match)) {
+                $data[$field]=$match[1];
+            }
+        }
+    }
     $body = is_array($data) ? http_build_query($data) : $data;
     $headers = ['Host'=>'localhost', 'Connection'=>'close'];
     if ($cookies) { $headers['Cookie'] = implode('; ', array_map(static fn($k,$v)=>$k.'='.$v,array_keys($cookies),$cookies)); }
@@ -84,7 +95,7 @@ function upload(array &$cookies,string $token,string $name,string $content, stri
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $extraBaseCopyright='audit_extra_'.$tag;
 $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."'/&";
-$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=null; $backupId=null;
+$files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=$versionAccountId=null; $backupId=null;
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
 $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId=null;
 $unsafeTagId=$unsafeCategoryId=$unsafeFriendId=$legacyUnsafeTagId=$legacyUnsafeFriendId=$legacyUnsafeCategoryId=$legacyUnsafeAuthorId=$badExternalId=null;
@@ -721,6 +732,42 @@ try {
     expect_check($badNumber['status']===400 &&
         (string)$db->query("SELECT `$zeroField` FROM `f_$moduleProject` WHERE id=$zeroRecordId")->fetch_row()[0]==='0',
         'numeric model field rejects nonnumeric input without changing data');
+    $addTagsField=request('POST',$fieldRoute.'&operate=systemsave',$cookies,
+        ['_csrf'=>$newToken,'project'=>$moduleProject,'record'=>['4']]);
+    expect_check(($addTagsField['json']['status']??'')==='y' &&
+        $db->query("SHOW COLUMNS FROM `f_$moduleProject` LIKE 'tags'")->num_rows===1,
+        'fault-injection model has a real tag counter field');
+    $faultTagName='fault_'.$tag;
+    $db->query("INSERT INTO f_tags (name,hits,status) VALUES ('$faultTagName',0,1)");
+    $faultTagId=$db->insert_id;
+    $faultPage=request('GET','/admin/index.php?controller=module&project='.$moduleProject.'&operate=add',$cookies);
+    preg_match('/name="_create_key" value="([a-f0-9]{32})"/',$faultPage['body'],$faultKey);
+    expect_check(isset($faultKey[1]),'custom model form provides a creation key');
+    $faultData=['_csrf'=>$newToken,'_create_key'=>$faultKey[1],'title'=>'fault_'.$tag,
+        'status'=>'0','tags'=>$faultTagName];
+    $db->query("ALTER TABLE `f_$moduleProject` MODIFY html varchar(1) DEFAULT NULL");
+    $faultResult=request('POST','/admin/index.php?controller=module&project='.$moduleProject.'&operate=save',$cookies,$faultData);
+    expect_check($faultResult['status']===500 &&
+        (int)$db->query("SELECT COUNT(*) FROM `f_$moduleProject` WHERE title='fault_$tag'")->fetch_row()[0]===0 &&
+        (int)$db->query('SELECT hits FROM f_tags WHERE id='.$faultTagId)->fetch_row()[0]===0,
+        'failed generated-link write rolls back content and counters');
+    $innodbKey=bin2hex(random_bytes(16));
+    $innodbData=['_csrf'=>$newToken,'_create_key'=>$innodbKey,'title'=>'innodb_'.$tag,'status'=>'0'];
+    $innodbFailure=request('POST','/admin/index.php?controller=module&project='.$moduleProject.'&operate=save',$cookies,$innodbData);
+    expect_check($innodbFailure['status']===500 &&
+        (int)$db->query("SELECT COUNT(*) FROM `f_$moduleProject` WHERE title='innodb_$tag'")->fetch_row()[0]===0,
+        'InnoDB creation transaction rolls back a generated-link failure');
+    $db->query("ALTER TABLE `f_$moduleProject` MODIFY html varchar(255) DEFAULT NULL");
+    $faultRetry=request('POST','/admin/index.php?controller=module&project='.$moduleProject.'&operate=save',$cookies,$faultData);
+    expect_check(($faultRetry['json']['status']??'')==='y' &&
+        (int)$db->query("SELECT COUNT(*) FROM `f_$moduleProject` WHERE title='fault_$tag'")->fetch_row()[0]===1 &&
+        (int)$db->query('SELECT hits FROM f_tags WHERE id='.$faultTagId)->fetch_row()[0]===1,
+        'same creation key retries cleanly after a compensated failure');
+    $innodbRetry=request('POST','/admin/index.php?controller=module&project='.$moduleProject.'&operate=save',$cookies,$innodbData);
+    expect_check(($innodbRetry['json']['status']??'')==='y' &&
+        (int)$db->query("SELECT COUNT(*) FROM `f_$moduleProject` WHERE title='innodb_$tag'")->fetch_row()[0]===1,
+        'InnoDB creation retries the same key after rollback');
+    $db->query('DELETE FROM f_tags WHERE id='.$faultTagId);
     $export=request('GET','/admin/index.php?controller=modulemanage&operate=elicit&id='.$moduleFixtureId,$cookies);
     $package=json_decode($export['body'],true);
     expect_check($export['status']===200 && ($package['format']??'')==='fengcms-model-v1' &&
@@ -967,6 +1014,120 @@ try {
     expect_check($networkEdit['status']===200 && str_contains($networkEdit['body'],'https://images.example.com/photo?id=1&amp;amp;size=large'), 'network image URL is escaped for editing without losing query parameters');
     $networkPublic=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check($networkPublic['status']===200 && str_contains($networkPublic['body'],$networkSaved), 'network images render through the original frontend template');
+    $versionTitle='version_'.$tag;
+    $db->query("INSERT INTO f_article (title,content,template,status) VALUES ('$versionTitle','<p>old</p>','/article_content.html',0)");
+    $versionId=$db->insert_id; $articleIds[]=$versionId;
+    $versionRoute='/admin/index.php?controller=module&project=article&operate=update&id='.$versionId;
+    $versionUser='version_'.$tag; $versionPassword='VersionPass8!'; $versionHash=password_hash($versionPassword,PASSWORD_DEFAULT);
+    $versionCode='AB23'; $versionCodeHash=password_hash($versionCode,PASSWORD_DEFAULT);
+    $versionAccount=$db->prepare("INSERT INTO f_manage (admin,password,role,login_code_hash,datetime) VALUES (?,?,'editor',?,NOW())");
+    $versionAccount->bind_param('sss',$versionUser,$versionHash,$versionCodeHash); $versionAccount->execute();
+    $versionAccountId=$db->insert_id; $versionAccount->close();
+    $versionCookies=[]; $versionCsrf=token($versionCookies);
+    $versionLogin=request('POST','/admin/index.php?controller=admin',$versionCookies,
+        ['_csrf'=>$versionCsrf,'user'=>$versionUser,'password'=>$versionPassword,'admincode'=>$versionCode]);
+    expect_check(($versionLogin['json']['status']??'')==='y','second editor session logs in for concurrency tests');
+    $versionCsrf=token($versionCookies,true);
+    $versionPageA=request('GET',$versionRoute,$cookies);
+    $versionPageB=request('GET',$versionRoute,$versionCookies);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$versionPageA['body'],$versionA);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$versionPageB['body'],$versionB);
+    expect_check(isset($versionA[1],$versionB[1]),'independent editors receive edit version tokens');
+    $versionSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$versionId,'_write_token'=>$versionA[1],'title'=>'version_new_'.$tag]);
+    $staleSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$versionCookies,
+        ['_csrf'=>$versionCsrf,'id'=>(string)$versionId,'_write_token'=>$versionB[1],'content'=>'<p>stale</p>']);
+    expect_check(($versionSave['json']['status']??'')==='y' && $staleSave['status']===409 &&
+        $db->query('SELECT title,content FROM f_article WHERE id='.$versionId)->fetch_assoc()['content']==='<p>old</p>',
+        'stale editor cannot overwrite another editor after a concurrent save');
+    $sameVersionA=request('GET',$versionRoute,$cookies);
+    $sameVersionB=request('GET',$versionRoute,$versionCookies);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$sameVersionA['body'],$sameTokenA);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$sameVersionB['body'],$sameTokenB);
+    $parallelEditRoute='/admin/index.php?controller=module&project=article&operate=save';
+    $editSocketA=start_async_request('POST',$parallelEditRoute,$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$versionId,'_write_token'=>$sameTokenA[1],'title'=>'race_a_'.$tag]);
+    $editSocketB=start_async_request('POST',$parallelEditRoute,$versionCookies,
+        ['_csrf'=>$versionCsrf,'id'=>(string)$versionId,'_write_token'=>$sameTokenB[1],'content'=>'<p>race b</p>']);
+    $parallelEditA=finish_async_request($editSocketA);
+    $parallelEditB=finish_async_request($editSocketB);
+    $parallelStatuses=[$parallelEditA['status'],$parallelEditB['status']]; sort($parallelStatuses);
+    expect_check($parallelStatuses===[200,409],
+        'simultaneous editors receive one success and one conflict for the same version');
+    $freshVersionPage=request('GET',$versionRoute,$cookies);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$freshVersionPage['body'],$freshVersion);
+    $recycleVersion=request('POST','/admin/index.php?controller=module&project=article&operate=recoverone&id='.$versionId,
+        $versionCookies,['_csrf'=>$versionCsrf]);
+    $staleAfterRecycle=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$versionId,'_write_token'=>$freshVersion[1],'status'=>'1']);
+    expect_check($recycleVersion['status']===200 && $staleAfterRecycle['status']===409 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.$versionId)->fetch_row()[0]===-1,
+        'stale edit cannot resurrect content after recycle');
+    $restoreVersion=request('POST','/admin/index.php?controller=recover&project=article&operate=recoverone&id='.$versionId,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check($restoreVersion['status']===200 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.$versionId)->fetch_row()[0]===0,
+        'recycle and single restore preserve original draft state');
+    $createPage=request('GET','/admin/index.php?controller=module&project=article&operate=add',$cookies);
+    preg_match('/name="_create_key" value="([a-f0-9]{32})"/',$createPage['body'],$createMatch);
+    expect_check(isset($createMatch[1]),'add form provides a distinct creation request key');
+    $createData=['_csrf'=>$newToken,'_create_key'=>$createMatch[1],
+        'title'=>'idempotent_'.$tag,'status'=>'0','time'=>'1'];
+    $firstCreate=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,$createData);
+    sleep(1);
+    $secondCreate=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,$createData);
+    $createdId=(int)($firstCreate['json']['id']??0); if($createdId){$articleIds[]=$createdId;}
+    expect_check(($firstCreate['json']['status']??'')==='y' && $createdId>0 &&
+        ($secondCreate['json']['id']??null)===$createdId && ($secondCreate['json']['replayed']??false)===true &&
+        (int)$db->query("SELECT COUNT(*) FROM f_article WHERE title='idempotent_$tag'")->fetch_row()[0]===1,
+        'same creation key replays one committed article');
+    $conflictingCreate=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+        $createData+['content'=>'different']);
+    expect_check($conflictingCreate['status']===409,'same creation key rejects a different payload');
+    $parallelCookies=[]; $parallelCsrf=token($parallelCookies);
+    $parallelLogin=request('POST','/admin/index.php?controller=admin',$parallelCookies,
+        ['_csrf'=>$parallelCsrf,'user'=>$user,'password'=>$password,'admincode'=>getenv('ADMIN_CODE')]);
+    expect_check(($parallelLogin['json']['status']??'')==='y','same administrator can open a second session');
+    $parallelCsrf=token($parallelCookies,true);
+    $parallelKey=bin2hex(random_bytes(16));
+    $parallelData=['_create_key'=>$parallelKey,'title'=>'parallel_'.$tag,'status'=>'0'];
+    $parallelRoute='/admin/index.php?controller=module&project=article&operate=save';
+    $parallelA=start_async_request('POST',$parallelRoute,$cookies,$parallelData+['_csrf'=>$newToken]);
+    $parallelB=start_async_request('POST',$parallelRoute,$parallelCookies,$parallelData+['_csrf'=>$parallelCsrf]);
+    $parallelAResult=finish_async_request($parallelA);
+    $parallelBResult=finish_async_request($parallelB);
+    $parallelAJson=json_decode($parallelAResult['body'],true); $parallelBJson=json_decode($parallelBResult['body'],true);
+    $parallelId=(int)($parallelAJson['id']??0); if($parallelId){$articleIds[]=$parallelId;}
+    expect_check($parallelAResult['status']===200 && $parallelBResult['status']===200 &&
+        $parallelId>0 && ($parallelBJson['id']??null)===$parallelId &&
+        (int)$db->query("SELECT COUNT(*) FROM f_article WHERE title='parallel_$tag'")->fetch_row()[0]===1,
+        'concurrent sessions using one creation key create exactly one article');
+    $partialIds=[];
+    foreach ([1,-1,1] as $partialStatus) {
+        $db->query("INSERT INTO f_article (title,status) VALUES ('partial_$tag',$partialStatus)");
+        $partialIds[]=$db->insert_id; $articleIds[]=$db->insert_id;
+    }
+    $partialRecycle=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'recover','record'=>array_map('strval',$partialIds)]);
+    expect_check(($partialRecycle['json']['status']??'')==='y' &&
+        ($partialRecycle['json']['changed']??[])===[$partialIds[0],$partialIds[2]] &&
+        ($partialRecycle['json']['already']??[])===[$partialIds[1]] &&
+        $db->query('SELECT id FROM f_article WHERE id IN ('.implode(',',$partialIds).') AND status=-1')->num_rows===3,
+        'batch recycle continues after an already recycled middle record and reports each ID');
+    $missingId=2147000000;
+    $partialRestore=request('POST','/admin/index.php?controller=recover&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'recovers','article'=>[(string)$partialIds[0],(string)$missingId,(string)$partialIds[2]]]);
+    expect_check(($partialRestore['json']['status']??'')==='p' &&
+        ($partialRestore['json']['changed']??[])===[$partialIds[0],$partialIds[2]] &&
+        ($partialRestore['json']['missing']??[])===[$missingId] &&
+        $db->query('SELECT id FROM f_article WHERE id IN ('.$partialIds[0].','.$partialIds[2].') AND status=1')->num_rows===2,
+        'batch restore reports missing middle ID and continues with later records');
+    $partialDelete=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'thorough','record'=>[(string)$partialIds[0],(string)$missingId,(string)$partialIds[2]]]);
+    expect_check(($partialDelete['json']['status']??'')==='p' &&
+        ($partialDelete['json']['changed']??[])===[$partialIds[0],$partialIds[2]] &&
+        ($partialDelete['json']['missing']??[])===[$missingId],
+        'batch permanent delete reports partial completion and does not stop early');
     $recycleIds=[];
     foreach ([-1,-1,-1] as $recycleStatus) {
         $db->query("INSERT INTO `f_$moduleProject` (title,status) VALUES ('recycle_$tag',$recycleStatus)");
@@ -974,7 +1135,7 @@ try {
     }
     $recoverRoute='/admin/index.php?controller=recover&project='.$moduleProject;
     $recoverBatch=request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'recovers','article'=>array_slice($recycleIds,0,2)]);
-    expect_check(($recoverBatch['json']['status']??'')==='y' && $db->query("SELECT id FROM `f_$moduleProject` WHERE id IN (".implode(',',array_slice($recycleIds,0,2)).') AND status=1')->num_rows===2,'recycle bin batch restoration really restores selected records');
+    expect_check(($recoverBatch['json']['status']??'')==='y' && $db->query("SELECT id FROM `f_$moduleProject` WHERE id IN (".implode(',',array_slice($recycleIds,0,2)).') AND status=0')->num_rows===2,'historical recycle rows restore privately as drafts');
     expect_check(($recoverBatch['json']['project']??'')===$moduleProject,'recycle bin batch response retains the selected module for result navigation');
     $recoverResult=request('GET',$recoverRoute.'&operate=execution&type=save&re=1',$cookies);
     expect_check($recoverResult['status']===200 && str_contains($recoverResult['body'],'操作成功') && str_contains($recoverResult['body'],'project='.$moduleProject) && str_contains($recoverResult['body'],'返回回收站'),'recycle bin batch result works without a record ID and retains the module');
@@ -989,9 +1150,9 @@ try {
     $recoverEmpty=request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'recovers']);
     expect_check(($recoverEmpty['json']['status']??'')==='a' && ($recoverEmpty['json']['project']??'')===$moduleProject,'empty recycle bin selection preserves its prompt and module');
     $recoverSingle=request('POST',$recoverRoute.'&operate=recoverone&id='.$recycleIds[2],$cookies,['_csrf'=>$newToken]);
-    expect_check($recoverSingle['status']===200 && str_contains($recoverSingle['body'],'project='.$moduleProject) && str_contains($recoverSingle['body'],'re=1') && (int)$db->query("SELECT status FROM `f_$moduleProject` WHERE id=".$recycleIds[2])->fetch_assoc()['status']===1,'single record restoration retains its module and succeeds');
+    expect_check($recoverSingle['status']===200 && str_contains($recoverSingle['body'],'project='.$moduleProject) && str_contains($recoverSingle['body'],'re=1') && (int)$db->query("SELECT status FROM `f_$moduleProject` WHERE id=".$recycleIds[2])->fetch_assoc()['status']===0,'single historical restoration remains a draft');
     $recoverRepeat=request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'recovers','article'=>[$recycleIds[2]]]);
-    expect_check(($recoverRepeat['json']['status']??'')==='n' && ($recoverRepeat['json']['project']??'')===$moduleProject,'stale restoration reports failure with valid navigation context');
+    expect_check(($recoverRepeat['json']['status']??'')==='y' && ($recoverRepeat['json']['already']??[])===[$recycleIds[2]] && ($recoverRepeat['json']['project']??'')===$moduleProject,'stale restoration is reported as already complete');
     $safeDelete=request('POST',$recoverRoute.'&operate=delete&id='.$recycleIds[2],$cookies,['_csrf'=>$newToken]);
     expect_check(str_contains($safeDelete['body'],'re=0') && $db->query("SELECT id FROM `f_$moduleProject` WHERE id=".$recycleIds[2])->num_rows===1,'recycle bin deletion cannot remove an already restored record');
     expect_check(request('POST',$recoverRoute.'&operate=batch',$cookies,['_csrf'=>$newToken,'method'=>'index','article'=>[$recycleIds[0]]])['status']===400,'recycle bin cannot dispatch arbitrary batch methods');
@@ -1452,9 +1613,14 @@ try {
     }
     $db->query("DROP TABLE IF EXISTS `f_$importProject`");
     $db->query("DROP TABLE IF EXISTS `f_$moduleProject`");
+    $db->query("DELETE FROM f_content_recycle_state WHERE project='".$moduleProject."'");
+    $ownedArticleIds=array_values(array_filter(array_map('intval',[...$articleIds,$editorArticleId])));
+    if($ownedArticleIds){$db->query("DELETE FROM f_content_recycle_state WHERE project='article' AND record_id IN (".implode(',',$ownedArticleIds).')');}
+    $ownedAccounts=array_values(array_filter(array_map('intval',[$testId,$editorId,$versionAccountId])));
+    if($ownedAccounts){$db->query('DELETE FROM f_content_create_request WHERE account_id IN ('.implode(',',$ownedAccounts).')');}
     foreach ($files as $file) { if (is_file($file)) { unlink($file); } }
     foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }
-    foreach ([$testId,$legacyId,$editorId,$extraSuperId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
+    foreach ([$testId,$legacyId,$editorId,$extraSuperId,$versionAccountId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
     foreach ($articleIds as $id) { $db->query('DELETE FROM f_article WHERE id='.(int)$id); }
     if ($singleContentId) { $db->query('DELETE FROM f_single WHERE id='.(int)$singleContentId); }
     if ($editorArticleId) { $db->query('DELETE FROM f_article WHERE id='.(int)$editorArticleId); }

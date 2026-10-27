@@ -24,6 +24,22 @@ CREATE TABLE `#prefix_article` (
   PRIMARY KEY  (`id`),
   KEY `idx_status_id` (`status`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章系统';
+CREATE TABLE `#prefix_content_recycle_state` (
+  `project` varchar(30) NOT NULL,
+  `record_id` int unsigned NOT NULL,
+  `previous_status` tinyint NOT NULL,
+  PRIMARY KEY (`project`,`record_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回收前发布状态';
+CREATE TABLE `#prefix_content_create_request` (
+  `account_id` int unsigned NOT NULL,
+  `project` varchar(30) NOT NULL,
+  `request_key` char(32) NOT NULL,
+  `payload_hash` char(64) NOT NULL,
+  `state` varchar(16) NOT NULL,
+  `record_id` int unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`account_id`,`project`,`request_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='内容创建请求';
 CREATE TABLE `#prefix_author` (
   `id` int(11) NOT NULL auto_increment,
   `name` varchar(50) default NULL COMMENT '名称',

@@ -17,7 +17,7 @@ for(const source of sources){
     for(const status of ['y','n'])for(const id of [undefined,null,false,0,'','undefined','null',-1,[],{},'1 OR 1=1',37]){
         let callback;
         const location={href:'http://localhost/admin/index.php?controller=fieldmanage&project=goods'};
-        const chain={attr(){return '?controller=recover&project=goods&operate=batch';},Validform(options){callback=options.callback;return chain;},click(){return chain;},on(){return chain;},keypress(){return chain;},ready(fn){fn();return chain;}};
+        const chain={attr(){return '?controller=recover&project=goods&operate=batch';},Validform(options){callback=options.callback;return chain;},click(){return chain;},on(){return chain;},ajaxError(){return chain;},keypress(){return chain;},ready(fn){fn();return chain;}};
         const $=arg=>{if(typeof arg==='function')arg();return chain;};
         const context={URL,URLSearchParams,encodeURIComponent,document:{},window:{location},location,$,alert(){}};
         vm.runInNewContext(fs.readFileSync(path.join(root,'admin/js/navigation.js'),'utf8'),context);
@@ -26,6 +26,11 @@ for(const source of sources){
         assert.equal(typeof callback,'function',source);
         callback({status,id});
         if(source.includes('filemanage.js') && status==='n'){assert.equal(location.href,'http://localhost/admin/index.php?controller=fieldmanage&project=goods');checked++;continue;}
+        if((source.includes('module/add.html') || source.includes('module/update.html')) && status==='n'){
+            assert.equal(location.href,'http://localhost/admin/index.php?controller=fieldmanage&project=goods',source+' retains the form after save failure');
+            checked++;
+            continue;
+        }
         const url=new URL(location.href,'http://localhost/admin/index.php');
         assert.equal(url.searchParams.get('operate'),'execution',source);
         assert.equal(url.searchParams.get('re'),status==='y'?'1':'0',source);

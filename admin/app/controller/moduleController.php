@@ -9,6 +9,7 @@
  *******************************************************************/
 // 
 include "admin.php";
+require_once __DIR__.'/../model/contentWrite.php';
 
 class moduleController extends Controller{
 
@@ -105,6 +106,7 @@ class moduleController extends Controller{
 		$columns=D($_GET['project'])->getdbfields(DB_PREFIX.$_GET['project']);
 		$module['info']=array_fill_keys($columns,'');
 		$module['isEdit']=false;
+		$module['createKey']=bin2hex(random_bytes(16));
 		return $this->display('module/add.html',$module);
 	}
 
@@ -129,6 +131,7 @@ class moduleController extends Controller{
 		if(!$info){cms_fail(404,'内容不存在。');}
 		$module['info']=$info;
 		$module['isEdit']=true;
+		$module['writeToken']=ContentWrite::editToken($info);
 		return $this->display('module/update.html',$module);
 
 	}
@@ -139,7 +142,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function deleteone(){
-		if(D($_GET['project'])->where(['id'=>(int)$_GET['id']])->delete()){
+		if((new ContentWrite($_GET['project']))->change((int)$_GET['id'],'delete')==='changed'){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
@@ -152,7 +155,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function recoverone(){
-		if(D($_GET['project'])->where(['id'=>(int)$_GET['id']])->update(['status'=>-1])){
+		if((new ContentWrite($_GET['project']))->change((int)$_GET['id'],'recycle')==='changed'){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
@@ -175,11 +178,8 @@ class moduleController extends Controller{
 		if(!$_POST['record']){
 			echo json_encode(array('status' => 'a'));
 		}else{
-			if($this->{$method}($_GET['project'],$_POST['record'],$parameter)){
-				echo json_encode(array('status' => 'y'));
-			}else{
-				echo json_encode(array('status' => 'n'));
-			}
+			$action=$method==='recover'?'recycle':($method==='thorough'?'delete':$method);
+			echo json_encode((new ContentWrite($_GET['project']))->batch($_POST['record'],$action,$parameter));
 		}
 	}
 
@@ -197,9 +197,8 @@ class moduleController extends Controller{
 		}
 		$ids=array_values(array_unique(array_map('intval',explode(',',$classarray))));
 		M($this->model)->validateCategory($_GET['project'],$classid);
-		$placeholders=implode(',',array_fill(0,count($ids),'?'));
 		if ($ids) {
-			if(D($_GET['project'])->where('id IN ('.$placeholders.')',$ids)->update(['classid'=>(int)$classid])){
+			if((new ContentWrite($_GET['project']))->shift($ids,(int)$classid)){
 				echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 			}else{
 				echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
@@ -207,62 +206,6 @@ class moduleController extends Controller{
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
 		}
-	}
-
-    /**
-     * 回收站
-     * @access public
-     * @return template,array
-     */
-	public function recover($project,$array){
-		foreach($array as $v){
-		if(!D($project)->where(['id'=>$v])->update(array(
-			"status"	=> "-1"
-		)))return false;
-		}
-		return true;
-	}
-
-    /**
-     * 彻底删除
-     * @access public
-     * @return template,array
-     */
-	public function thorough($project,$array){
-		foreach($array as $v){
-			if(!D($project)->where(['id'=>$v])->delete())return false;
-		}
-		return true;
-	}
-
-    /**
-     * 属性设置
-     * @access public
-     * @return template,array
-     */
-	public function attrib($project,$array,$friend){
-		foreach($array as $v){
-		if(!D($project)->where(['id'=>$v])->update(array(
-			$friend	=> 1,
-			'time'	=> time()
-		)))return false;
-		}
-		return true;
-	}
-
-    /**
-     * 属性设置
-     * @access public
-     * @return template,array
-     */
-	public function attribc($project,$array,$friend){
-		foreach($array as $v){
-		if(!D($project)->where(['id'=>$v])->update(array(
-			$friend	=> 0,
-			'time'	=> time()
-		)))return false;
-		}
-		return true;
 	}
 
     /**

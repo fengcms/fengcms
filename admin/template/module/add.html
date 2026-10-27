@@ -29,7 +29,7 @@ $(function(){
 			if(data.status=="y"){
 				location.href =	FengAdmin.executionURL('module',data);
 			}else{
-				location.href =	FengAdmin.executionURL('module',data);
+				alert(data.message || '新增失败，请检查内容后重试。');
 			}
 		},
 		usePlugin:{
@@ -64,6 +64,7 @@ $(function(){
 
 <div id="main">
 	<form method="post" action="?controller=module&project={$_GET['project']}&operate=save" class="form">
+		<input type="hidden" name="_create_key" value="{$createKey}" />
 		<div id="main_top">
 			<dl id="article_ico">
 				<dd class="art_ico_8"><a href="#" id="save">保存{$item}</a></dd>

@@ -3,6 +3,11 @@ $(function(){
 	var project=new URL(form.attr("action"),window.location.href).searchParams.get("project") || "";
 	var data=form.Validform({
 		callback:function(data){
+			if(data.status==="p" || (data.already && data.already.length)){
+				alert(FengAdmin.batchSummary(data));
+				location.reload();
+				return;
+			}
 			if(data.status=="y"){
 				location.href =FengAdmin.executionURL('recover',data,{includeId:false,project:data.project || project});
 			}else if(data.status=="a"){

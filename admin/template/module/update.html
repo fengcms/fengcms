@@ -31,7 +31,7 @@ $(function(){
 			if(data.status=="y"){
 				location.href =	FengAdmin.executionURL('module',data);
 			}else{
-				location.href =	FengAdmin.executionURL('module',data);
+				alert(data.message || '保存失败，请检查内容后重试。');
 			}
 		},
 		usePlugin:{
@@ -52,6 +52,11 @@ $(function(){
 				}
 
 	});
+	$(document).ajaxError(function(_event,xhr){
+		if(xhr.status===409){
+			alert((xhr.responseJSON && xhr.responseJSON.message) || '内容已发生变化，请保留当前输入并重新核对。');
+		}
+	});
 
 	$("#save").click(function(){
 		data.ajaxPost();
@@ -65,6 +70,7 @@ $(function(){
 <body>
 <div id="main">
 	<form method="post" action="?controller=module&project={$_GET['project']}&operate=save" class="form">
+		<input type="hidden" name="_write_token" value="{$writeToken}" />
 		<div id="main_top">
 			<dl id="article_ico">
 				<dd class="art_ico_8"><a href="#" id="save">保存{$item}</a></dd>

@@ -9,6 +9,7 @@
  *******************************************************************/
 //
 defined('TPL_INCLUDE') or die( 'Restricted access'); 
+require_once __DIR__.'/contentWrite.php';
 
 class moduleModel extends model{
 
@@ -40,22 +41,6 @@ class moduleModel extends model{
 	public function findname($where){
 		$arr=$this->findone($where);
 		return $arr['name'];
-	}
-
-    /**
-     * 保存信息
-     *
-     * @return array
-     */
-	public function hits($table,$name){
-		if(!in_array($table,['tags','author','inputer','origin'],true) || !is_string($name) || $name==='')return false;
-		$re=false;
-		foreach(explode(',', $name) as $value){
-			$value=trim($value);
-			if($value==='')continue;
-			$re=D($table)->where(['name'=>$value])->update('hits=hits+1');
-		}
-		return $re;
 	}
 
 	/**
@@ -112,28 +97,17 @@ class moduleModel extends model{
 		if(($array['info']??null)==='' && isset($array['content'])){
 			$array['info']=mb_substr(compress_html(mbStrreplace(strip_tags($array['content']))),0,200,'utf8');
 		}
+		$createHashValues=$array;
+		ksort($createHashValues);
+		$createHash=hash('sha256',json_encode($createHashValues,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
 		if(isset($physical['time']) && $updateTime){$array['time']=time();}
+		$writer=new ContentWrite($project);
 		if($id!==null){
-			$re=$array?D($project)->where(['id'=>$id])->update($array):false;
-		}else{
-			if(isset($physical['hits'])){$array['hits']=0;}
-			foreach(['tags','author','inputer','origin'] as $counter){
-				if(isset($array[$counter]) && $array[$counter]!==''){$this->hits($counter,$array[$counter]);}
-			}
-			$id=D($project)->insert($array);
-			$re=$id;
-			if($id && isset($physical['html'])){
-				$re=D($project)->where(['id'=>$id])->update(['html'=>'/content_'.$project.'_'.$id.'.html']);
-			}
+			return $writer->edit($id,$array,is_string($_POST['_write_token']??null)?$_POST['_write_token']:'');
 		}
-
-		if($re){
-			return array('status' => 'y','id' => ($id)?$id:$re);
-
-		}else{
-
-			return array('status' => 'n','id' => ($id)?$id:$re);
-		}
+		if(isset($physical['hits'])){$array['hits']=0;}
+		return $writer->create($array,is_string($_POST['_create_key']??null)?$_POST['_create_key']:'',
+			(int)($_SESSION['manage_id']??0),$createHash);
 	}
 
 	/** An absent edit field keeps its old value; a supplied value follows its field contract. */

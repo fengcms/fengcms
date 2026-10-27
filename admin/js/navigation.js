@@ -16,5 +16,10 @@
         }
         return '?' + params.toString();
     }
-    window.FengAdmin = {executionURL};
+    function batchSummary(result) {
+        const labels = {changed:'已完成',already:'已处于目标状态',missing:'记录不存在',failed:'执行失败'};
+        return Object.keys(labels).filter(key => Array.isArray(result[key]) && result[key].length)
+            .map(key => labels[key] + '（' + result[key].length + '）：' + result[key].join('、')).join('\n');
+    }
+    window.FengAdmin = {executionURL,batchSummary};
 }());

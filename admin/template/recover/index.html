@@ -25,6 +25,7 @@
 		</dl>
 	</div>
 	<div id="art_body">
+		<p class="article_notes">没有原状态记录的历史回收内容会以未发布草稿还原，请核对后再发布。</p>
 		<div id="art_class">
 			<ul>				
 				{loop M("module")->findall("type=1&&recover=1") $k $v}
@@ -62,7 +63,7 @@
 					</td>
 					<td>{$v['date']}</td>
 					<td>
-					{if $v['start']=="0"}未发布{elseif $v['start']=="1"}已发布{/if}
+					回收中
 					</td>
 					<td><a href="?controller=recover&project={$_GET['project']}&operate=recoverone&id={$v['id']}" class="color00f">还原</a>&nbsp; |&nbsp;
 						<a href="?controller=recover&project={$_GET['project']}&operate=delete&id={$v['id']}" class="color999">删除</a></td>
