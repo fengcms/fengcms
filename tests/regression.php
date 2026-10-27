@@ -54,7 +54,7 @@ $password=bin2hex(random_bytes(16)); $legacyPassword=bin2hex(random_bytes(16))."
 $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_security_view_'.$tag; $testId=$legacyId=$editorId=$extraSuperId=null; $backupId=null;
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
 $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId=null;
-$unsafeTagId=$unsafeCategoryId=$unsafeFriendId=$legacyUnsafeTagId=$legacyUnsafeFriendId=$legacyUnsafeCategoryId=$badExternalId=null;
+$unsafeTagId=$unsafeCategoryId=$unsafeFriendId=$legacyUnsafeTagId=$legacyUnsafeFriendId=$legacyUnsafeCategoryId=$legacyUnsafeAuthorId=$badExternalId=null;
 $counterTagIds=[]; $counterAuthorId=null;
 $signupFixtureCreated=false;
 $articleIds=[]; $messageId=null; $fieldFixtureId=null;
@@ -314,7 +314,26 @@ try {
     $unsafeFriendId=$badFriendRow[0]??null;
     expect_check($badFriend['status']===400 && !$badFriendRow,
         'friend links reject javascript URLs');
+    foreach(['author','inputer','origin'] as $urlProject){
+        $badUrlName='audit_'.$urlProject.'_'.$tag;
+        foreach(['javascript:alert(1)','data:text/html,evil'] as $badUrl){
+            $badUrlSave=request('POST','/admin/index.php?controller=module&project='.$urlProject.'&operate=save',$editorCookies,
+                ['_csrf'=>$editorToken,'name'=>$badUrlName,'url'=>$badUrl,'status'=>'1']);
+            expect_check($badUrlSave['status']===400,
+                $urlProject.' rejects executable URL scheme on save');
+        }
+        expect_check((int)$db->query("SELECT COUNT(*) FROM `f_$urlProject` WHERE name='".$badUrlName."'")->fetch_row()[0]===0,
+            $urlProject.' rejects executable URL before storage');
+    }
     $legacyBadLink='javascript:alert(1)';
+    $legacyAuthorName='audit_legacy_author_'.$tag;
+    $legacyAuthorInsert=$db->prepare('INSERT INTO f_author (name,url,status) VALUES (?,?,1)');
+    $legacyAuthorInsert->bind_param('ss',$legacyAuthorName,$legacyBadLink); $legacyAuthorInsert->execute();
+    $legacyUnsafeAuthorId=$db->insert_id; $legacyAuthorInsert->close();
+    $legacyAuthorList=request('GET','/admin/index.php?controller=module&project=author',$cookies);
+    expect_check($legacyAuthorList['status']===200 && str_contains($legacyAuthorList['body'],$legacyAuthorName) &&
+        !str_contains($legacyAuthorList['body'],'href="javascript:alert(1)"'),
+        'admin module list neutralizes imported executable URLs');
     $legacyFriendInsert=$db->prepare('INSERT INTO f_friend (name,url,status) VALUES (?,?,1)');
     $legacyFriendInsert->bind_param('ss',$badFriendName,$legacyBadLink); $legacyFriendInsert->execute();
     $legacyUnsafeFriendId=$db->insert_id; $legacyFriendInsert->close();
@@ -325,8 +344,15 @@ try {
     $legacyLinksHome=request('GET','/',$editorCookies);
     expect_check($legacyLinksHome['status']===200 && !str_contains($legacyLinksHome['body'],'href="javascript:alert(1)"'),
         'public navigation and friend links neutralize imported javascript URLs');
+    foreach(['/admin/index.php?controller=classify','/admin/index.php?controller=classify&operate=sorts&classid=0',
+        '/admin/index.php?controller=classify&operate=execution&type=save&re=1&id='.$legacyUnsafeCategoryId] as $adminCategoryRoute){
+        $legacyCategoryPage=request('GET',$adminCategoryRoute,$cookies);
+        expect_check($legacyCategoryPage['status']===200 && !str_contains($legacyCategoryPage['body'],'href="javascript:alert(1)"'),
+            'admin category link neutralizes imported executable URL: '.$adminCategoryRoute);
+    }
     $db->query('DELETE FROM f_classify WHERE id='.(int)$legacyUnsafeCategoryId); $legacyUnsafeCategoryId=null;
     $db->query('DELETE FROM f_friend WHERE id='.(int)$legacyUnsafeFriendId); $legacyUnsafeFriendId=null;
+    $db->query('DELETE FROM f_author WHERE id='.(int)$legacyUnsafeAuthorId); $legacyUnsafeAuthorId=null;
     $tamperedCategory=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'id'=>(string)$editorCategoryId,'type'=>'module','project'=>'manage','name'=>'bad']);
     expect_check($tamperedCategory['status']===403 &&
@@ -1219,6 +1245,7 @@ try {
     if ($editorCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$editorCategoryId); }
     if ($unsafeCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$unsafeCategoryId); }
     if ($legacyUnsafeCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$legacyUnsafeCategoryId); }
+    if ($legacyUnsafeAuthorId) { $db->query('DELETE FROM f_author WHERE id='.(int)$legacyUnsafeAuthorId); }
     if ($badExternalId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$badExternalId); }
     if ($editorTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$editorTagId); }
     if ($unsafeTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$unsafeTagId); }

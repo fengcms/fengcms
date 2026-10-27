@@ -201,6 +201,11 @@ class template{
         $s = @preg_replace("/\<\!\-\-\s*\{(.+?)\}\s*\-\-\>/is", "", $s);
         $s = @preg_replace("/\{include\s+(.+?)\}/is", "<?php include Template::Tpl(\\1); ?>", $s);
         $s = @preg_replace("/\{([A-Z][A-Z0-9_]*)\}/s", "<?php if(defined('\\1')){echo \\1;}?>", $s);
+        // A dynamic href needs a protocol check as well as HTML escaping. Apply
+        // this before the ordinary variable rule so existing template syntax
+        // remains unchanged, including links to records imported from old DBs.
+        $s = preg_replace_callback('/\bhref="\{(\$[a-zA-Z0-9_\[\]\'"\$\x7f-\xff]+)\}"/i',
+            static fn($m) => 'href="<?php echo cms_escape(cms_safe_url('.$m[1].' ?? null)); ?>"', $s);
         $s = preg_replace_callback('/\{(\$[a-zA-Z0-9_\[\]\'"\$\x7f-\xff]+)\}/i',
             static fn($m) => '<?php echo cms_template_output('.$m[1].' ?? null); ?>', $s);
 		$s = @preg_replace("/\{\\\$(.+?)\}/is", "<?php if(($\\1)){ $\\1;}?>", $s);

@@ -85,7 +85,7 @@ class moduleModel extends model{
 		$array=array_intersect_key($array,$writable);
 		foreach($array as $name=>$value){if(!is_string($value) && !is_int($value)){cms_fail(400,'字段内容不正确。');}}
 		if($project==='tags' && isset($array['name'])){$this->validateTag($array['name']);}
-		if($project==='friend' && isset($array['url']) && $array['url']!=='' && cms_safe_url($array['url'])===''){
+		if(isset($array['url']) && $array['url']!=='' && cms_safe_url($array['url'])===''){
 			cms_fail(400,'链接地址只允许安全的链接。');
 		}
 		if(isset($array['status']) && !in_array((string)$array['status'],['0','1'],true)){cms_fail(400,'状态不正确。');}
