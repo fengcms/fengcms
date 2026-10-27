@@ -165,7 +165,9 @@
             files.slice(0,room).forEach(file=>{
                 const ext=file.name.split('.').pop().toLowerCase();let error='';
                 if(!(formats[kind] || []).includes(ext))error='不支持此文件格式';else if(file.size===0 || file.size>10*1024*1024)error='文件必须大于 0 且不超过 10MB';
-                queue.push({file,state:error?'invalid':'waiting',progress:0,error});
+                const key=Array.from(crypto.getRandomValues(new Uint8Array(16)),
+                    byte=>byte.toString(16).padStart(2,'0')).join('');
+                queue.push({file,key,state:error?'invalid':'waiting',progress:0,error});
             });renderQueue();runQueue();
         }
         function renderQueue() {
@@ -185,7 +187,7 @@
                 if(closed)break;if(item.state!=='waiting')continue;
                 item.state='uploading';uploadController=new AbortController();renderQueue();
                 try {
-                    const url=await options.upload(item.file,kind,progress=>{item.progress=progress;if(!closed)renderQueue();},uploadController.signal);
+                    const url=await options.upload(item.file,kind,progress=>{item.progress=progress;if(!closed)renderQueue();},uploadController.signal,item.key);
                     if(closed)break;if(!validURL(url))throw new Error('上传返回了无效路径');
                     item.state='done';if(!multiple)selected.length=0;if(selected.length<60)selected.push(resource(url));
                 }catch(error){item.state='error';item.error=error.name==='AbortError'?'上传已取消':error.message;}

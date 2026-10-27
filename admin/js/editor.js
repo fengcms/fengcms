@@ -4,6 +4,8 @@
     const instances = new Map();
     let pending = 0;
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const uploadKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
+        byte=>byte.toString(16).padStart(2,'0')).join('');
     function checkImageURL(value, allowRelative = false) {
         if (typeof value !== 'string' || !value.trim() || /[\\\x00-\x1f\x7f]/.test(value)) return false;
         const text = value.trim();
@@ -21,10 +23,10 @@
         if (link && !checkImageURL(link, true)) return '图片跳转链接须为 HTTP/HTTPS 网址或站内绝对路径。';
         return true;
     }
-    async function upload(file, dir = 'image', onProgress = () => {}, signal) {
+    async function upload(file, dir = 'image', onProgress = () => {}, signal, requestKey = uploadKey()) {
         if (file.size <= 0 || file.size > 10 * 1024 * 1024) throw new Error('文件必须大于 0 且不能超过 10MB');
         const data = new FormData();
-        data.append('imgFile', file); data.append('_csrf', csrf());
+        data.append('imgFile', file); data.append('_csrf', csrf());data.append('_upload_key',requestKey);
         pending++;
         try {
             return await new Promise((resolve,reject) => {
@@ -117,6 +119,8 @@
     }
     function setField(id, urls, multiple) {
         const field = document.getElementById(id); if (!field) return;
+        const previous = multiple ? field.value.split(',').filter(Boolean) : [field.value].filter(Boolean);
+        if (previous.length === urls.length && previous.every((url,index) => url === urls[index])) return;
         field.value = multiple ? (urls.length ? urls.join(',') + ',' : '') : (urls[0] || '');
         field.dispatchEvent(new Event('change', {bubbles:true}));
     }

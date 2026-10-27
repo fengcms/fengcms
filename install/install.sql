@@ -52,6 +52,17 @@ CREATE TABLE `#prefix_model_schema_operation` (
   PRIMARY KEY (`project`,`action`,`field_name`),
   KEY (`module_id`,`field_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='模型结构操作进度';
+CREATE TABLE `#prefix_upload_request` (
+  `account_id` int unsigned NOT NULL,
+  `request_key` char(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `directory` varchar(8) NOT NULL,
+  `payload_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `relative_path` varchar(255) NOT NULL,
+  `status` varchar(8) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`account_id`,`request_key`),
+  KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='上传请求恢复记录';
 CREATE TABLE `#prefix_author` (
   `id` int(11) NOT NULL auto_increment,
   `name` varchar(50) default NULL COMMENT '名称',

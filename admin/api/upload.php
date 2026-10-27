@@ -1,9 +1,14 @@
 <?php
 require_once dirname(__DIR__, 2).'/system/common/security.php';
+require_once dirname(__DIR__, 2).'/system/common/upload_request.php';
 cms_session_start();
 cms_admin_required();
 cms_post_required();
+$accountId=(int)$_SESSION['manage_id'];
+$requestKey=$_POST['_upload_key']??null;
+if($requestKey!==null && !is_string($requestKey)){cms_fail(400,'上传请求标识不正确。');}
 cms_session_release();
+ignore_user_abort(true);
 header('Cache-Control: no-store');
 
 $file = $_FILES['imgFile'] ?? null;
@@ -70,13 +75,15 @@ if ($dir === 'image') {
     imagedestroy($decoded);
 }
 // Binary images/documents may legitimately contain PHP/ASP-looking byte sequences.
-// Security relies on the extension/MIME allowlists and a non-executable upload
-// directory (see docker/nginx/default.conf), not substring scanning binary data.
-$relative = $dir.'/'.date('Ymd');
-$path = dirname(__DIR__, 2).'/upload/'.$relative;
-if (!is_dir($path) && !mkdir($path, 0755, true)) { cms_fail(500, '无法创建上传目录。'); }
-$name = bin2hex(random_bytes(16)).'.'.$ext;
-if (!move_uploaded_file($file['tmp_name'], $path.'/'.$name)) { cms_fail(500, '文件保存失败。'); }
-chmod($path.'/'.$name, 0644);
+// Security relies on the allowlists and non-executable upload directory.
+try{
+    $url=CmsUploadRequest::save($file['tmp_name'],$file['name'],(int)$file['size'],
+        $dir,$ext,$accountId,$requestKey);
+}catch(CmsUploadRequestException $e){
+    cms_fail($e->httpStatus,$e->getMessage());
+}catch(Throwable $e){
+    error_log('Upload storage failed: '.$e);
+    cms_fail(500,'文件保存失败，请稍后重试。');
+}
 header('Content-Type: text/html; charset=UTF-8');
-echo json_encode(['error' => 0, 'url' => '/upload/'.$relative.'/'.$name]);
+echo json_encode(['error' => 0, 'url' => $url]);

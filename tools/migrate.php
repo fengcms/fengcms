@@ -90,6 +90,22 @@ function migrate_model_schema(mysqli $db,string $prefix): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
+function migrate_upload_request(mysqli $db,string $prefix): void
+{
+    if(!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D',$prefix)){
+        throw new RuntimeException('Invalid database prefix.');
+    }
+    $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}upload_request` (
+        `account_id` int unsigned NOT NULL,
+        `request_key` char(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+        `directory` varchar(8) NOT NULL,
+        `payload_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+        `relative_path` varchar(255) NOT NULL, `status` varchar(8) NOT NULL,
+        `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`account_id`,`request_key`), KEY `created_at` (`created_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
 function migrate_license_notice(mysqli $db, string $prefix): int
 {
     if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
@@ -111,6 +127,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
     migrate_roles($db, $prefix);
     migrate_content_write($db, $prefix);
     migrate_model_schema($db, $prefix);
+    migrate_upload_request($db, $prefix);
     $updated = migrate_license_notice($db, $prefix);
     echo "Security and content-write schema migration complete; replaced $updated legacy sample license footer(s).\n";
 }

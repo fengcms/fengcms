@@ -104,11 +104,32 @@ function visitor_token(array &$cookies): string {
     }
     return $m[1];
 }
-function upload(array &$cookies,string $token,string $name,string $content, string $dir="image"): array {
+function upload(array &$cookies,string $token,string $name,string $content,string $dir="image",?string $requestKey=null): array {
     $b = 'fengcms'.bin2hex(random_bytes(8));
     $body = "--$b\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$token\r\n";
+    if($requestKey!==null){$body.="--$b\r\nContent-Disposition: form-data; name=\"_upload_key\"\r\n\r\n$requestKey\r\n";}
     $body .= "--$b\r\nContent-Disposition: form-data; name=\"imgFile\"; filename=\"$name\"\r\nContent-Type: application/octet-stream\r\n\r\n$content\r\n--$b--\r\n";
     return request('POST','/admin/api/upload.php?dir='.rawurlencode($dir),$cookies,$body,['Content-Type'=>'multipart/form-data; boundary='.$b]);
+}
+function upload_without_response(array $cookies,string $token,string $name,string $content,string $requestKey,bool $partial=false) {
+    $boundary='fengcms'.bin2hex(random_bytes(8));
+    $body="--$boundary\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$token\r\n".
+        "--$boundary\r\nContent-Disposition: form-data; name=\"_upload_key\"\r\n\r\n$requestKey\r\n".
+        "--$boundary\r\nContent-Disposition: form-data; name=\"imgFile\"; filename=\"$name\"\r\n".
+        "Content-Type: application/octet-stream\r\n\r\n$content\r\n--$boundary--\r\n";
+    $raw="POST /admin/api/upload.php?dir=image HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n".
+        'Cookie: '.implode('; ',array_map(static fn($k,$v)=>$k.'='.$v,array_keys($cookies),$cookies))."\r\n".
+        "Content-Type: multipart/form-data; boundary=$boundary\r\nContent-Length: ".strlen($body)."\r\n\r\n";
+    $raw.=$partial?substr($body,0,intdiv(strlen($body),2)):$body;
+    $socket=stream_socket_client('tcp://web:8080',$errno,$error,10);
+    if(!$socket){throw new RuntimeException($error);}
+    for($offset=0;$offset<strlen($raw);){
+        $written=fwrite($socket,substr($raw,$offset));
+        if(!$written){fclose($socket);throw new RuntimeException('Upload socket write failed.');}
+        $offset+=$written;
+    }
+    if($partial){fclose($socket);return null;}
+    return $socket;
 }
 $tag=bin2hex(random_bytes(6)); $user='test_'.$tag; $legacyUser='legacy_'.$tag;
 $extraBaseCopyright='audit_extra_'.$tag;
@@ -1837,6 +1858,60 @@ try {
     expect_check($uploaded['status']===200 && ($uploaded['json']['error']??-1)===0,'authenticated image upload succeeds');
     $url=$uploaded['json']['url']; $files[]=dirname(__DIR__).$url;
     expect_check(request('GET',$url,$cookies)['body']===$png,'uploaded image is served');
+    $uploadKey=bin2hex(random_bytes(16));
+    $firstUpload=upload($cookies,$newToken,'repeat_'.$tag.'.png',$png,'image',$uploadKey);
+    $firstUrl=$firstUpload['json']['url']??'';
+    if($firstUrl!==''){$files[]=dirname(__DIR__).$firstUrl;}
+    $sameUpload=upload($cookies,$newToken,'repeat_'.$tag.'.png',$png,'image',$uploadKey);
+    expect_check($firstUpload['status']===200 && $sameUpload['status']===200 &&
+        $firstUrl!=='' && ($sameUpload['json']['url']??'')===$firstUrl,
+        'same upload request key returns the first saved resource');
+    $changedUpload=upload($cookies,$newToken,'different_'.$tag.'.png',$png,'image',$uploadKey);
+    expect_check($changedUpload['status']===409 && is_file(dirname(__DIR__).$firstUrl),
+        'upload request key cannot be reused for a different payload');
+    $newUpload=upload($cookies,$newToken,'repeat_'.$tag.'.png',$png,'image',bin2hex(random_bytes(16)));
+    $newUploadUrl=$newUpload['json']['url']??'';
+    if($newUploadUrl!==''){$files[]=dirname(__DIR__).$newUploadUrl;}
+    expect_check($newUpload['status']===200 && $newUploadUrl!==$firstUrl && $newUploadUrl!=='',
+        'intentional repeated upload with a new key creates a distinct resource');
+    $db->execute_query('UPDATE f_upload_request SET status=? WHERE account_id=? AND request_key=?',
+        ['pending',$testId,$uploadKey]);
+    $pendingRetry=upload($cookies,$newToken,'repeat_'.$tag.'.png',$png,'image',$uploadKey);
+    expect_check($pendingRetry['status']===200 && ($pendingRetry['json']['url']??'')===$firstUrl &&
+        $db->execute_query('SELECT status FROM f_upload_request WHERE account_id=? AND request_key=?',
+            [$testId,$uploadKey])->fetch_row()[0]==='complete',
+        'retry completes a journal left pending after the file move');
+    unlink(dirname(__DIR__).$firstUrl);
+    $missingRetry=upload($cookies,$newToken,'repeat_'.$tag.'.png',$png,'image',$uploadKey);
+    expect_check($missingRetry['status']===200 && ($missingRetry['json']['url']??'')===$firstUrl &&
+        file_get_contents(dirname(__DIR__).$firstUrl)===$png,
+        'retry restores a missing final file before returning its prior URL');
+    $lostKey=bin2hex(random_bytes(16));
+    $lostSocket=upload_without_response($cookies,$newToken,'lost_'.$tag.'.png',$png,$lostKey);
+    $lostRow=null;
+    try{
+        for($attempt=0;$attempt<150;$attempt++){
+            $lostRow=$db->execute_query('SELECT relative_path,status FROM f_upload_request WHERE account_id=? AND request_key=?',
+                [$testId,$lostKey])->fetch_assoc();
+            if($lostRow && $lostRow['status']==='complete' && is_file(dirname(__DIR__).$lostRow['relative_path'])){break;}
+            usleep(20000);
+        }
+    }finally{fclose($lostSocket);}
+    if($lostRow){$files[]=dirname(__DIR__).$lostRow['relative_path'];}
+    $lostRetry=upload($cookies,$newToken,'lost_'.$tag.'.png',$png,'image',$lostKey);
+    expect_check($lostRow && $lostRow['status']==='complete' && $lostRetry['status']===200 &&
+        ($lostRetry['json']['url']??'')===$lostRow['relative_path'],
+        'retry after a lost upload response recovers the original URL');
+    $partialKey=bin2hex(random_bytes(16));
+    upload_without_response($cookies,$newToken,'partial_'.$tag.'.png',$png,$partialKey,true);
+    usleep(200000);
+    expect_check(!$db->execute_query('SELECT 1 FROM f_upload_request WHERE account_id=? AND request_key=?',
+        [$testId,$partialKey])->fetch_row(),
+        'partial multipart request does not publish an upload request');
+    $partialRetry=upload($cookies,$newToken,'partial_'.$tag.'.png',$png,'image',$partialKey);
+    if(isset($partialRetry['json']['url'])){$files[]=dirname(__DIR__).$partialRetry['json']['url'];}
+    expect_check($partialRetry['status']===200 && isset($partialRetry['json']['url']),
+        'retry after an incomplete request creates one normal resource');
     expect_check(request('GET','/?controller=down&file='.rawurlencode(base64_encode($url)),$cookies)['body']===$png,'download preserves upload bytes');
     expect_check(request('GET','/?controller=down&file='.rawurlencode(base64_encode('/upload/../config.php')),$cookies)['status']===400,'download traversal rejected');
     // A valid GIF comment can contain any bytes, including old script markers.
@@ -2171,7 +2246,17 @@ try {
     $ownedArticleIds=array_values(array_filter(array_map('intval',[...$articleIds,$editorArticleId])));
     if($ownedArticleIds){$db->query("DELETE FROM f_content_recycle_state WHERE project='article' AND record_id IN (".implode(',',$ownedArticleIds).')');}
     $ownedAccounts=array_values(array_filter(array_map('intval',[$testId,$editorId,$versionAccountId])));
-    if($ownedAccounts){$db->query('DELETE FROM f_content_create_request WHERE account_id IN ('.implode(',',$ownedAccounts).')');}
+    if($ownedAccounts){
+        $db->query('DELETE FROM f_content_create_request WHERE account_id IN ('.implode(',',$ownedAccounts).')');
+        $uploadRows=$db->query('SELECT relative_path FROM f_upload_request WHERE account_id IN ('.implode(',',$ownedAccounts).')')
+            ->fetch_all(MYSQLI_ASSOC);
+        foreach($uploadRows as $uploadRow){
+            if(preg_match('~^/upload/(?:image|media|file)/[0-9]{8}/[a-f0-9]{32}\.[a-z0-9]{2,5}$~D',$uploadRow['relative_path'])){
+                $files[]=dirname(__DIR__).$uploadRow['relative_path'];
+            }
+        }
+        $db->query('DELETE FROM f_upload_request WHERE account_id IN ('.implode(',',$ownedAccounts).')');
+    }
     foreach ($files as $file) { if (is_file($file)) { unlink($file); } }
     foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }
     foreach ([$testId,$legacyId,$editorId,$extraSuperId,$versionAccountId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
