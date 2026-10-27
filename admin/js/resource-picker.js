@@ -12,7 +12,7 @@
         const field=document.getElementById(trigger.dataset.cmsTarget);if(!field)return;
         const title=isTemplate?'选择模板':isImage?(multiple?'选择多张图片':'选择图片'):'选择附件';
         const rootLabel=isTemplate?'模板目录':isImage?'图片库':'附件库';
-        const selected=new Map(), queue=[];
+        const selected=[], queue=[];
         let path='', page=1, pages=1, view=isImage?'grid':'list', tab='library', running=false, closed=false, requestId=0, searchTimer, queueOverflow=false;
         let listingController, uploadController;
         const dialog=el('dialog','cms-picker');dialog.setAttribute('aria-label',title);
@@ -57,7 +57,8 @@
         main.append(library,uploadPanel,status);
         const selection=el('section','rp-selection');selection.setAttribute('aria-label','已选择的资源');
         const selectedHeader=el('div','rp-selection-heading'), selectedInfo=el('span'), chips=el('div','rp-chips');
-        const clear=button('清空选择','rp-text-button',()=>{selected.clear();renderSelection();});selectedHeader.append(selectedInfo,clear);selection.append(selectedHeader,chips);
+        const clear=button('清空选择','rp-text-button',()=>{selected.length=0;renderSelection();});selectedHeader.append(selectedInfo,clear);
+        const compatibility=el('p','rp-compat');selection.append(selectedHeader,compatibility,chips);
         const footer=el('footer','rp-footer');
         const hint=el('span','rp-hint',multiple?'按选择顺序回填，可移除不需要的图片。':'单击选择，确认后回填；双击文件可快速使用。');
         const cancel=button('取消','rp-button',()=>dialog.close());
@@ -71,17 +72,18 @@
         }
         function resource(url) {
             const item={url,filename:filename(url),is_photo:isImage};
-            if(isImage) { try { item.thumbnail_url='/admin/api/thumbnail.php?path='+encodeURIComponent(decodeURIComponent(url.slice('/upload/image/'.length))); } catch(_) {} }
+            if(isImage && validURL(url)) { try { item.thumbnail_url='/admin/api/thumbnail.php?path='+encodeURIComponent(decodeURIComponent(url.slice('/upload/image/'.length))); } catch(_) {} }
             return item;
         }
         const initial=multiple?field.value.split(',').filter(Boolean):[field.value].filter(Boolean);
-        initial.slice(0,60).filter(validURL).forEach(url=>selected.set(url,resource(url)));
+        initial.forEach(url=>selected.push(resource(url)));
+        const selectedIndex=url=>selected.findIndex(item=>item.url===url);
         function setStatus(text,error=false) { status.textContent=text;status.classList.toggle('is-error',error); }
-        function commit() { if(confirm.disabled)return;options.onSelect(Array.from(selected.keys()));dialog.close(); }
+        function commit() { if(confirm.disabled)return;options.onSelect(selected.map(item=>item.url));dialog.close(); }
         function pick(item, fast=false) {
             if(!validURL(item.url))return;
-            if(multiple) { if(selected.has(item.url))selected.delete(item.url);else if(selected.size<60)selected.set(item.url,item);else setStatus('一次最多选择 60 个文件。',true); }
-            else {selected.clear();selected.set(item.url,item);}
+            if(multiple) { const index=selectedIndex(item.url);if(index!==-1)selected.splice(index,1);else if(selected.length<60)selected.push(item);else setStatus('一次最多新增至 60 项；已有超限内容仍会原样保留。',true); }
+            else {selected.length=0;selected.push(item);}
             renderSelection();if(fast && !multiple)commit();
         }
         function thumb(item,className) {
@@ -92,15 +94,19 @@
             return box;
         }
         function renderSelection() {
-            selectedInfo.textContent='已选择 '+selected.size+(isImage?' 张图片':' 个文件');clear.disabled=!selected.size;
+            selectedInfo.textContent='已选择 '+selected.length+(isImage?' 张图片':' 个文件');clear.disabled=!selected.length;
+            const unsupported=selected.filter(item=>!validURL(item.url)).length;
+            compatibility.textContent=(selected.length>60?'已有内容超过 60 项；确认时会完整保留，新增前请先手动移除部分图片。':'')+
+                (unsupported?' 其中 '+unsupported+' 项不是当前资源库地址，确认时也会原样保留；可在下方手动移除。':'');
+            compatibility.hidden=!compatibility.textContent;
             chips.replaceChildren();
             selected.forEach(item=>{
                 const chip=el('div','rp-chip');if(isImage)chip.append(thumb(item,'rp-chip-thumb'));
-                chip.append(el('span','',item.filename));const remove=button('×','rp-chip-remove',()=>{selected.delete(item.url);renderSelection();});remove.setAttribute('aria-label','取消选择 '+item.filename);chip.append(remove);chips.append(chip);
+                chip.append(el('span','',item.filename));const remove=button('×','rp-chip-remove',()=>{selected.splice(selected.indexOf(item),1);renderSelection();});remove.setAttribute('aria-label','取消选择 '+item.filename);chip.append(remove);chips.append(chip);
             });
-            if(!selected.size)chips.append(el('span','rp-selection-empty','尚未选择资源'));
-            list.querySelectorAll('[data-resource]').forEach(card=>{const chosen=selected.has(card.dataset.resource);card.classList.toggle('is-selected',chosen);card.querySelector('.rp-entry').setAttribute('aria-pressed',String(chosen));});
-            confirm.disabled=running || queue.some(item=>item.state==='waiting') || (!selected.size && !(multiple && initial.length));
+            if(!selected.length)chips.append(el('span','rp-selection-empty','尚未选择资源'));
+            list.querySelectorAll('[data-resource]').forEach(card=>{const chosen=selectedIndex(card.dataset.resource)!==-1;card.classList.toggle('is-selected',chosen);card.querySelector('.rp-entry').setAttribute('aria-pressed',String(chosen));});
+            confirm.disabled=running || queue.some(item=>item.state==='waiting') || (!selected.length && !(multiple && initial.length));
         }
         function switchTab(value) {
             tab=value;library.hidden=tab!=='library';uploadPanel.hidden=tab!=='upload';
@@ -142,7 +148,7 @@
                     info.append(el('span','rp-file-details',details),el('span','rp-file-time',item.datetime));
                     if(isTemplate && !item.is_dir)info.append(el('span','rp-file-path',item.url));
                     entry.append(info);card.append(entry);
-                    if(!item.is_dir)entry.ondblclick=()=>{if(!multiple){selected.clear();selected.set(item.url,item);renderSelection();commit();}};
+                    if(!item.is_dir)entry.ondblclick=()=>{if(!multiple){selected.length=0;selected.push(item);renderSelection();commit();}};
                     if(isImage && item.is_photo){const zoom=button('预览','rp-preview-button',()=>preview(item));zoom.setAttribute('aria-label','预览 '+item.filename);card.append(zoom);}
                     list.append(card);
                 });
@@ -181,7 +187,7 @@
                 try {
                     const url=await options.upload(item.file,kind,progress=>{item.progress=progress;if(!closed)renderQueue();},uploadController.signal);
                     if(closed)break;if(!validURL(url))throw new Error('上传返回了无效路径');
-                    item.state='done';if(!multiple)selected.clear();if(selected.size<60)selected.set(url,resource(url));
+                    item.state='done';if(!multiple)selected.length=0;if(selected.length<60)selected.push(resource(url));
                 }catch(error){item.state='error';item.error=error.name==='AbortError'?'上传已取消':error.message;}
                 if(!closed)renderQueue();
             }
