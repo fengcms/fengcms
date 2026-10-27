@@ -8,6 +8,8 @@
 - [安全升级记录](SECURITY_UPGRADE.md)：修复、验证、线上盘点和迁移限制。
 - [v1.36 代码审阅报告](CODE_AUDIT_V1.36.md)：安全、数据完整性、性能与维护性风险及优先级。
 - [性能与代码维护性审阅报告](PERFORMANCE_CODE_REVIEW_2026-10-27.md)：当前性能问题、代码组织改进、验证证据与开发 AI 实施验收要求。
+- [性能优化复审回复报告](PERFORMANCE_OPTIMIZATION_REVIEW_2026-10-27.md)：优化提交的逐项验收、事务与缓存复现问题、CI 诊断缺口及下一轮交付要求。
+- [性能审阅落实记录](PERFORMANCE_OPTIMIZATION_2026-10-27.md)：开发方的实现说明、本地验证结果及搜索优化的测量边界。
 - [性能测量与优化判定](PERFORMANCE_MEASUREMENT_PLAN.md)：性能基线、执行计划、复测指标和优化合入门槛。
 - [v1.36 后续加固实施方案](HARDENING_ROADMAP_V1.36.md)：后台备份与模型导入保留方案，以及已采纳风险的分阶段实施计划。
 - [历史文档归档](legacy/README.md)：原 `_doc` 资料，文本已统一为 UTF-8，附模板白皮书原件与纯文本版。
