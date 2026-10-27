@@ -99,7 +99,7 @@ $files=[]; $directories=[]; $fixture='f_security_test_'.$tag; $viewFixture='f_se
 $editorUser='editor_'.$tag; $editorPassword='EdPass8!'; $extraSuperUser='super_'.$tag;
 $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId=null;
 $unsafeTagId=$unsafeCategoryId=$unsafeFriendId=$legacyUnsafeTagId=$legacyUnsafeFriendId=$legacyUnsafeCategoryId=$legacyUnsafeAuthorId=$badExternalId=null;
-$counterTagIds=[]; $counterAuthorId=null;
+$counterTagIds=[]; $counterAuthorId=$faultTagId=null;
 $signupFixtureCreated=false;
 $articleIds=[]; $singleContentId=null; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
@@ -767,7 +767,7 @@ try {
     expect_check(($innodbRetry['json']['status']??'')==='y' &&
         (int)$db->query("SELECT COUNT(*) FROM `f_$moduleProject` WHERE title='innodb_$tag'")->fetch_row()[0]===1,
         'InnoDB creation retries the same key after rollback');
-    $db->query('DELETE FROM f_tags WHERE id='.$faultTagId);
+    $db->query('DELETE FROM f_tags WHERE id='.$faultTagId); $faultTagId=null;
     $export=request('GET','/admin/index.php?controller=modulemanage&operate=elicit&id='.$moduleFixtureId,$cookies);
     $package=json_decode($export['body'],true);
     expect_check($export['status']===200 && ($package['format']??'')==='fengcms-model-v1' &&
@@ -1635,6 +1635,7 @@ try {
     if ($unsafeFriendId) { $db->query('DELETE FROM f_friend WHERE id='.(int)$unsafeFriendId); }
     if ($legacyUnsafeFriendId) { $db->query('DELETE FROM f_friend WHERE id='.(int)$legacyUnsafeFriendId); }
     foreach ($counterTagIds as $counterTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$counterTagId); }
+    if ($faultTagId) { $db->query('DELETE FROM f_tags WHERE id='.(int)$faultTagId); }
     if ($counterAuthorId) { $db->query('DELETE FROM f_author WHERE id='.(int)$counterAuthorId); }
     if ($editorMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$editorMessageId); }
     if ($batchMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$batchMessageId); }
