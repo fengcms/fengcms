@@ -37,7 +37,7 @@ return 'REPLACE_WITH_YOUR_OWN_RANDOM_INSTALL_SECRET';
 
 新安装的系统表默认使用 InnoDB/utf8mb4；已有网站不会自动转换。存量数据库的盘点与副本迁移步骤见[数据库迁移说明](SCHEMA_MIGRATION.md)。
 
-内容写入现在需要两张状态表，旧站点应在部署新代码前执行 `php tools/migrate.php` 并在副本验证；回收还原与新增重试规则见[内容写入一致性修复记录](CONTENT_WRITE_CONSISTENCY_FIX_2026-10-27.md)。
+内容写入需要两张状态表，模型结构恢复另需 `model_schema_operation` 表。旧站点应在部署新代码前执行 `php tools/migrate.php` 并在副本验证；回收还原与新增重试规则见[内容写入一致性修复记录](CONTENT_WRITE_CONSISTENCY_FIX_2026-10-27.md)，模型与字段失败续做见[模型结构修复记录](MODEL_SCHEMA_REMEDIATION_2026-10-27.md)。
 
 后台提供固定的超级管理员和编辑角色。超级管理员可在“系统 → 系统管理 → 系统账号管理”创建这两种账号；已有站点升级涉及管理员表迁移，步骤和回退限制见[后台角色说明](ADMIN_ROLES.md)。
 
