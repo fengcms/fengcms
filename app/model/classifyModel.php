@@ -12,7 +12,8 @@
 class classifyModel extends model{
 
 	private $d_name		 = "classify";
-	private ?array $childMap = null;
+    /** @var array<string, array{revision:int, children:array, navigation:array}> */
+    private static array $requestTrees = [];
 
 	public function __construct(){
 		unset($this->options);
@@ -47,13 +48,46 @@ class classifyModel extends model{
 		return implode(',', array_map(static fn($child) => 'classid = "'.$child.'"', $ids)).',';
 	}
 
-	private function tree(): array {
-		if ($this->childMap !== null) { return $this->childMap; }
-		$rows=D($this->d_name)->excsql('SELECT id,classid,name,html FROM '.model::identifier(DB_PREFIX.$this->d_name).' ORDER BY sort ASC,id ASC');
-		$this->childMap=[];
-		foreach ($rows as $row) { $this->childMap[(int)$row['classid']][]=$row; }
-		return $this->childMap;
+    private function snapshot(): array {
+        $key = hash('sha256', serialize([DB_HOST, DB_NAME, DB_PREFIX]));
+        $revision = model::requestWriteRevision();
+        if (!isset(self::$requestTrees[$key]) || self::$requestTrees[$key]['revision'] !== $revision) {
+            $rows = D($this->d_name)->excsql('SELECT id,classid,name,html,nav,url_type,type,sort FROM '.
+                model::identifier(DB_PREFIX.$this->d_name).' ORDER BY sort ASC');
+            $children = []; $navigation = [];
+            foreach ($rows as $row) {
+                $parent = (int)$row['classid'];
+                $children[$parent][] = $row;
+                if ((int)$row['nav'] === 1) { $navigation[$parent][] = $row; }
+            }
+            // The tree/map path previously requested sort,id. Navigation's
+            // existing SQL requested sort alone, so retain its row order.
+            foreach ($children as &$group) {
+                usort($group, static fn($a, $b) => [(int)$a['sort'], (int)$a['id']] <=>
+                    [(int)$b['sort'], (int)$b['id']]);
+            }
+            unset($group);
+            self::$requestTrees[$key] = [
+                'revision' => $revision, 'children' => $children, 'navigation' => $navigation,
+            ];
+        }
+        return self::$requestTrees[$key];
 	}
+
+    private function tree(): array { return $this->snapshot()['children']; }
+
+    /** The stock navigation's existing l() calls use this request-local snapshot. */
+    public function navigationRows(int $parent, array $fields, int $limit): array {
+        if ($limit <= 0) { return []; }
+        $rows = [];
+        foreach ($this->snapshot()['navigation'][$parent] ?? [] as $row) {
+            $selected = [];
+            foreach ($fields as $field) { $selected[$field] = $row[$field]; }
+            $rows[] = $selected;
+            if (count($rows) >= $limit) { break; }
+        }
+        return $rows;
+    }
 
 	private function collectChildren(int $id, array &$ids, array &$seen): void {
 		if (isset($seen[$id])) { return; }

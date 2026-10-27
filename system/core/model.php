@@ -20,6 +20,7 @@ class model{
 
 	private	 $db = "";
     private bool $transactionConnection = false;
+    private static int $requestWriteRevision = 0;
     
 	// 数据表前缀
     protected $prefix      =   '';
@@ -126,6 +127,7 @@ class model{
         $cols = array_map([self::class, 'identifier'], array_keys($row));
         $sql = 'INSERT INTO `'.$this->name.'` ('.implode(',', $cols).') VALUES ('.implode(',', array_fill(0, count($row), '?')).')';
         $this->db->query($sql, array_values($row));
+        self::$requestWriteRevision++;
         return $this->lastinsertid();
     }
 
@@ -146,6 +148,7 @@ class model{
             $values = implode(',', $vals);
         } else { $values = $row; }
         $this->db->query('UPDATE '.$this->name.' SET '.$values.($this->options['where'] ?? ''), array_merge($params, $this->options['params'] ?? []));
+        self::$requestWriteRevision++;
         return $this->affected_num();
     }
 
@@ -157,6 +160,7 @@ class model{
      */
     public function delete(){ 
         $this->db->query('delete from '.$this->name.($this->options['where'] ?? ''), $this->options['params'] ?? []);
+        self::$requestWriteRevision++;
 		return $this->db->affected_rows();		
     }
 
@@ -167,6 +171,7 @@ class model{
      */
     public function droptable(){ 
 		$this->db->query('drop table '.self::identifier($this->name));
+        self::$requestWriteRevision++;
 		return $this->db->affected_rows();		
     }
     
@@ -190,6 +195,7 @@ class model{
 			  `id` int(11) NOT NULL AUTO_INCREMENT,
 			  PRIMARY KEY (`id`)
 			);');
+        self::$requestWriteRevision++;
 		return $this->db->affected_rows();	
 	 }
 
@@ -201,6 +207,7 @@ class model{
 	 public function alter($tables,$field,$after="id",$type="varchar",$length=255){
 
 		$this->db->query('ALTER TABLE `'.DB_PREFIX.$tables.'` ADD COLUMN `'.$field.'` '.$type.'('.$length.') NULL DEFAULT NULL AFTER `'.$after.'`;');
+        self::$requestWriteRevision++;
 		return $this->db->affected_rows();	
 	 }
 
@@ -211,6 +218,7 @@ class model{
      */
     public function dropalter($fiend){ 
         $this->db->query('ALTER TABLE '.self::identifier($this->name).' DROP COLUMN '.self::identifier($fiend));
+        self::$requestWriteRevision++;
 		return $this->db->affected_rows();		
     }
 
@@ -359,11 +367,19 @@ class model{
 	 */
 	 public function query($sql, array $params = []){
 		if($this->db->query($sql, $params)){
+            if (preg_match('/^\s*(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|TRUNCATE)\b/i', $sql)) {
+                self::$requestWriteRevision++;
+            }
 			return true;
 		}else{
 			return false;
 		}
 	 }
+
+    /** Invalidate request-local read snapshots after model writes. */
+    public static function requestWriteRevision(): int {
+        return self::$requestWriteRevision;
+    }
 
     /**
      * 获取最后插入ID值

@@ -116,7 +116,10 @@ class moduleModel extends model{
 		$sortp=$this->op['sort']['p']??'desc';
 		$limit=$this->op['limit']??10;
 
-		$rows=D($table)->field($field)->where($where)->sort($sortf,$sorts,$sortp)->limit($limit)->getall();
+        $rows = $this->navigationRows($table, $field, $where, $sortf, $sorts, $sortp, $limit);
+        if ($rows === null) {
+            $rows=D($table)->field($field)->where($where)->sort($sortf,$sorts,$sortp)->limit($limit)->getall();
+        }
 		// Legacy templates print these fields directly in href attributes. Keep the
 		// template syntax while neutralizing unsafe URLs from imported/old rows.
 		if($table==='classify' || $table==='friend'){
@@ -129,6 +132,24 @@ class moduleModel extends model{
 		return $rows;
 		//return $this->getall();
 	}
+
+    /** Keep other l() expressions on their original SQL path. */
+    private function navigationRows($table, $field, $where, $sortf, $sorts, $sortp, $limit): ?array {
+        if ($table !== 'classify' || $sortf !== 'sort' || $sorts !== 'order' || $sortp !== 'asc' ||
+            !is_string($where) || !preg_match('/^classid=(0|[1-9][0-9]*)&&nav=1$/D', $where, $match)) {
+            return null;
+        }
+        $parent = filter_var($match[1], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        $max = filter_var((string)$limit, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        if ($parent === false || $max === false || !is_string($field)) { return null; }
+        $fields = array_map('trim', explode(',', $field));
+        foreach ($fields as $name) {
+            if (!in_array($name, ['id','classid','name','html','nav','url_type','type','sort'], true)) {
+                return null;
+            }
+        }
+        return M('classify')->navigationRows($parent, $fields, $max);
+    }
 
 	/*
 	栏目图片属性

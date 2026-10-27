@@ -64,6 +64,13 @@ try {
         }
     } finally { $transaction->affairs('rollback'); }
     echo "PASS model transactions retain an isolated connection\n";
+
+    $revision = model::requestWriteRevision();
+    $model->where(['id' => 1])->update(['status' => 1]);
+    if (model::requestWriteRevision() <= $revision) {
+        throw new RuntimeException('Model writes did not invalidate request-local read snapshots.');
+    }
+    echo "PASS model writes invalidate request-local read snapshots\n";
 } finally {
     $guard->query("DROP TABLE IF EXISTS `$table`");
 }

@@ -108,15 +108,23 @@ class classifyModel extends model{
      * @return array
      */
 	public function classifytree($data,$classid=0){
-	$tree = array();
-	foreach($data as $k => $v){
-	   if($v['classid'] == $classid){
-		$v['classid'] = $this->classifytree($data, $v['id']);
-		$tree[] = $v;
-	   }
+        $children = [];
+        foreach ($data as $row) { $children[(int)$row['classid']][] = $row; }
+        $seen = [];
+        return $this->buildClassifyTree($children, (int)$classid, $seen);
 	}
-	return $tree;
-	}
+
+    private function buildClassifyTree(array &$children, int $parent, array &$seen): array {
+        $tree = [];
+        foreach ($children[$parent] ?? [] as $row) {
+            $id = (int)$row['id'];
+            if (isset($seen[$id])) { continue; }
+            $seen[$id] = true;
+            $row['classid'] = $this->buildClassifyTree($children, $id, $seen);
+            $tree[] = $row;
+        }
+        return $tree;
+    }
 
    /**
      * 排序
