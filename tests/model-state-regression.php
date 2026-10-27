@@ -83,7 +83,7 @@ try {
     $sessionSql = new model($suffix);
     $sessionSql->query('SET @fengcms_model_probe = 1');
     $sessionId = (int)$sessionSql->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
-    $sharedProbe = $model->excsql('SELECT @fengcms_model_probe AS value')[0]['value'];
+    $sharedProbe = (new model($suffix))->field('@fengcms_model_probe AS value')->getone()['value'];
     if ($sessionId === $sharedId || $sharedProbe !== null) {
         throw new RuntimeException('A model session setting leaked into the shared connection.');
     }

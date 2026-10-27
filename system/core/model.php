@@ -355,7 +355,9 @@ class model{
 	 * @return bool
 	 */
 	 public function excsql($sql, array $params = []){
-        $this->isolateForSessionSql($sql);
+        // Native SQL may carry transaction or session state, including inside
+        // executable comments. Share only a narrow, plain read-only subset.
+        if (!$this->shareableRawRead($sql)) { $this->isolateConnection(); }
         return $this->db->fetch($this->db->query($sql, $params));
 	 }
 
@@ -366,7 +368,9 @@ class model{
 	 * @return bool
 	 */
 	 public function query($sql, array $params = []){
-        $this->isolateForSessionSql($sql);
+        // The general native SQL entry point is always connection-private.
+        // This avoids trying to parse every MySQL comment and session command.
+        $this->isolateConnection();
 		if($this->db->query($sql, $params)){
             if (preg_match('/^\s*(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|TRUNCATE)\b/i', $sql)) {
                 self::$requestWriteRevision++;
@@ -377,10 +381,9 @@ class model{
 		}
 	 }
 
-    private function isolateForSessionSql(string $sql): void {
-        if (preg_match('/^\s*(?:BEGIN|START\s+TRANSACTION|SET|LOCK\s+TABLES|UNLOCK\s+TABLES|USE)\b/i', $sql)) {
-            $this->isolateConnection();
-        }
+    private function shareableRawRead(string $sql): bool {
+        return (bool)preg_match('/^\s*(?:SELECT|SHOW|DESCRIBE|EXPLAIN)\b/i', $sql) &&
+            !preg_match('~/\*|--|#|;|@|:=|\b(?:GET_LOCK|RELEASE_LOCK|IS_FREE_LOCK|IS_USED_LOCK|LAST_INSERT_ID)\s*\(|\bFOR\s+UPDATE\b|\bLOCK\s+IN\s+SHARE\s+MODE\b~i', $sql);
     }
 
     private function isolateConnection(): void {
