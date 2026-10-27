@@ -1750,6 +1750,22 @@ try {
     $restoreCopyright=$db->prepare('UPDATE f_base SET copyright=?');
     $restoreCopyright->bind_param('s',$copyright); $restoreCopyright->execute();
 
+    $nullDateTitle='null_date_'.$tag;
+    $nullDateContent='<p>无日期正文</p>'; $nullDateInfo='无日期导读';
+    $nullDateHtml='/article_null_date_'.$tag.'.html';
+    $nullDateInsert=$db->prepare('INSERT INTO f_article (title,content,info,template,classid,status,time,date,html) VALUES (?,?,?,"/article_content.html","0",1,UNIX_TIMESTAMP(),NULL,?)');
+    $nullDateInsert->bind_param('ssss',$nullDateTitle,$nullDateContent,$nullDateInfo,$nullDateHtml);
+    $nullDateInsert->execute();
+    $nullDateId=(int)$db->insert_id;
+    try {
+        $nullDatePage=request('GET','/',$cookies);
+        expect_check(preg_match('~<li><span>([^<]*)</span><a [^>]*>'.preg_quote($nullDateTitle,'~').'</a>~u',$nullDatePage['body'],$nullDateCell)===1 &&
+            $nullDateCell[1]==='' && !str_contains($nullDatePage['body'],'<span>01/01</span>'),
+            'content without a date renders an empty date cell instead of 1970-01-01');
+    } finally {
+        $db->query('DELETE FROM f_article WHERE id='.$nullDateId);
+    }
+
     expect_check(request('GET','/index.html',$cookies)['status']===200,'rewrite mode renders homepage');
     request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>$originalName,'url_type'=>'0']);
     expect_check(request('GET','/tags.html',$cookies)['status']===200 && request('GET','/?controller=tags',$cookies)['status']===200,'tag cloud URLs work in dynamic mode');

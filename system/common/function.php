@@ -413,6 +413,15 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 		return $dynamic;
 	}
 
+	/* 模板日期输出：空值或无法解析时返回空串，避免 PHP 8.1+ 对 strtotime(null) 的弃用告警 */
+	function cms_date($value, string $format = 'm/d'): string {
+		if(!is_string($value) && !is_int($value)){return '';}
+		$value=trim((string)$value);
+		if($value==='' || str_starts_with($value,'0000-00-00')){return '';}
+		$timestamp=strtotime($value);
+		return $timestamp===false?'':date($format,$timestamp);
+	}
+
 	/* 字体转换 
 	    $content        内容 
 	    $to_encoding    目标编码，默认为UTF-8 

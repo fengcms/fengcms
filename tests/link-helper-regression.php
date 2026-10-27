@@ -30,4 +30,12 @@ foreach (['普通中文','C++','literal%2F','under_score'] as $keyword) {
         '/?controller=search&tags='.rawurlencode($keyword);
     if (search($keyword)!==$expected) { throw new RuntimeException('Ordinary keyword link changed.'); }
 }
-echo "PASS $mode links preserve model, category and keyword boundaries\n";
+if (cms_date(null)!=='' || cms_date('')!=='' || cms_date('   ')!=='' || cms_date('0000-00-00')!=='' ||
+    cms_date('0000-00-00 00:00:00')!=='' || cms_date('not-a-date')!=='' || cms_date([])!=='') {
+    throw new RuntimeException('Date helper must render an empty string for empty or invalid values.');
+}
+if (cms_date('2026-10-27')!==date('m/d',strtotime('2026-10-27')) ||
+    cms_date('2026-10-27','Y年m月d日')!==date('Y年m月d日',strtotime('2026-10-27'))) {
+    throw new RuntimeException('Date helper changed the expected format for a valid date.');
+}
+echo "PASS $mode links preserve model, category and keyword boundaries; date helper keeps empty and formatted output\n";

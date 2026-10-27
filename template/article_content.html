@@ -75,7 +75,7 @@
 				排序方法：按照id排序，倒序。
 				}-->
 				{loop l("article","w[classid='$classid'&&attrib_j=1&&status=1];f[title,html,date];n[10];s[id,1]") $k $v}
-				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				<li><span>{cms_date($v['date'])}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
 				{/loop}
 			</ul>
 		</div>
@@ -114,7 +114,7 @@
 				排序方法：按照hits排序，倒序。(hits字段存储的是点击次数)
 				}-->
 				{loop l("article","w[classid='$classid'&&attrib_r=1&&status=1];f[title,html,date];n[10];s[hits,1]") $k $v}
-				<li><span>{date('m/d',strtotime($v['date']))}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
+				<li><span>{cms_date($v['date'])}</span><a href="{url($v['html'])}">{$v['title']}</a></li>
 				{/loop}
 			</ul>
 		</div>
