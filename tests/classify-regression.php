@@ -67,3 +67,13 @@ if ($first !== $second || $after - $before !== 1) {
     throw new RuntimeException('Category descendants did not reuse the request snapshot.');
 }
 echo "PASS category descendants reuse the snapshot across model instances\n";
+
+$attribute = new ReflectionMethod(moduleModel::class, 'attrib');
+$available = $attribute->invoke(M('module'), 'article', 'tags');
+$before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+$again = $attribute->invoke(M('module'), 'article', 'tags');
+$after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'")[0]['Value'];
+if ($available !== $again || $after - $before !== 1) {
+    throw new RuntimeException('Model field capability was queried again in the same request.');
+}
+echo "PASS model field capability is reused across model instances\n";

@@ -14,6 +14,8 @@ class moduleModel extends model{
 	private $d_name		 = "module";
 
 	private $op			 = array();
+    /** @var array<string, array{revision:int, exists:bool}> */
+    private static array $attributeAvailability = [];
 /*
 	public function __construct(){
 		unset($this->options);
@@ -417,8 +419,15 @@ class moduleModel extends model{
 	}
 
 	private function attrib($project,$attrib){
-		
-		if(D("view_field")->where('project="'.$project.'" and name="'.$attrib.'"')->getcount()>0){
+        $key = hash('sha256', serialize([DB_HOST, DB_NAME, DB_PREFIX, $project, $attrib]));
+        $revision = model::requestWriteRevision();
+        if (!isset(self::$attributeAvailability[$key]) || self::$attributeAvailability[$key]['revision'] !== $revision) {
+            self::$attributeAvailability[$key] = [
+                'revision' => $revision,
+                'exists' => D('view_field')->where(['project'=>$project,'name'=>$attrib])->getcount() > 0,
+            ];
+        }
+        if(self::$attributeAvailability[$key]['exists']){
 
 			switch($attrib){
 
