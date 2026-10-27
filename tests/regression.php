@@ -91,6 +91,9 @@ try {
     $captchaCookies=[];
     expect_check(request('GET','/vccore.php',$captchaCookies)['status']===200,'visitor can request a captcha image');
     $visitorToken=visitor_token($captchaCookies);
+    expect_check(request('POST','/?controller=message&operate=save',$captchaCookies,
+        ['title'=>'no-csrf','content'=>'message'])['status']===403,
+        'public message submission requires CSRF');
     expect_check(request('POST','/?controller=home&operate=vccore',$captchaCookies,['param'=>'abcd'])['status']===403,
         'asynchronous captcha validation requires the visitor CSRF token');
     $arrayCaptcha=request('POST','/?controller=home&operate=vccore',$captchaCookies,
@@ -220,6 +223,11 @@ try {
     }
     expect_check(request('GET','/admin/index.php?controller=account&operate=add',$editorCookies)['status']===403,
         'editor cannot open account creation page');
+    $editorTemplates=request('GET','/admin/api/files.php?dir=',$editorCookies);
+    expect_check($editorTemplates['status']===200 &&
+        isset($editorTemplates['json']['file_list']) &&
+        !str_contains($editorTemplates['body'],'{$web='),
+        'editor template picker lists names without returning template source');
     expect_check(request('POST','/admin/index.php?controller=dbmanage&operate=download',$editorCookies,
         ['_csrf'=>$editorToken,'backup_id'=>str_repeat('0',32)])['status']===403,
         'editor cannot request backup download by direct POST');
@@ -1111,6 +1119,16 @@ try {
     expect_check(($message['status']??'')==='y' && (int)$savedMessage['status']===0 && $savedMessage['reply']===null && (int)$savedMessage['time']>1,'public message cannot set publication, reply or time');
     $messagePage=request('GET','/admin/index.php?controller=message',$cookies);
     expect_check(str_contains($messagePage['body'],'&lt;b data-probe=&quot;message&quot;&gt;') && !str_contains($messagePage['body'],'<b data-probe="message">'),'visitor message is escaped in admin');
+    $replyProbe='<img src=x onerror=alert(1)>';
+    $replyProbeUpdate=$db->prepare('UPDATE f_message SET reply=? WHERE id=?');
+    $replyProbeUpdate->bind_param('si',$replyProbe,$messageId);
+    $replyProbeUpdate->execute(); $replyProbeUpdate->close();
+    $replyPage=request('GET','/admin/index.php?controller=message&operate=reply&id='.$messageId,$cookies);
+    expect_check($replyPage['status']===200 &&
+        str_contains($replyPage['body'],'&lt;b data-probe=&quot;message&quot;&gt;') &&
+        str_contains($replyPage['body'],'&lt;img src=x onerror=alert(1)&gt;') &&
+        !str_contains($replyPage['body'],$replyProbe),
+        'admin reply form escapes visitor content and stored reply');
     $unansweredMessages=request('GET','/admin/index.php?controller=message&status=0',$cookies);
     expect_check($unansweredMessages['status']===200 && str_contains($unansweredMessages['body'],'message_'.$tag),
         'unanswered message filter still lists unpublished visitor messages');
