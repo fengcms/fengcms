@@ -20,6 +20,7 @@
 - [MS01 至 MS06 修复复审报告](MODEL_SCHEMA_RECHECK_2026-10-27.md)：五项关闭，MS06 仍有删除中途失败后排队保存产生缺表 500 的边界；附双引擎 HTTP 重放、真实 iframe 和升级验证。
 - [MS06 剩余问题关闭复验报告](MODEL_SCHEMA_MS06_CLOSURE_2026-10-27.md)：重放删除中途失败后的排队旧保存，覆盖 InnoDB、MyISAM 元数据及 MyISAM 内容表，确认锁后拒绝与删除续做，MS06 可以关闭。
 - [资源上传与内容引用一致性审阅](RESOURCE_UPLOAD_REFERENCE_REVIEW_2026-10-27.md)：两项 P2 与一项 P3，覆盖图片实际解码、多图已有值丢失、结果不确定重试，以及分页和缩略图资源上限实测。
+- [RA01 至 RA03 修复复审报告](RESOURCE_UPLOAD_RECHECK_2026-10-28.md)：三项原失败场景重放及关闭证据，附真实 iframe 无损保存、同次上传并发与落盘后故障恢复，以及升级依赖和验证边界。
 - [搜索与内容页兼容性修复结果](SEARCH_CONTENT_COMPATIBILITY_FIX_2026-10-27.md)：六项问题的处理、Nginx 与 Apache 实测及兼容边界。
 - [性能审阅落实记录](PERFORMANCE_OPTIMIZATION_2026-10-27.md)：开发方的实现说明、本地验证结果及搜索优化的测量边界。
 - [性能测量与优化判定](PERFORMANCE_MEASUREMENT_PLAN.md)：性能基线、执行计划、复测指标和优化合入门槛。
