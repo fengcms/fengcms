@@ -264,7 +264,7 @@ class moduleController extends Controller{
      * @return array
      */
 	public function save(){
-		echo json_encode(M($this->model)->save($_POST));
+        echo json_encode(M($this->model)->save($_POST, $_GET['project'] ?? null));
 	}
 
     /**

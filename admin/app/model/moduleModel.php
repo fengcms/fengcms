@@ -63,8 +63,14 @@ class moduleModel extends model{
      *
      * @return array
      */
-	public function save($array){
-		$project=$_GET['project'];
+	public function save($array, ?string $project = null){
+        // The optional fallback keeps existing PHP callers compatible while
+        // the controller passes the validated route value explicitly.
+        $project ??= $_GET['project'] ?? null;
+        if (!is_string($project) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $project)) {
+            cms_fail(400, '模型名称不正确。');
+        }
+        $updateTime = array_key_exists('time', $array);
 		$rawId=$array['id']??null;
 		if($rawId!==null && (!is_string($rawId) || !preg_match('/^[1-9][0-9]{0,9}$/D',$rawId))){cms_fail(400,'记录 ID 不正确。');}
 		$id=$rawId===null?null:(int)$rawId;
@@ -102,7 +108,7 @@ class moduleModel extends model{
 		if(($array['info']??null)==='' && isset($array['content'])){
 			$array['info']=mb_substr(compress_html(mbStrreplace(strip_tags($array['content']))),0,200,'utf8');
 		}
-		if(isset($physical['time']) && array_key_exists('time',$_POST)){$array['time']=time();}
+		if(isset($physical['time']) && $updateTime){$array['time']=time();}
 		if($id!==null){
 			$re=$array?D($project)->where(['id'=>$id])->update($array):false;
 		}else{
