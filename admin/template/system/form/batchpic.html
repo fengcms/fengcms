@@ -2,7 +2,7 @@
 <tr>
 	<th>{$item}{$v['aliases']}:</th>
 	<td>
-	<input type="text" name="{$v['name']}" id="{$v['name']}" value="{if $info[$v['name']]}{$info[$v['name']]}{/if}" class="inputxt" style="width:300px"/> <input type="button" id="{$v['name']}pic" data-cms-target="{$v['name']}" data-cms-kind="image" data-cms-multiple value="选择图片" class="admin_button inputxt" style="width:100px;height:30px;" />
+	<input type="text" name="{$v['name']}" id="{$v['name']}" value="{if $isEdit}{$info[$v['name']]}{/if}" class="inputxt" style="width:300px"/> <input type="button" id="{$v['name']}pic" data-cms-target="{$v['name']}" data-cms-kind="image" data-cms-multiple value="选择图片" class="admin_button inputxt" style="width:100px;height:30px;" />
 	</td>
 	<td></td>
 </tr>

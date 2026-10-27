@@ -104,6 +104,7 @@ class moduleController extends Controller{
 		$module=M($this->model)->findone(['project'=>$_GET['project']]);
 		$columns=D($_GET['project'])->getdbfields(DB_PREFIX.$_GET['project']);
 		$module['info']=array_fill_keys($columns,'');
+		$module['isEdit']=false;
 		return $this->display('module/add.html',$module);
 	}
 
@@ -123,7 +124,12 @@ class moduleController extends Controller{
      */
 	public function update(){
 		$_GET['classid']=$_GET['classid']??'0';
-		return $this->display('module/update.html',M($this->model)->findone(['project'=>$_GET['project']]));
+		$module=M($this->model)->findone(['project'=>$_GET['project']]);
+		$info=D($_GET['project'])->where(['id'=>(int)($_GET['id']??0)])->getone();
+		if(!$info){cms_fail(404,'内容不存在。');}
+		$module['info']=$info;
+		$module['isEdit']=true;
+		return $this->display('module/update.html',$module);
 
 	}
 

@@ -698,6 +698,24 @@ try {
     expect_check($badFieldStatus['status']===400 && $fieldStatusAfter===$fieldStatusBefore,
         'field state rejects values outside zero and one');
     expect_check($db->query("SHOW COLUMNS FROM `f_$moduleProject` LIKE '".$customFieldData['name']."'")->num_rows===1,'custom field creation updates the declared module table');
+    $zeroField='qa_zero_'.$tag;
+    $zeroFieldSave=request('POST',$fieldRoute.'&operate=save',$cookies,
+        ['_csrf'=>$newToken,'module_id'=>(string)$moduleFixtureId,'project'=>$moduleProject,
+            'name'=>$zeroField,'aliases'=>'数字零值','type'=>'18','defaults'=>'7']);
+    expect_check(($zeroFieldSave['json']['status']??'')==='y','numeric field with a nonzero default is created');
+    $db->query("INSERT INTO `f_$moduleProject` (title,status,`$zeroField`) VALUES ('zero_$tag',0,0)");
+    $zeroRecordId=$db->insert_id;
+    $zeroEdit=request('GET','/admin/index.php?controller=module&project='.$moduleProject.'&operate=update&id='.$zeroRecordId,$cookies);
+    expect_check($zeroEdit['status']===200 &&
+        preg_match('/name="'.preg_quote($zeroField,'/').'"[^>]*value="0"/',$zeroEdit['body'])===1 &&
+        preg_match('/name="status" value="0"/',$zeroEdit['body'])===1,
+        'custom model edit form retains numeric zero and draft status');
+    $zeroSave=request('POST','/admin/index.php?controller=module&project='.$moduleProject.'&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$zeroRecordId,'title'=>'zero_updated_'.$tag,
+            'status'=>'0',$zeroField=>'0']);
+    $zeroSaved=$db->query("SELECT status,`$zeroField` FROM `f_$moduleProject` WHERE id=$zeroRecordId")->fetch_assoc();
+    expect_check(($zeroSave['json']['status']??'')==='y' && (int)$zeroSaved['status']===0 &&
+        (string)$zeroSaved[$zeroField]==='0','custom model save retains numeric zero and draft status');
     $export=request('GET','/admin/index.php?controller=modulemanage&operate=elicit&id='.$moduleFixtureId,$cookies);
     $package=json_decode($export['body'],true);
     expect_check($export['status']===200 && ($package['format']??'')==='fengcms-model-v1' &&
@@ -825,6 +843,17 @@ try {
     $articleStmt=$db->prepare('INSERT INTO f_article (title,content,info,template,classid,status,time,date) VALUES (?,?,?,"/article_content.html","0",?,UNIX_TIMESTAMP(),CURDATE())');
     $status=1; $articleStmt->bind_param('sssi',$articleTitle,$rich,$tag,$status); $articleStmt->execute(); $articleId=$db->insert_id; $articleIds[]=$articleId;
     $status=0; $articleStmt->execute(); $draftId=$db->insert_id; $articleIds[]=$draftId;
+    $draftEdit=request('GET','/admin/index.php?controller=module&project=article&operate=update&id='.$draftId,$cookies);
+    expect_check($draftEdit['status']===200 &&
+        preg_match('/name="status" value="0"/',$draftEdit['body'])===1,
+        'article edit form retains the draft status instead of the publish default');
+    $draftSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$draftId,'title'=>$articleTitle,'status'=>'0',
+            'content'=>$rich.'<p>草稿修订</p>']);
+    expect_check(($draftSave['json']['status']??'')==='y' &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$draftId)->fetch_row()[0]===0 &&
+        request('GET','/?controller=content&project=article&id='.$draftId,$cookies)['status']===404,
+        'saving the rendered draft values does not publish the article');
     $shiftRoute='/admin/index.php?controller=module&project=article&operate=shift';
     expect_check(request('POST',$shiftRoute,$cookies,['_csrf'=>$newToken,'classid'=>(string)$categoryIds[0],'classarray'=>$articleId.' OR 1=1'])['status']===400,
         'article shift rejects injected ID lists');

@@ -1,5 +1,5 @@
 
 <tr>
 	<th>{$item}{$v['aliases']}:</th>
-	<td colspan="2"><textarea data-cms-editor class="{$v['name']}" id="{$v['name']}" name="{$v['name']}" style="width:98%;height:300px;">{if $info[$v['name']]}{$info[$v['name']]}{else}{$v['defaults']}{/if}</textarea></td>
+	<td colspan="2"><textarea data-cms-editor class="{$v['name']}" id="{$v['name']}" name="{$v['name']}" style="width:98%;height:300px;">{if $isEdit}{$info[$v['name']]}{else}{$v['defaults']}{/if}</textarea></td>
 </tr>

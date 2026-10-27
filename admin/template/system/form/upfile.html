@@ -2,7 +2,7 @@
 <tr>
 	<th>{$item}{$v['aliases']}:</th>
 	<td>
-	<input type="text" name="{$v['name']}" id="{$v['name']}" value="{if $info[$v['name']]}{$info[$v['name']]}{else}{$v['defaults']}{/if}" class="inputxt" style="width:300px" {if $v['must']=='0'}ignore="ignore"{/if} datatype="{$v['type_verification']}{$v['length']}" nullmsg="{if $v['nullmsg']}{$v['nullmsg']}{else}请填写信息！{/if}" errormsg="{if $v['errormsg']}{$v['errormsg']}{else}{$v['item']}{$v['aliases']}要{$v['length']}个字符！{/if}" /> <input type="button" id="{$v['name']}file" data-cms-target="{$v['name']}" data-cms-kind="file" value="选择文件" class="admin_button inputxt" style="width:100px;height:30px;" />
+	<input type="text" name="{$v['name']}" id="{$v['name']}" value="{if $isEdit}{$info[$v['name']]}{else}{$v['defaults']}{/if}" class="inputxt" style="width:300px" {if $v['must']=='0'}ignore="ignore"{/if} datatype="{$v['type_verification']}{$v['length']}" nullmsg="{if $v['nullmsg']}{$v['nullmsg']}{else}请填写信息！{/if}" errormsg="{if $v['errormsg']}{$v['errormsg']}{else}{$v['item']}{$v['aliases']}要{$v['length']}个字符！{/if}" /> <input type="button" id="{$v['name']}file" data-cms-target="{$v['name']}" data-cms-kind="file" value="选择文件" class="admin_button inputxt" style="width:100px;height:30px;" />
 	</td>
 	<td></td>
 </tr>
