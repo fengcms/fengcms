@@ -12,6 +12,7 @@
 - [R1 至 R4 修复复验报告](PERFORMANCE_R1_R4_RECHECK_2026-10-27.md)：最新修复的源码核对、原失败用例独立重放、真实导入并发验证与四项关闭结论。
 - [搜索、分页与内容页兼容性审阅](SEARCH_CONTENT_COMPATIBILITY_REVIEW_2026-10-27.md)：链接与路由往返、搜索页数边界、模型名大小写、缺失栏目处理及六项确认问题的验收要求。
 - [SC01 至 SC06 修复复审报告](SEARCH_CONTENT_COMPATIBILITY_RECHECK_2026-10-27.md)：六项原问题的逐项关闭证据、Nginx 与 Apache 实测，以及原有未提交配置引起的搜索词转义回归。
+- [后台内容管理数据一致性与异常恢复审阅](CONTENT_WRITE_CONSISTENCY_REVIEW_2026-10-27.md)：新增编辑、状态流转、批量及并发请求的八项实测问题、异常残留和开发验收要求。
 - [搜索与内容页兼容性修复结果](SEARCH_CONTENT_COMPATIBILITY_FIX_2026-10-27.md)：六项问题的处理、Nginx 与 Apache 实测及兼容边界。
 - [性能审阅落实记录](PERFORMANCE_OPTIMIZATION_2026-10-27.md)：开发方的实现说明、本地验证结果及搜索优化的测量边界。
 - [性能测量与优化判定](PERFORMANCE_MEASUREMENT_PLAN.md)：性能基线、执行计划、复测指标和优化合入门槛。
