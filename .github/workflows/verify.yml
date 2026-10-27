@@ -36,6 +36,8 @@ jobs:
         run: ./bin/dev check
       - name: HTTP 与数据库回归
         run: ./bin/dev test
+      - name: 核验真实 PHP Fatal 诊断
+        run: python3 tests/php-diagnostics-regression.py --live-php
       - name: 汇总 PHP Warning 与 Deprecated
         if: always()
         run: docker compose logs php | python3 tools/summarize-php-diagnostics.py --fail-on-diagnostics
