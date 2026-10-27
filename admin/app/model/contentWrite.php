@@ -6,11 +6,13 @@ final class ContentWriteLockTimeout extends RuntimeException {}
 /** Serializes content writes across administrator sessions, including legacy MyISAM tables. */
 final class ContentWrite
 {
+    private const BATCH_SECONDS = 12.0;
     private mysqli $db;
     private string $project;
     private string $table;
     private string $recycleTable;
     private string $requestTable;
+    private ?float $batchDeadline = null;
 
     public function __construct(string $project)
     {
@@ -32,8 +34,11 @@ final class ContentWrite
 
     private function locked(string $item, callable $work): mixed
     {
-        $key='fcw:'.substr(hash('sha256',DB_NAME.':'.DB_PREFIX.':'.$this->project.':'.$item),0,58);
-        $result=$this->db->execute_query('SELECT GET_LOCK(?,5)',[$key])->fetch_row();
+        $scope=$item==='category:relations'?'all-categories':$this->project;
+        $key='fcw:'.substr(hash('sha256',DB_NAME.':'.DB_PREFIX.':'.$scope.':'.$item),0,58);
+        $remaining=$this->batchDeadline===null?5.0:max(0.0,$this->batchDeadline-microtime(true));
+        if ($remaining<=0) { throw new ContentWriteLockTimeout('批量操作等待时间已用尽。'); }
+        $result=$this->db->execute_query('SELECT GET_LOCK(?,?)',[$key,min(5.0,$remaining)])->fetch_row();
         if ((int)($result[0]??0)!==1) { throw new ContentWriteLockTimeout('内容正在由其他请求处理，请稍后重试。'); }
         try { return $work(); }
         finally { $this->db->execute_query('SELECT RELEASE_LOCK(?)',[$key]); }
@@ -46,7 +51,7 @@ final class ContentWrite
         catch (ContentWriteLockTimeout $e) { cms_fail(409,$e->getMessage()); }
     }
 
-    /** Category deletion and content writes for a model share this short-lived lock. */
+    /** Every category mutation and content association shares one lock across models. */
     public static function categoryLocked(string $project,callable $work): mixed
     {
         return (new self($project))->locked('category:relations',$work);
@@ -149,13 +154,22 @@ final class ContentWrite
 
     public function batch(array $ids,string $action,?string $attribute=null): array
     {
-        $result=['changed'=>[],'already'=>[],'missing'=>[],'failed'=>[]];
-        foreach ($ids as $id) {
-            try { $result[$this->change((int)$id,$action,$attribute)][]=(int)$id; }
-            catch (ContentWriteLockTimeout $e) { $result['failed'][]=(int)$id; }
-            catch (Throwable $e) { error_log('Content batch write failed: '.$e); $result['failed'][]=(int)$id; }
+        $result=['changed'=>[],'already'=>[],'missing'=>[],'failed'=>[],'unprocessed'=>[]];
+        $this->batchDeadline=microtime(true)+self::BATCH_SECONDS;
+        try {
+            foreach ($ids as $index=>$id) {
+                if (microtime(true)>=$this->batchDeadline) {
+                    $result['unprocessed']=array_map('intval',array_slice($ids,$index));
+                    break;
+                }
+                try { $result[$this->change((int)$id,$action,$attribute)][]=(int)$id; }
+                catch (ContentWriteLockTimeout $e) { $result['failed'][]=(int)$id; }
+                catch (Throwable $e) { error_log('Content batch write failed: '.$e); $result['failed'][]=(int)$id; }
+            }
+        } finally {
+            $this->batchDeadline=null;
         }
-        $result['status']=$result['failed'] || $result['missing'] ? 'p' : 'y';
+        $result['status']=$result['failed'] || $result['missing'] || $result['unprocessed'] ? 'p' : 'y';
         return $result;
     }
 

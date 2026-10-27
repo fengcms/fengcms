@@ -73,12 +73,14 @@ function finish_async_request($socket,int $timeout=20): array {
     return ['status'=>(int)($status[1]??0),'body'=>$parts[1]??'','timed_out'=>$timedOut];
 }
 function with_content_test_lock(mysqli $db,string $project,string $item,callable $work): mixed {
+    if($item==='category:relations'){$project='all-categories';}
     $key='fcw:'.substr(hash('sha256',(getenv('DB_NAME')?:'fengcms').':'.(getenv('DB_PREFIX')?:'f_').':'.$project.':'.$item),0,58);
     if((int)$db->execute_query('SELECT GET_LOCK(?,0)',[$key])->fetch_row()[0]!==1){throw new RuntimeException('Test lock is busy.');}
     try{return $work();}
     finally{$db->execute_query('SELECT RELEASE_LOCK(?)',[$key]);}
 }
 function wait_for_content_lock(mysqli $db,string $project,string $item): void {
+    if($item==='category:relations'){$project='all-categories';}
     $key='fcw:'.substr(hash('sha256',(getenv('DB_NAME')?:'fengcms').':'.(getenv('DB_PREFIX')?:'f_').':'.$project.':'.$item),0,58);
     for($attempt=0;$attempt<100;$attempt++){
         $count=(int)$db->execute_query("SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE COMMAND='Execute' AND INFO LIKE ?",
@@ -1153,6 +1155,66 @@ try {
     expect_check($blockedCategoryDelete['status']===409 &&
         $db->query('SELECT id FROM f_classify WHERE id='.$raceGuardCategory)->num_rows===1,
         'category deletion respects the same relation lock as content writers');
+    foreach(['delete','batch','emptys'] as $treeAction){
+        $makeCategory=function(string $project,int $parent,string $suffix) use (&$cookies,$newToken,$tag,&$categoryIds): int {
+            $saved=request('POST','/admin/index.php?controller=classify&operate=save',$cookies,
+                ['_csrf'=>$newToken,'genre'=>'one','type'=>'module','project'=>$project,
+                    'name'=>'tree_'.$tag.'_'.$suffix,'enname'=>'tree_'.$tag.'_'.$suffix,
+                    'classid'=>(string)$parent,'nav'=>'0']);
+            $id=(int)($saved['json']['id']??0);
+            expect_check($saved['status']===200 && ($saved['json']['status']??'')==='y' && $id>0,
+                'backend accepts cross-model category '.$suffix);
+            $categoryIds[]=$id;
+            return $id;
+        };
+        $treeParent=$makeCategory($moduleProject,0,$treeAction.'_parent');
+        $treeChild=$makeCategory('article',$treeParent,$treeAction.'_child');
+        $treeGrandchild=$makeCategory($moduleProject,$treeChild,$treeAction.'_grandchild');
+        $db->query("INSERT INTO `f_$moduleProject` (title,status,classid) VALUES ('tree_root_$tag',1,$treeParent)");
+        $treeRootContent=$db->insert_id;
+        $db->query("INSERT INTO f_article (title,status,classid) VALUES ('tree_$tag',1,$treeChild)");
+        $treeArticle=$db->insert_id; $articleIds[]=$treeArticle;
+        $db->query("INSERT INTO `f_$moduleProject` (title,status,classid) VALUES ('tree_$tag',1,$treeGrandchild)");
+        $treeModule=$db->insert_id;
+        if($treeAction==='delete'){
+            $crossModelBlocked=with_content_test_lock($db,'article','category:relations',
+                fn()=>request('POST','/admin/index.php?controller=classify&operate=delete&id='.$treeParent,
+                    $versionCookies,['_csrf'=>$versionCsrf]));
+            expect_check($crossModelBlocked['status']===409 &&
+                $db->query('SELECT id FROM f_classify WHERE id='.$treeChild)->num_rows===1,
+                'child-model relationship lock blocks a different-model parent deletion');
+            $treeEdit=request('GET','/admin/index.php?controller=module&project=article&operate=update&id='.$treeArticle,$cookies);
+            preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$treeEdit['body'],$treeToken);
+            expect_check(isset($treeToken[1]),'cross-model edit fixture has a token');
+            [$treeSocket,$treeRemoval]=with_content_test_lock($db,'article','row:'.$treeArticle,
+                function() use ($db,$treeArticle,$treeToken,$treeChild,$treeParent,&$cookies,$newToken,&$versionCookies,$versionCsrf){
+                    $socket=start_async_request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+                        ['_csrf'=>$newToken,'id'=>(string)$treeArticle,'_write_token'=>$treeToken[1],
+                            'classid'=>(string)$treeChild]);
+                    wait_for_content_lock($db,'article','row:'.$treeArticle);
+                    $removed=request('POST','/admin/index.php?controller=classify&operate=delete&id='.$treeParent,
+                        $versionCookies,['_csrf'=>$versionCsrf]);
+                    return [$socket,$removed];
+                });
+            $treeEditResult=finish_async_request($treeSocket);
+            expect_check($treeRemoval['status']===200 && in_array($treeEditResult['status'],[400,409],true),
+                'cross-model parent deletion prevents a waiting child-model edit from saving a dangling category');
+        }elseif($treeAction==='batch'){
+            $treeRemoval=request('POST','/admin/index.php?controller=classify&operate=batch',$cookies,
+                ['_csrf'=>$newToken,'classify'=>[(string)$treeParent]]);
+            expect_check(($treeRemoval['json']['status']??'')==='y','cross-model parent batch deletion succeeds');
+        }else{
+            $treeRemoval=request('POST','/admin/index.php?controller=classify&operate=emptys&id='.$treeParent,
+                $cookies,['_csrf'=>$newToken]);
+            expect_check($treeRemoval['status']===200,'cross-model parent clear succeeds');
+        }
+        $remainingCategories=$db->query('SELECT id FROM f_classify WHERE id IN ('.$treeParent.','.$treeChild.','.$treeGrandchild.')')->num_rows;
+        expect_check($remainingCategories===($treeAction==='emptys'?3:0) &&
+            $db->query("SELECT id FROM `f_$moduleProject` WHERE id=$treeRootContent")->num_rows===0 &&
+            $db->query('SELECT id FROM f_article WHERE id='.$treeArticle)->num_rows===0 &&
+            $db->query("SELECT id FROM `f_$moduleProject` WHERE id=$treeModule")->num_rows===0,
+            'cross-model '.$treeAction.' handles each descendant in its own model');
+    }
     $createPage=request('GET','/admin/index.php?controller=module&project=article&operate=add',$cookies);
     preg_match('/name="_create_key" value="([a-f0-9]{32})"/',$createPage['body'],$createMatch);
     expect_check(isset($createMatch[1]),'add form provides a distinct creation request key');
@@ -1269,6 +1331,33 @@ try {
     expect_check(($deleteRetry['json']['changed']??[])===[$lockIds[2]] &&
         ($deleteRetry['json']['missing']??[])===[$lockIds[0],$lockIds[1]],
         'permanent delete retry reports completed and missing IDs');
+    $budgetIds=[];
+    for($i=0;$i<5;$i++){
+        $db->query("INSERT INTO f_article (title,status) VALUES ('budget_$tag',1)");
+        $budgetIds[]=$db->insert_id; $articleIds[]=$db->insert_id;
+    }
+    $budgetSelection=[...$budgetIds,...range(2000000000,2000000494)];
+    $budgetStarted=microtime(true);
+    $budgetResult=with_content_test_lock($db,'article','row:'.$budgetIds[1],
+        fn()=>with_content_test_lock($db,'article','row:'.$budgetIds[2],
+            fn()=>with_content_test_lock($db,'article','row:'.$budgetIds[3],
+                fn()=>request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+                    ['_csrf'=>$newToken,'method'=>'recover','record'=>array_map('strval',$budgetSelection)]))));
+    $budgetElapsed=microtime(true)-$budgetStarted;
+    expect_check($budgetResult['status']===200 && ($budgetResult['json']['status']??'')==='p' &&
+        ($budgetResult['json']['changed']??[])===[$budgetIds[0]] &&
+        ($budgetResult['json']['failed']??[])===array_slice($budgetIds,1,3) &&
+        ($budgetResult['json']['unprocessed']??[])===array_slice($budgetSelection,4) &&
+        $budgetElapsed<19 &&
+        array_map(static fn($id)=>(int)$db->query('SELECT status FROM f_article WHERE id='.$id)->fetch_row()[0],$budgetIds)
+            ===[-1,1,1,1,1],
+        '500-ID batch returns before the HTTP timeout with completed, failed and unprocessed IDs');
+    $budgetRetry=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'recover','record'=>array_map('strval',$budgetIds)]);
+    expect_check($budgetRetry['status']===200 &&
+        ($budgetRetry['json']['already']??[])===[$budgetIds[0]] &&
+        ($budgetRetry['json']['changed']??[])===array_slice($budgetIds,1),
+        'batch retry completes the previously failed and unprocessed IDs exactly once');
     $db->query("INSERT INTO f_article (title,status) VALUES ('single_lock_$tag',1)");
     $singleLockId=$db->insert_id; $articleIds[]=$singleLockId;
     $singleTimeout=with_content_test_lock($db,'article','row:'.$singleLockId,
