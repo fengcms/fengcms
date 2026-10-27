@@ -17,6 +17,7 @@
 - [CM03 与 CM07 剩余问题再复审](CONTENT_WRITE_CM03_CM07_RECHECK_2026-10-27.md)：原最小复现已修复；累积锁等待的 HTTP 超时及跨模型子树删除仍需处理，附独立实测和验收要求。
 - [CM03 与 CM07 关闭复验报告](CONTENT_WRITE_CM03_CM07_CLOSURE_2026-10-27.md)：重放原 14 条累计等待及跨模型 SQL 行锁场景，确认两项关闭，记录重试、多级删除清空和验证边界。
 - [模型与自定义字段结构一致性审阅](MODEL_SCHEMA_REVIEW_2026-10-27.md)：六项确认问题，覆盖 DDL 与配置分步失败、批量列冲突、模型删除残留及导入和内容保存并发，附双引擎实测与修复验收要求。
+- [MS01 至 MS06 修复复审报告](MODEL_SCHEMA_RECHECK_2026-10-27.md)：五项关闭，MS06 仍有删除中途失败后排队保存产生缺表 500 的边界；附双引擎 HTTP 重放、真实 iframe 和升级验证。
 - [搜索与内容页兼容性修复结果](SEARCH_CONTENT_COMPATIBILITY_FIX_2026-10-27.md)：六项问题的处理、Nginx 与 Apache 实测及兼容边界。
 - [性能审阅落实记录](PERFORMANCE_OPTIMIZATION_2026-10-27.md)：开发方的实现说明、本地验证结果及搜索优化的测量边界。
 - [性能测量与优化判定](PERFORMANCE_MEASUREMENT_PLAN.md)：性能基线、执行计划、复测指标和优化合入门槛。
