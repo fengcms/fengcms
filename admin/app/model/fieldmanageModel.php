@@ -161,7 +161,14 @@ class fieldmanageModel{// extends model{
         $id=$array['id']??'';
         if($id){
             $exists=D($this->d_name)->where(['id'=>$id])->getone();
-            unset($array['id'],$array['project']);
+            // Physical column identity and ordering have dedicated operations.
+            // Only metadata exposed by the edit form may be changed here.
+            $array=array_intersect_key($array,array_fill_keys([
+                'aliases','defaults','must','length','enable','search','nullmsg','errormsg'
+            ],true));
+            foreach($array as $value){
+                if(!is_string($value) && !is_int($value)){cms_fail(400,'字段内容不正确。');}
+            }
             $array['enable']=empty($array['enable'])?0:1;
             $array['search']=empty($array['search'])?0:1;
             $saved=$exists && D($this->d_name)->where(['id'=>$id])->update($array)>=0;

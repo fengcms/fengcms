@@ -641,6 +641,17 @@ try {
     $customFieldData=['_csrf'=>$newToken,'module_id'=>$moduleFixtureId,'project'=>$moduleProject,'name'=>'qa_extra_'.$tag,'aliases'=>'回归字段','type'=>'17'];
     $customFieldSave=request('POST',$fieldRoute.'&operate=save',$cookies,$customFieldData);
     expect_check(($customFieldSave['json']['status']??'')==='y' && (int)($customFieldSave['json']['id']??0)>0,'custom field creation returns its real record ID');
+    $customFieldId=(int)$customFieldSave['json']['id'];
+    $fieldBefore=$db->query('SELECT name,module_id,type,sort,status FROM f_module_field WHERE id='.$customFieldId)->fetch_assoc();
+    $fieldEdit=request('POST',$fieldRoute.'&operate=save',$cookies,[
+        '_csrf'=>$newToken,'id'=>(string)$customFieldId,'project'=>$moduleProject,
+        'aliases'=>'更新后的字段','name'=>'forged_name','module_id'=>'0',
+        'type'=>'999','sort'=>'999','status'=>'0',
+    ]);
+    $fieldAfter=$db->query('SELECT name,module_id,type,sort,status,aliases FROM f_module_field WHERE id='.$customFieldId)->fetch_assoc();
+    expect_check(($fieldEdit['json']['status']??'')==='y' && $fieldAfter['aliases']==='更新后的字段' &&
+        array_intersect_key($fieldAfter,$fieldBefore)===$fieldBefore,
+        'field edits ignore forged physical identity, ownership and ordering');
     $fieldStatusBefore=$db->query('SELECT status FROM f_module_field WHERE id='.(int)$customFieldSave['json']['id'])->fetch_row()[0];
     $badFieldStatus=request('POST',$fieldRoute.'&operate=enable&id='.$customFieldSave['json']['id'].'&status=2',
         $cookies,['_csrf'=>$newToken]);
