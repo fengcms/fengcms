@@ -216,11 +216,21 @@ class template{
                     ? '<?php echo cms_escape(cms_safe_url('.$call.')); ?>'
                     : '<?php echo '.$call.'; ?>';
             }, $s);
+        // Keep loop values in distinct compiler-owned variables so calls in the
+        // expression run once, including when loops are nested.
+        $loopIndex = 0;
+        $loopPrefix = '$__fengcms_loop_'.substr(hash('sha256', $tpl_file), 0, 16).'_';
         for ($i = 0; $i <= 5; $i++) {
             $s = preg_replace_callback('/[\n\r\t]*\{loop\s+(\S+)\s+(\S+)\}\s*(.+?)\s*\{\/loop\}[\n\r\t]*/is',
-                static fn($m) => '<?php if (is_array('.$m[1].' ?? null)) { foreach ('.$m[1].' as '.$m[2].') { ?>'.$m[3].'<?php }} ?>', $s);
+                static function ($m) use (&$loopIndex, $loopPrefix) {
+                    $value = $loopPrefix.++$loopIndex;
+                    return '<?php '.$value.' = '.$m[1].' ?? null; if (is_array('.$value.')) { foreach ('.$value.' as '.$m[2].') { ?>'.$m[3].'<?php }} unset('.$value.'); ?>';
+                }, $s);
             $s = preg_replace_callback('/[\n\r\t]*\{loop\s+(\S+)\s+(\S+)\s+(\S+)\}\s*(.+?)\s*\{\/loop\}[\n\r\t]*/is',
-                static fn($m) => '<?php if (is_array('.$m[1].' ?? null)) { foreach ('.$m[1].' as '.$m[2].' => '.$m[3].') { ?>'.$m[4].'<?php }} ?>', $s);
+                static function ($m) use (&$loopIndex, $loopPrefix) {
+                    $value = $loopPrefix.++$loopIndex;
+                    return '<?php '.$value.' = '.$m[1].' ?? null; if (is_array('.$value.')) { foreach ('.$value.' as '.$m[2].' => '.$m[3].') { ?>'.$m[4].'<?php }} unset('.$value.'); ?>';
+                }, $s);
             $s = preg_replace_callback('/[\n\r\t]*\{if\s+(.+?)\}(\s*)(.+?)(\s*)\{\/if\}[\n\r\t]*/is',
                 static fn($m) => '<?php if ('.$m[1].') { ?>'.$m[2].$m[3].$m[4].'<?php } ?>', $s);
         }

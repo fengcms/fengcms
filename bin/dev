@@ -35,6 +35,7 @@ case "${1:-up}" in
     logs) docker compose logs --tail=100 "${2:-php}" ;;
     check) docker compose exec -T php php tools/check.php ;;
     test)
+        docker compose exec -T php php tests/template-compiler-regression.php
         docker compose exec -T php php tests/driver-regression.php
         docker compose exec -T php php tests/regression.php
         sh tests/backup-import-regression.sh
