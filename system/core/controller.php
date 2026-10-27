@@ -42,6 +42,10 @@ class controller{
 			$topid=$topid??0;
 			$template=$template??'';
 			$content_template=$content_template??'';
+            // GET controllers have completed routing, authentication and any
+            // search-window write by the time rendering begins. Templates may
+            // still read the in-memory token after the file lock is released.
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { cms_session_release(); }
 			include template::tpl($path);
 		}
 	}

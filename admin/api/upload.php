@@ -3,6 +3,7 @@ require_once dirname(__DIR__, 2).'/system/common/security.php';
 cms_session_start();
 cms_admin_required();
 cms_post_required();
+cms_session_release();
 header('Cache-Control: no-store');
 
 $file = $_FILES['imgFile'] ?? null;

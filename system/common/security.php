@@ -19,6 +19,12 @@ function cms_session_start(): void
     }
 }
 
+/** Persist completed session writes before a read-only or slow phase. */
+function cms_session_release(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
+}
+
 function cms_fail(int $status, string $message): never
 {
     http_response_code($status);

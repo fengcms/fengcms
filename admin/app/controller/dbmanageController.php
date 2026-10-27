@@ -101,6 +101,7 @@ class dbmanageController extends Controller
             cms_fail(400,'导入预览已过期或未确认，请重新选择备份。');
         }
         unset($_SESSION['db_import_preview']);
+        cms_session_release();
         $kind=$preview['kind']??null; $id=$preview['id']??null;
         $path=null;
         try {
@@ -131,6 +132,7 @@ class dbmanageController extends Controller
 
     public function create(): void
     {
+        cms_session_release();
         try {
             CmsBackup::create();
             header('Location: ?controller=dbmanage&operate=dbmanages&created=1', true, 303);
@@ -149,6 +151,7 @@ class dbmanageController extends Controller
         catch (Throwable $e) { cms_fail(404, $e->getMessage()); }
         $handle = fopen($file, 'rb');
         if ($handle === false) { cms_fail(500, '备份文件无法读取。'); }
+        cms_session_release();
         while (ob_get_level() > 0) { ob_end_clean(); }
         header('Content-Type: application/octet-stream');
         header('Content-Disposition: attachment; filename="fengcms-'.$id.'.sql"');

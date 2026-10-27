@@ -2,7 +2,7 @@
 require_once dirname(__DIR__, 2).'/system/common/security.php';
 cms_session_start();
 cms_admin_required();
-session_write_close();
+cms_session_release();
 $relative=$_GET['path'] ?? null;
 if (!is_string($relative) || $relative==='') { cms_fail(400,'图片路径不正确。'); }
 $path=cms_path_within(dirname(__DIR__,2).'/upload/image',$relative);

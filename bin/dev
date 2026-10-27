@@ -39,6 +39,7 @@ case "${1:-up}" in
         docker compose exec -T php php tests/model-state-regression.php
         docker compose exec -T php php tests/classify-regression.php
         docker compose exec -T php php tests/admin-classify-tree-regression.php
+        docker compose exec -T php php tests/session-release-regression.php
         docker compose exec -T php php tests/driver-regression.php
         docker compose exec -T php php tests/regression.php
         sh tests/backup-import-regression.sh

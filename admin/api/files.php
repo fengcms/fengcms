@@ -2,6 +2,7 @@
 require_once dirname(__DIR__, 2).'/system/common/security.php';
 cms_session_start();
 cms_admin_required();
+cms_session_release();
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store');
 $dir = $_GET['dir'] ?? '';
