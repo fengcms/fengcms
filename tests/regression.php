@@ -1518,14 +1518,51 @@ try {
     $modelTrigger='qa_ms_model_'.$tag; $schemaTriggers[]=$modelTrigger;
     $db->query("CREATE TRIGGER `$modelTrigger` BEFORE DELETE ON f_module FOR EACH ROW
         BEGIN IF OLD.id=$schemaId THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='schema regression'; END IF; END");
-    $modelFault=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
-        $cookies,['_csrf'=>$newToken]);
-    expect_check($modelFault['status']===409 &&
+    $queuedEditPage=request('GET','/admin/index.php?controller=module&project='.$schemaProject.
+        '&operate=update&id='.$schemaRow,$parallelCookies);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$queuedEditPage['body'],$queuedWriteToken);
+    expect_check(isset($queuedWriteToken[1]),'queued content edit has a valid second-session write token');
+    $pauseTrigger='qa_ms_pause_'.$tag; $schemaTriggers[]=$pauseTrigger;
+    $barrier='qa_ms_barrier_'.$tag;
+    $db->query("CREATE TRIGGER `$pauseTrigger` BEFORE INSERT ON f_model_schema_operation FOR EACH ROW
+        BEGIN IF NEW.project='$schemaProject' AND NEW.action='model_delete'
+            THEN DO GET_LOCK('$barrier',10); DO RELEASE_LOCK('$barrier'); END IF; END");
+    $db->execute_query('SELECT GET_LOCK(?,0)',[$barrier]);
+    $modelFaultSocket=null; $queuedSaveSocket=null; $saveReachedLock=false;
+    try{
+        $modelFaultSocket=start_async_request('POST',
+            '/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
+            $cookies,['_csrf'=>$newToken]);
+        $modelKey='fengcms_model_'.substr(hash('sha256',(getenv('DB_NAME')?:'fengcms').':'.$schemaProject),0,40);
+        $deleteHasLock=false;
+        for($attempt=0;$attempt<100;$attempt++){
+            $deleteHasLock=$db->execute_query('SELECT IS_USED_LOCK(?)',[$modelKey])->fetch_row()[0]!==null;
+            if($deleteHasLock){break;}
+            usleep(20000);
+        }
+        expect_check($deleteHasLock,'model deletion holds the lifecycle lock before queued content edit');
+        $queuedSaveSocket=start_async_request('POST',
+            '/admin/index.php?controller=module&project='.$schemaProject.'&operate=save',
+            $parallelCookies,['_csrf'=>$parallelCsrf,'id'=>(string)$schemaRow,
+                '_write_token'=>$queuedWriteToken[1],'title'=>'must not save after DROP']);
+        for($attempt=0;$attempt<100;$attempt++){
+            $saveReachedLock=(int)$db->execute_query(
+                'SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID<>CONNECTION_ID() AND INFO LIKE ? AND INFO LIKE ?',
+                ['%GET_LOCK%','%'.$modelKey.'%'])->fetch_row()[0]>0;
+            if($saveReachedLock){break;}
+            usleep(20000);
+        }
+    }finally{$db->execute_query('SELECT RELEASE_LOCK(?)',[$barrier]);}
+    $modelFault=finish_async_request($modelFaultSocket);
+    $queuedSave=finish_async_request($queuedSaveSocket);
+    $db->query('DROP TRIGGER `'.$pauseTrigger.'`');
+    expect_check($saveReachedLock && $modelFault['status']===409 && $queuedSave['status']===409 &&
         $db->query("SHOW TABLES LIKE 'f_$schemaProject'")->num_rows===0 &&
-        $db->query('SELECT id FROM f_module WHERE id='.$schemaId)->num_rows===1 &&
+        (int)$db->query('SELECT status FROM f_module WHERE id='.$schemaId)->fetch_row()[0]===-2 &&
         (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=? AND action=?',
             [$schemaProject,'model_delete'])->fetch_row()[0]===1,
-        'model deletion failure after DROP retains a resumable identity-bound journal');
+        'queued content edit returns 409 after partial model deletion instead of reading a dropped table'.
+            ' (wait='.($saveReachedLock?'yes':'no').', delete='.$modelFault['status'].', save='.$queuedSave['status'].')');
     $db->query('DROP TRIGGER `'.$modelTrigger.'`');
     $modelRetry=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
         $cookies,['_csrf'=>$newToken]);

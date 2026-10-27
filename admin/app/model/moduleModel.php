@@ -65,9 +65,9 @@ class moduleModel extends model{
                 return $this->save($array,$project);
             });
         }
-        if(!D('module')->where(['project'=>$project])->getone()){
-            cms_fail(409,'模型已删除，请刷新后重试。');
-        }
+        $module=D('module')->where(['project'=>$project])->getone();
+        CmsModelSchema::assertUsable(CmsModelSchema::heldConnection($project),$project,
+            $module?(int)$module['id']:null);
         $updateTime = array_key_exists('time', $array);
 		$rawId=$array['id']??null;
 		if($rawId!==null && (!is_string($rawId) || !preg_match('/^[1-9][0-9]{0,9}$/D',$rawId))){cms_fail(400,'记录 ID 不正确。');}
@@ -193,9 +193,9 @@ class moduleModel extends model{
                 return $this->batchsave($arr);
             });
         }
-        if(!D('module')->where(['project'=>$project])->getone()){
-            cms_fail(409,'模型已删除，请刷新后重试。');
-        }
+        $module=D('module')->where(['project'=>$project])->getone();
+        CmsModelSchema::assertUsable(CmsModelSchema::heldConnection($project),$project,
+            $module?(int)$module['id']:null);
 		$batch=$arr['batch']??null;
 		if(!is_string($batch) || $batch===''){cms_fail(400,'批量内容不正确。');}
 		$rows=[];

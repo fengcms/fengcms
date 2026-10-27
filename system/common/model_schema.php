@@ -105,6 +105,19 @@ final class CmsModelSchema
             [DB_NAME,DB_PREFIX.$project,$name])->fetch_row();
     }
 
+    /** Recheck a request's original model after acquiring its lifecycle lock. */
+    public static function assertUsable(mysqli $db,string $project,?int $expectedId): void
+    {
+        $module=$db->execute_query('SELECT id,status FROM '.self::table('module').' WHERE project=?',
+            [$project])->fetch_assoc();
+        if($expectedId===null || !$module || (int)$module['id']!==$expectedId){
+            cms_fail(409,'模型已变更，请刷新页面后重试。');
+        }
+        if((int)$module['status']<0 || self::pending($db,$project) || !self::tableExists($db,$project)){
+            cms_fail(409,'模型结构操作尚未完成，请稍后重试。');
+        }
+    }
+
     /** Must be called under the project's lifecycle lock and the category relation lock. */
     public static function deleteModel(mysqli $db,int $id,string $project): void
     {

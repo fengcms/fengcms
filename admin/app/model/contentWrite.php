@@ -42,11 +42,8 @@ final class ContentWrite
             return CmsModelSchema::withLock($this->project,fn()=> $this->locked($item,$work));
         }
         if($item!=='category:relations'){
-            $module=$this->db->execute_query('SELECT id,status FROM '.self::tableName('module').
-                ' WHERE project=?',[$this->project])->fetch_row();
-            if($this->moduleId===null || !$module || (int)$module[0]!==$this->moduleId || (int)$module[1]<0){
-                cms_fail(409,'模型已变更，请刷新页面后重试。');
-            }
+            CmsModelSchema::assertUsable(CmsModelSchema::heldConnection($this->project),
+                $this->project,$this->moduleId);
         }
         $scope=$item==='category:relations'?'all-categories':$this->project;
         $key='fcw:'.substr(hash('sha256',DB_NAME.':'.DB_PREFIX.':'.$scope.':'.$item),0,58);

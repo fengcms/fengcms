@@ -120,6 +120,17 @@ try{
     check_schema($partial && $db->query("SHOW TABLES LIKE 'f_$project'")->num_rows===0 &&
         $db->query('SELECT id FROM f_module WHERE id='.$moduleId)->num_rows===1,
         'MyISAM model deletion fault retains a resumable identity journal');
+    $_GET['project']=$project;
+    $blockedSave=$blockedBatch=$blockedDirect=false;
+    try{M('module')->save(['title'=>'stale content'],$project);}
+    catch(SchemaTestHttpError $e){$blockedSave=$e->httpStatus===409;}
+    try{M('module')->batchsave(['batch'=>'stale content|https://example.test/']);}
+    catch(SchemaTestHttpError $e){$blockedBatch=$e->httpStatus===409;}
+    try{(new ContentWrite($project))->edit(1,[],str_repeat('a',64));}
+    catch(SchemaTestHttpError $e){$blockedDirect=$e->httpStatus===409;}
+    check_schema($blockedSave && $blockedBatch && $blockedDirect &&
+        (int)$db->query('SELECT status FROM f_module WHERE id='.$moduleId)->fetch_row()[0]===-2,
+        'MyISAM incomplete deletion blocks content save, batch and direct writer before missing-table SQL');
     $db->query('DROP TRIGGER qa_module_del');
     CmsModelSchema::withLock($project,fn(mysqli $lockDb)=>
         ContentWrite::categoryLocked($project,fn()=>CmsModelSchema::deleteModel($lockDb,$moduleId,$project)));
