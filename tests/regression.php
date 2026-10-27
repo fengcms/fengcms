@@ -4,6 +4,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 ob_start();
 require dirname(__DIR__).'/tools/migrate.php';
 require_once dirname(__DIR__).'/system/common/filter.php';
+require_once dirname(__DIR__).'/system/common/richtext.php';
 $db = migration_connection();
 if (!$db->query("SHOW TABLES LIKE 'f_dev_meta'")->num_rows) {
     exit("Refusing mutation tests outside the disposable development database.\n");
@@ -848,6 +849,9 @@ try {
         str_contains($importedCopyrightPage['body'],'保留段落') &&
         $db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_row()[0]===$importedCopyright,
         'imported copyright is cleaned only for rendering and not rewritten in storage');
+    expect_check(cms_clean_copyright('<p>安全内容</p><script>bad()</script>')==='<p>安全内容</p>' &&
+        cms_clean_copyright(str_repeat('X',2*1024*1024+1))==='',
+        'copyright rendering filters scripts and degrades safely for oversized custom fields');
     $restoreCopyright=$db->prepare('UPDATE f_base SET copyright=?');
     $restoreCopyright->bind_param('s',$copyright); $restoreCopyright->execute();
 

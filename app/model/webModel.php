@@ -19,7 +19,7 @@ class webModel extends model{
 		$this->information=$this->getone();
         // Imported or older database rows may predate write-time sanitization.
         // Clean only the rendered copy; do not rewrite stored content here.
-        $this->information['copyright']=cms_html(cms_clean_html((string)($this->information['copyright'] ?? '')));
+        $this->information['copyright']=cms_html(cms_clean_copyright($this->information['copyright'] ?? ''));
 	}
 }
 

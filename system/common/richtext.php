@@ -22,6 +22,28 @@ function cms_clean_html($html): string
     return $purifier->purify($html);
 }
 
+// Legacy/imported copyright is untrusted until it has passed the current
+// HTML policy. The content hash invalidates the optional cache on every edit.
+function cms_clean_copyright($value): string
+{
+    $html=(string)($value ?? '');
+    if (strlen($html)>2*1024*1024) {
+        error_log('Oversized base.copyright omitted from public rendering.');
+        return '';
+    }
+    static $lastInput=null, $lastResult=null;
+    if ($lastInput===$html) { return $lastResult; }
+    $key='fengcms:copyright:purifier-v1:'.hash('sha256',$html);
+    $hit=false;
+    $clean=function_exists('apcu_fetch') ? apcu_fetch($key,$hit) : false;
+    if (!$hit || !is_string($clean)) {
+        $clean=cms_clean_html($html);
+        if (function_exists('apcu_store')) { apcu_store($key,$clean,3600); }
+    }
+    $lastInput=$html;
+    return $lastResult=$clean;
+}
+
 function cms_richtext_fields(string $project): array
 {
     $rows = D('view_field')->field('name,type_quote')->where(['project'=>$project])->getall();
