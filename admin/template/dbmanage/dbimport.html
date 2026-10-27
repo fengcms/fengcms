@@ -13,6 +13,11 @@
         <dd class="art_ico_9"><a href="?controller=dbmanage&operate=dbmanages">返回列表</a></dd>
     </dl></div>
     <div id="art_body">
+        {if $pending}
+        <p class="maint-warning">检测到中断的数据库导入。请先核对并恢复本次操作，再创建备份或重新导入。</p>
+        <form method="post" action="?controller=dbmanage&operate=recoverimport"><button type="submit" class="maint-action">核对并恢复中断导入</button></form>
+        {else}
+        {if isset($_GET['recovered']) && $_GET['recovered']=='1'}<p class="maint-success">中断导入已核对并清理，请重新预览备份。</p>{/if}
         <form id="import-backup" method="post" action="?controller=dbmanage&operate=previewimport" enctype="multipart/form-data">
             <table cellspacing="0" class="add_art maint-form">
                 <tr><th colspan="2" class="maint-heading">导入数据库备份</th></tr>
@@ -21,6 +26,7 @@
                 <tr><th>适用范围：</th><td>适合同版本、同模型结构的小型站点。导入会替换当前数据库记录，开始前自动创建一份备份。数据量大时建议使用主机数据库工具。</td></tr>
             </table>
         </form>
+        {/if}
     </div>
 </div>
 </body>

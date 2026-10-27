@@ -1,6 +1,7 @@
 <?php
 // Import rows from the CMS logical backup format into a matching schema.
 // The uploaded SQL is parsed as data; none of its statements are executed.
+require_once __DIR__.'/database_gate.php';
 final class CmsBackupImport
 {
     public const MAX_BYTES = 8388608;
@@ -15,6 +16,122 @@ final class CmsBackupImport
             throw new RuntimeException('私有备份目录不可写。');
         }
         return $root;
+    }
+
+    private static function journalPath(): string {return self::root().'/.import-operation.json';}
+
+    public static function pending(): bool
+    {
+        $path=self::journalPath();
+        return is_file($path) || is_link($path);
+    }
+
+    private static function journal(array $state): void
+    {
+        $path=self::journalPath();
+        $temporary=self::root().'/.import-operation-'.$state['id'].'.tmp';
+        $json=json_encode($state,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        $handle=fopen($temporary,'xb');
+        if(!$handle){throw new RuntimeException('无法保存导入恢复记录。');}
+        try{
+            chmod($temporary,0600);
+            if(fwrite($handle,$json)!==strlen($json) || !fflush($handle) ||
+                (function_exists('fsync') && !fsync($handle))){
+                throw new RuntimeException('无法保存导入恢复记录。');
+            }
+        }finally{fclose($handle);}
+        if(!rename($temporary,$path)){throw new RuntimeException('无法发布导入恢复记录。');}
+    }
+
+    private static function clearJournal(): void
+    {
+        $path=self::journalPath();
+        if(is_file($path) && !unlink($path)){throw new RuntimeException('无法清理导入恢复记录。');}
+    }
+
+    private static function readJournal(): ?array
+    {
+        $path=self::journalPath();
+        if(!file_exists($path) && !is_link($path)){return null;}
+        if(is_link($path) || !is_file($path) || filesize($path)>65536){
+            throw new RuntimeException('导入恢复记录不正确，停止自动清理。');
+        }
+        $state=json_decode(file_get_contents($path),true);
+        if(!is_array($state) || ($state['database']??null)!==DB_NAME ||
+            !preg_match('/^[a-f0-9]{16}$/D',(string)($state['id']??'')) ||
+            !in_array($state['phase']??null,['staging','pre_swap','committed'],true) ||
+            !is_array($state['tables']??null) || !$state['tables'] || count($state['tables'])>self::MAX_TABLES){
+            throw new RuntimeException('导入恢复记录不正确，停止自动清理。');
+        }
+        foreach($state['tables'] as $index=>$entry){
+            if(!is_int($index) || !is_array($entry) || !is_string($entry['live']??null) ||
+                !preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,63}$/D',$entry['live']) ||
+                ($entry['stage']??null)!=='cmsimp_'.$state['id'].'_'.$index ||
+                ($entry['old']??null)!=='cmsold_'.$state['id'].'_'.$index){
+                throw new RuntimeException('导入恢复表映射不正确，停止自动清理。');
+            }
+        }
+        return $state;
+    }
+
+    private static function objectExists(mysqli $db,string $name): bool
+    {
+        $row=$db->execute_query('SELECT TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME=?',
+            [DB_NAME,$name])->fetch_row();
+        if($row && $row[0]!=='BASE TABLE'){throw new RuntimeException('导入恢复对象类型不正确，停止自动清理。');}
+        return $row!==null;
+    }
+
+    /** Explicit recovery never guesses ownership from a table-name prefix. */
+    public static function recover(): string
+    {
+        return CmsDatabaseGate::barrier(function(): string {
+            $db=self::connection();
+            try{
+                $lock=self::importLock($db);
+                if((int)$db->execute_query('SELECT GET_LOCK(?,5)',[$lock])->fetch_row()[0]!==1){
+                    throw new RuntimeException('另一个数据库导入正在运行。');
+                }
+                try{return self::recoverLocked($db);}
+                finally{try{$db->execute_query('SELECT RELEASE_LOCK(?)',[$lock]);}catch(Throwable){}}
+            }finally{$db->close();}
+        });
+    }
+
+    private static function recoverLocked(mysqli $db): string
+    {
+        $state=self::readJournal();
+        if(!$state){return '没有待恢复的数据库导入。';}
+        $oldCount=0;$stageCount=0;
+        foreach($state['tables'] as $entry){
+            if(!self::objectExists($db,$entry['live'])){throw new RuntimeException('正式数据表缺失，停止自动清理。');}
+            $oldCount+=(int)self::objectExists($db,$entry['old']);
+            $stageCount+=(int)self::objectExists($db,$entry['stage']);
+        }
+        $total=count($state['tables']);
+        if($state['phase']==='committed'){
+            if($stageCount!==0){throw new RuntimeException('已完成导入仍存在暂存表，需人工核对。');}
+            foreach($state['tables'] as $entry){
+                if(self::objectExists($db,$entry['old'])){$db->query('DROP TABLE '.self::name($entry['old']));}
+            }
+            self::clearJournal();
+            return '已核对正式表并清理完成导入留下的旧表。';
+        }
+        if($oldCount===$total && $state['phase']==='pre_swap' && $stageCount===0){
+            $rename=[];
+            foreach($state['tables'] as $entry){
+                $rename[]=self::name($entry['live']).' TO '.self::name($entry['stage']);
+                $rename[]=self::name($entry['old']).' TO '.self::name($entry['live']);
+            }
+            $db->query('RENAME TABLE '.implode(',',$rename));
+        }elseif($oldCount!==0){
+            throw new RuntimeException('中断导入的旧表状态不完整，停止自动清理。');
+        }
+        foreach($state['tables'] as $entry){
+            if(self::objectExists($db,$entry['stage'])){$db->query('DROP TABLE '.self::name($entry['stage']));}
+        }
+        self::clearJournal();
+        return '已核对并清理中断导入，原正式数据表可重新预览。';
     }
 
     public static function uploadPath(string $id): string
@@ -202,6 +319,7 @@ final class CmsBackupImport
 
     public static function verify(mysqli $db, array $import): array
     {
+        if(self::pending()){throw new RuntimeException('有待恢复的数据库导入，请先处理后再预览备份。');}
         foreach (['TRIGGERS'=>'TRIGGER_SCHEMA', 'REFERENTIAL_CONSTRAINTS'=>'CONSTRAINT_SCHEMA'] as $object=>$column) {
             if ((int)$db->query("SELECT COUNT(*) FROM information_schema.$object WHERE $column=DATABASE()")->fetch_row()[0] > 0) {
                 throw new RuntimeException('当前数据库包含触发器或外键，后台导入暂不支持。');
@@ -242,12 +360,23 @@ final class CmsBackupImport
 
     public static function restore(mysqli $db, array $import, ?callable $beforeStage = null): array
     {
+        return CmsDatabaseGate::barrier(fn()=>self::restoreLocked($db,$import,$beforeStage));
+    }
+
+    private static function importLock(mysqli $db): string
+    {
+        return 'fengcms_import_'.substr(hash('sha256',(string)$db->query('SELECT DATABASE()')->fetch_row()[0]),0,30);
+    }
+
+    private static function restoreLocked(mysqli $db,array $import,?callable $beforeStage): array
+    {
         @set_time_limit(self::MAX_SECONDS + 10);
-        $lock='fengcms_import_'.substr(hash('sha256', (string)$db->query('SELECT DATABASE()')->fetch_row()[0]), 0, 30);
+        $lock=self::importLock($db);
         if ((int)$db->execute_query('SELECT GET_LOCK(?,5)', [$lock])->fetch_row()[0] !== 1) {
             throw new RuntimeException('另一个数据库导入正在进行。');
         }
-        $stage=[]; $old=[]; $swapped=false; $started=microtime(true); $leftover=[];
+        $stage=[]; $old=[]; $swapped=false; $started=microtime(true);
+        $journaled=false;$committed=false;$clean=true;$safeToCleanup=true;$state=null;
         try {
             self::verify($db, $import);
             if ($beforeStage !== null) { $beforeStage(); }
@@ -259,12 +388,21 @@ final class CmsBackupImport
             }
             $db->execute_query('SET SESSION sql_mode=?',[$mode]);
             $tag=bin2hex(random_bytes(8));
+            $state=['id'=>$tag,'database'=>DB_NAME,'source_sha256'=>$import['sha256']??'',
+                'phase'=>'staging','tables'=>[]];
+            foreach(array_keys($import['tables']) as $index=>$name){
+                $stage[$name]='cmsimp_'.$tag.'_'.$index;
+                $old[$name]='cmsold_'.$tag.'_'.$index;
+                if(self::objectExists($db,$stage[$name]) || self::objectExists($db,$old[$name])){
+                    throw new RuntimeException('临时表名称冲突，请重试导入。');
+                }
+                $state['tables'][]=['live'=>$name,'stage'=>$stage[$name],'old'=>$old[$name]];
+            }
+            self::journal($state);$journaled=true;
             foreach ($import['tables'] as $name=>$table) {
                 if (microtime(true)-$started > self::MAX_SECONDS) { throw new RuntimeException('后台导入超时，请使用主机数据库工具。'); }
-                $stageName='cmsimp_'.$tag.'_'.count($stage);
-                $oldName='cmsold_'.$tag.'_'.count($stage);
+                $stageName=$stage[$name];
                 $db->query('CREATE TABLE '.self::name($stageName).' LIKE '.self::name($name));
-                $stage[$name]=$stageName; $old[$name]=$oldName;
                 $columns=array_keys($table['columns']);
                 $statement='INSERT INTO '.self::name($stageName).' ('.implode(',',array_map(self::name(...),$columns)).') VALUES ('.implode(',',array_fill(0,count($columns),'?')).')';
                 $rowNumber=0;
@@ -283,6 +421,7 @@ final class CmsBackupImport
                 $rename[]=self::name($name).' TO '.self::name($old[$name]);
                 $rename[]=self::name($stageName).' TO '.self::name($name);
             }
+            $state['phase']='pre_swap';$safeToCleanup=false;self::journal($state);
             $db->query('RENAME TABLE '.implode(',', $rename));
             $swapped=true;
             foreach ($import['views'] as $view) {
@@ -293,20 +432,20 @@ final class CmsBackupImport
                     throw new RuntimeException('替换后的记录数核对失败。');
                 }
             }
+            $state['phase']='committed';self::journal($state);$committed=true;
             foreach ($old as $oldName) {
-                try { $db->query('DROP TABLE '.self::name($oldName)); }
-                catch (Throwable $e) { $leftover[]=$oldName; error_log('Database import old table cleanup failed: '.$e); }
+                $db->query('DROP TABLE '.self::name($oldName));
             }
-            $swapped=false;
-            return ['tables'=>count($stage), 'rows'=>$import['rows'], 'leftover'=>$leftover];
+            self::clearJournal();$journaled=false;$swapped=false;
+            return ['tables'=>count($stage), 'rows'=>$import['rows'], 'leftover'=>[]];
         } catch (Throwable $e) {
-            if ($swapped) {
+            if ($swapped && !$committed) {
                 $rollback=[];
                 foreach ($stage as $name=>$stageName) {
                     $rollback[]=self::name($name).' TO '.self::name($stageName);
                     $rollback[]=self::name($old[$name]).' TO '.self::name($name);
                 }
-                try { $db->query('RENAME TABLE '.implode(',', $rollback)); $swapped=false; }
+                try { $db->query('RENAME TABLE '.implode(',', $rollback)); $swapped=false;$safeToCleanup=true; }
                 catch (Throwable $rollbackError) {
                     error_log('Database import rollback failed: '.$rollbackError);
                     throw new RuntimeException('导入后回退失败，请立即暂停写入并使用导入前自动备份恢复。', 0, $e);
@@ -314,9 +453,13 @@ final class CmsBackupImport
             }
             throw $e;
         } finally {
-            if (!$swapped) {
+            if ($journaled && $safeToCleanup && !$swapped && !$committed) {
                 foreach ($stage as $stageName) {
-                    try { $db->query('DROP TABLE IF EXISTS '.self::name($stageName)); } catch (Throwable $e) { error_log('Database import stage cleanup failed: '.$e); }
+                    try { $db->query('DROP TABLE IF EXISTS '.self::name($stageName)); }
+                    catch (Throwable $e) { $clean=false;error_log('Database import stage cleanup failed: '.$e); }
+                }
+                if($clean && $journaled){
+                    try{self::clearJournal();}catch(Throwable $e){error_log('Database import journal cleanup failed: '.$e);}
                 }
             }
             try { $db->execute_query('SELECT RELEASE_LOCK(?)', [$lock]); } catch (Throwable) {}

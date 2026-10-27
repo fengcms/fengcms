@@ -35,7 +35,19 @@ class dbmanageController extends Controller
     public function dbimport(): void
     {
         CmsBackupImport::pruneUploads();
-        $this->display('dbmanage/dbimport.html');
+        $this->display('dbmanage/dbimport.html',['pending'=>CmsBackupImport::pending()]);
+    }
+
+    public function recoverimport(): void
+    {
+        cms_session_release();
+        try{
+            CmsBackupImport::recover();
+            header('Location: ?controller=dbmanage&operate=dbimport&recovered=1',true,303);
+        }catch(Throwable $e){
+            error_log('Database import recovery failed: '.$e);
+            cms_fail(500,$e instanceof RuntimeException?$e->getMessage():'导入恢复失败，请查看私有错误日志。');
+        }
     }
 
     private function clearImportPreview(): void

@@ -355,7 +355,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         'modulemanage' => 'disabled delete save preview loading',
         'message' => 'deleteone deletebatch save', 'signup' => 'deleteone deletebatch save',
         'recover' => 'recoverone delete batch', 'tplmanage' => 'delete save',
-		'dbmanage' => 'create download delete previewimport runimport', 'cache' => 'index',
+		'dbmanage' => 'create download delete previewimport runimport recoverimport', 'cache' => 'index',
     ] : ['home' => 'vccore', 'message' => 'save'];
     $readable = in_array($action, explode(' ', $read[$controller] ?? ''), true);
     $writable = in_array($action, explode(' ', $write[$controller] ?? ''), true);
