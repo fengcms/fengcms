@@ -1,6 +1,6 @@
 # FengCMS 代码安全审计记录（2026-10-27）
 
-本文是维护期间的只读代码审计记录，不是部署授权，也不替代动态渗透测试。初次审计基线为提交 `0b43a1c`；第二轮复审基线为 `d65d5de`（`fix(security): 参数化后台栏目与模型查询`，2026-10-27）；第三轮复审基线为 `440a5e5`。维护者在审计期间并行提交了安全修复（`8940c0c`、`d65d5de`、`9c68398`、`047def1`），因此文中的“当前状态”以 `440a5e5` 为准；后续提交可能继续改变结论。凡标注“已修复”的条目均保留原始评分，便于回溯。
+本文是维护期间的只读代码审计记录，不是部署授权，也不替代动态渗透测试。初次审计基线为提交 `0b43a1c`；第二轮复审基线为 `d65d5de`（`fix(security): 参数化后台栏目与模型查询`，2026-10-27）；第三轮复审基线为 `440a5e5`；整改复审（本文第 5.3 节）基线为 `5d05585`，覆盖开发方针对本记录的 12 个 `fix/refactor` 提交（`72e344a`、`1c370dd`、`ce07db9`、`d28bf11`、`c85823f`、`ef3870b`、`85842f8`、`c30ba06`、`7e356ac`、`5df04bd`、`b8f36ff`、`8800ca6`）。维护者在审计期间并行提交了安全修复（`8940c0c`、`d65d5de`、`9c68398`、`047def1`），因此第 4～5.2 节的“当前状态”以 `440a5e5` 为准；第 2 节结论摘要与第 5.3 节以 `5d05585` 为准。凡标注“已修复”的条目均保留原始评分，便于回溯。
 
 ## 1. 审计范围与方法
 
@@ -16,20 +16,22 @@
 | --- | --- | --- |
 | 已修复 | FENG-001 | `hits()` 标签/作者计数 SQL 注入，`0b43a1c` 参数化并限制表名 |
 | 已修复 | FENG-002 | 内容 `html` 任意写入型 XSS，`8940c0c` 按 `view_field` 白名单保存并排除 `html` |
-| **仍存在** | FENG-003 | 标签名进入未编码的 `search()` 链接，全站页头存储型 XSS（编辑可写 `tags` 模块） |
+| 已修复 | FENG-003 | 标签名进入未编码的 `search()` 链接，全站页头存储型 XSS；`72e344a` 改 `rawurlencode` + 模板 `cms_escape(cms_safe_url(...))` + `validateTag()`，详见 5.3 |
 | 已修复 | FENG-004 | 内容保存 mass assignment，`8940c0c` 改为字段白名单 + 状态枚举校验 |
 | 已修复 | FENG-005 | 内容批量操作 `record[]` SQL 注入，`0183c59` 统一校验 |
 | 已修复 | FENG-006 | 留言批量删除 `record[]` SQL 注入，`0183c59` 统一校验 |
-| **仍存在** | FENG-007 | 栏目创建时 `enname` 未校验，服务端生成含载荷的 `html`，前台/后台 `{url(...)}` 形成存储型 XSS |
-| **仍存在** | FENG-008 | 验证码无失败次数限制/失败不失效，可自动化绕过并批量留言 |
+| 已修复 | FENG-007 | 栏目创建时 `enname` 未校验、服务端生成含载荷 `html`；`72e344a` 对 `enname` 校验 `^[A-Za-z0-9_-]{1,50}$`（写入侧闭环），详见 5.3 |
+| 已修复 | FENG-008 | 验证码无失败限制/失败不失效；`1c370dd`+`8800ca6` 加失败即失效、每 IP 限流、`random_int`、`vccore` 仅 POST，详见 5.3 |
 | 已修复 | FENG-009 | 报名批量删除 SQL 注入，`0183c59` 统一校验；且仅超级管理员可达 |
-| 设计边界 | FENG-010 | 超级管理员可在线写模板 PHP，等价于设计内 RCE |
+| 设计边界（已收敛） | FENG-010 | 超级管理员可在线写模板 PHP，等价于设计内 RCE；`c30ba06` 增加 `FENGCMS_DISABLE_TEMPLATE_WRITE` 开关与保存/删除审计日志，边界说明见 `docs/TEMPLATE_WRITE_SECURITY.md` |
 | 已修复 | FENG-011 | 栏目批量/批量新增 SQL 注入，`d65d5de` 统一 `cms_id_list()`、数组条件与 `(int)` |
-| **仍存在（低危）** | FENG-012 | 外链栏目的 `html` 与友链 `url` 未限制协议，`javascript:`/`data:` 链接需访客点击后执行 |
+| **部分修复** | FENG-012 | 外链栏目 `html` 与友链 `url` 已加协议白名单；但 `author`/`inputer`/`origin` 模块的 `url` 字段写入未校验且后台列表直接渲染为 `href`（残留 R-01），详见 5.3 |
 | 已修复 | FENG-013 | 报名设置 `update($_POST)` 无 WHERE、无字段白名单的 mass assignment，`9c68398` 改为按主键定位的单行更新 + 字段白名单 |
-| 低危/理论 | L-01～L-17 | 死代码、旧依赖、无超时请求、未定义变量、未枚举校验、Nginx 查询参数拼接、批量栏目介绍未清洗等，见第 6 节 |
+| 多数已修、个别残留 | L-01～L-17 | 14 项已由本轮整改关闭（L-01/03/04/05/06/07/10/11/12/13/14/15/16/17），L-02（`ereg` 死代码）、L-08、L-09 仍保留；另有残留项 R-01～R-05，见 5.3 与第 6 节 |
 
-总体判断：相较旧版 FengCMS，当前代码已具备路由白名单、双角色读写白名单、强制 POST+CSRF、会话指纹、参数绑定、`model::identifier()`、`cms_path_within()`、上传 MIME/尺寸校验、HTML Purifier 与模板普通变量自动转义等防护。`8940c0c`、`d65d5de` 与 `9c68398` 关闭了内容/栏目保存的 mass assignment、栏目批量 SQL 注入与报名设置整表更新。剩余可实际利用的问题集中在“编辑角色可控的栏目 `enname`/标签名”与“模板函数返回值不转义”两条链上；外链协议限制属于需交互的低危项，其余为加固与一致性缺口。
+总体判断：相较旧版 FengCMS，当前代码已具备路由白名单、双角色读写白名单、强制 POST+CSRF、会话指纹、参数绑定、`model::identifier()`、`cms_path_within()`、上传 MIME/尺寸校验、HTML Purifier 与模板普通变量自动转义等防护。`8940c0c`、`d65d5de`、`9c68398` 关闭了内容/栏目保存的 mass assignment、栏目批量 SQL 注入与报名设置整表更新；本轮整改（`72e344a` 起，至 `5d05585`）又关闭了 FENG-003/007/008 与 14 项 L 级问题，并把“模板函数返回值不转义”收敛为编译期 `cms_escape(cms_safe_url(...))`。
+
+截至 `5d05585` 的剩余问题：① FENG-012 只修了一半——`friend.url` 与栏目 `html` 已加协议白名单，但 `author`/`inputer`/`origin` 模块的 `url` 字段写入未校验，后台模块列表把它直接渲染为可点击 `href`（R-01，跨角色存储型 XSS，需超级管理员点击）；② 其余为需点击的存量脏数据（R-02）、前台 `vccore` 无 CSRF 的轻微 DoS（R-03）、旧库 `DB_TYPE='mysql'` 升级注意事项（R-04）与版权渲染性能（R-05）；③ L-02/L-08/L-09 三项死代码/健壮性问题仍未处理。本轮 `./bin/dev check`（328 文件 0 失败）与 `./bin/dev test`（446 项回归 + 隔离库导入）全部通过。
 
 ## 3. 危险函数命中清单（精简）
 
@@ -168,6 +170,54 @@
 | 伪静态 | `docker/nginx/default.conf:40-53` | 捕获值直接拼入 query，路径含字面 `&` 时可注入额外 GET 键（L-15）；应用层路由白名单与登录校验仍在，未构成直接越权 |
 | 安全响应头 | `docker/nginx/default.conf:8-9`、`admin/login.php`、`install/index.php` | 参考 Nginx 配置含 `nosniff` 与 `X-Frame-Options SAMEORIGIN`；安装器为 `DENY` + CSP；Apache 现场需自建同等响应头 |
 
+### 5.3 整改复审（第二轮安全审查，基线 `5d05585`）
+
+复审对象：开发方针对本文档第 2～6 节结论提交的 12 个 `fix/refactor` 提交（`72e344a`、`1c370dd`、`ce07db9`、`d28bf11`、`c85823f`、`ef3870b`、`85842f8`、`c30ba06`、`7e356ac`、`5df04bd`、`b8f36ff`、`8800ca6`）与 2 个文档提交（`ef0b195`、`5d05585`）。
+
+复审方式与验证证据：
+
+- 静态复核：逐一读取上述提交的 `git show --stat`/补丁与改动后的文件，沿“写入侧校验 → 存储 → 输出侧渲染”完整追链。
+- 动态验证（本轮实际执行）：`./bin/dev status` → `fengcms-dev-db-1`/`php-1`/`web-1` 三容器均 `healthy`；`./bin/dev check` → `PHP 8.4.27 syntax: 328 files, 0 failures.`；`./bin/dev test` → `All 446 regression checks passed.`，并附带 `PASS isolated database import: two engines, view, NULL, binary, Unicode, failed swap, strict mode and injected SQL`。
+- 未做真实浏览器端到端点击验证，也未在存量站点数据副本上验证；相关条目已按约定标注“待验证”。
+
+#### 5.3.1 原结论的整改确认
+
+| 原编号 | 整改提交 | 复审结论 | 证据与说明 |
+| --- | --- | --- | --- |
+| FENG-003 | `72e344a` | **已修复** | `system/common/function.php::search()` 改为 `rawurlencode` 拼接（`URL_TYPE=1` 与 `0` 两分支）；`system/core/template.php` 用 `preg_replace_callback` 把 `{url(...)}`/`{search(...)}` 编译为 `echo cms_escape(cms_safe_url(...));`；`admin/app/model/moduleModel.php::validateTag()`（非空、`mb_strlen<=50`、拒绝 `<>\x00-\x1f\x7f`）在 `save()`（`project=tags`）与 `batchsave()` 两处调用 |
+| FENG-007 | `72e344a` | **已修复（写入侧闭环）** | `admin/app/model/classifyModel.php::save()` 创建分支要求 `enname` 匹配 `^[A-Za-z0-9_-]{1,50}$/D`（第 161-164 行），`batchsave()` 第 238-240 行同规则并用 `count($c)!==2` 拒绝畸形行；`html` 仅由服务端按 `project/enname/id` 生成；`type=url` 分支的 `html` 追加 `cms_safe_url()` 校验（第 165-167 行） |
+| FENG-008 | `1c370dd`、`8800ca6` | **已修复** | `system/common/security.php::cms_captcha_verify()`：`^[A-Za-z0-9]{4}$`、`authnum`/`authnum_at` 存在、10 分钟内、`hash_equals`，失败即 `unset`；`cms_captcha_attempt()` 以 `hash_hmac('sha256','captcha-ip:'.$REMOTE_ADDR,KEYS)` 为 bucket，`login_attempts` 达 30 次/900 秒返回 429；`homeController::vccore()` 先判 `POST`（否则 405）；`messageModel::save()` 成功后清理会话验证码；`validatecode` 改用 `random_int` 与整数坐标 |
+| FENG-012 | `72e344a`、`5df04bd` | **部分修复** | 已修：`classifyModel::save()` 的 `html`、`admin/app/model/moduleModel::save()` 的 `friend.url`、`batchsave()` 的 `url` 均走 `cms_safe_url()`；`app/model/moduleModel::l()` 对 `classify.html`/`friend.url` 清洗，`aurl()` 输出 `cms_escape(cms_safe_url(...))`，`atags()` 用 `rawurlencode`，`url()` 前置 `cms_safe_url()`。**未修**：`author`/`inputer`/`origin` 模块的 `url` 字段（`module_field_type` id=24 `text_url`）写入未校验，渲染端见 R-01 |
+| FENG-010 | `c30ba06` | **设计边界收敛** | 新增 `cms_template_write_enabled()`（`FENGCMS_DISABLE_TEMPLATE_WRITE=1` 时禁写）；`tplmanageModel::save()/deletefile()` 前置 403 并在成功后写 `error_log` 审计行（仅记模型/文件名，未记正文）；边界说明见 `docs/TEMPLATE_WRITE_SECURITY.md`。默认仍允许在线写入，属既定设计 |
+| FENG-013 | `9c68398`（上轮） | **已修复（本轮复核）** | `admin/app/model/signupModel.php::save()`：读取物理列与 `PRIMARY` 索引、要求 `COUNT(*)==1`、按主键定位、字段白名单 `name,phone,qq,pnumber,fmail,smail`、`time` 服务端生成 |
+| L-01 | `7e356ac`/`85842f8` | 已修 | `system/core/page.php` 的 `/ies` 规则与 `getstaticurl()` 已移除 |
+| L-02 | 未处理 | **仍存在** | `system/core/email.php:206,253,254,260,261` 仍使用 PHP 7 已移除的 `ereg/ereg_replace`；无调用点，属死代码 |
+| L-03 | `ef3870b` | 已修 | `admin/app/controller/safeController.php::safe()` 改 curl：`FOLLOWLOCATION=false`、协议限 HTTPS、连接 1000ms/总 3000ms、`WRITEFUNCTION` 64KB 上限、非 200/无匹配降级为固定中文文案；模板 `{$safe}` 转义输出 |
+| L-04 | `85842f8` | 已修 | `getIP()` 只取 `$_SERVER['REMOTE_ADDR']` 并经 `filter_var(...,FILTER_VALIDATE_IP)` 校验，不再信任转发头 |
+| L-05 | `7e356ac` | 已修 | 前台/后台 error 模板对 `$Message/$File/$Line` 转义 |
+| L-06 | `b8f36ff` | 已修 | `system/driver/db_mysql.php`（含旧 `mysql_query`）整文件删除；`config.php` 固定 `DB_TYPE='mysqli'`。升级注意见 R-04 |
+| L-07 | （随 `7e356ac`） | 已修 | `admin/app/model/recoverModel.php` 现仅保留 `findall()`，`save()` 已删除 |
+| L-08 | （随 `7e356ac`） | 已修 | `admin/app/controller/messageController.php:25` 与 `signupController.php:25` 均已初始化 `$where` |
+| L-09 | 未改（保持现状） | 保留 | `system/core/controller.php:33` 仍为 `extract($data, EXTR_SKIP)`；无新增模板变量冲突，维持原结论 |
+| L-10 | `85842f8` | 已修 | `system/core/page.php` wap 分页 `postfield` 的 `name`/`value` 与 `$jump_url` 均 `cms_escape` |
+| L-11 | `1c370dd` | 已修 | `vccore` 先判 `POST`，再由 `cms_captcha_verify()` 内部做类型/格式校验；数组输入不再触发 `TypeError` 500（`tests/regression.php` 有对应断言） |
+| L-12 | `7e356ac` | 已修 | `admin/app/model/fieldModel.php::save()` 已删除（保留 `findall()`） |
+| L-13 | `ce07db9` | 已修 | `baseModel::save()` 改为 `new db_mysqli(...)`：`SELECT COUNT(*)` 必须为 1（否则 409）、白名单 `name,title,domran,key,description,copyright,template`、值必须字符串、`copyright` 走 `cms_clean_html()`、`time` 恒由服务端写入、`UPDATE ... LIMIT 1` 参数绑定。注：`$values` 恒含 `time`，不会出现空 `SET` 的语法错误 |
+| L-14 | `ce07db9` | 已修 | `fieldmanageModel::status()` 与 `fieldmanageController::enable()` 双重 `in_array((string)$status,['0','1'],true)` |
+| L-15 | `d28bf11` | 已修 | `docker/nginx/default.conf` 全部 rewrite 尾部追加 `?` 丢弃调用方 query；捕获类收紧为 `([A-Za-z][A-Za-z0-9_]*)` 与 `([^/?&=]+)`；`\.html` 转义 |
+| L-16 | `72e344a` | 已修 | `classifyModel::batchsave()` 重写：要求 `type=module` 且 `project ^[a-zA-Z][a-zA-Z0-9_]*$`、字段类型检查、`classid` 数字、`enname` 字符集、`intro` 在循环外统一 `cms_clean_html()` 一次、先收集 `$rows` 再插入 |
+| L-17 | `c85823f` | **已修（渲染层）** | `app/model/webModel.php` 构造时 `copyright` 先 `cms_clean_html()` 再 `cms_html()`，只清洗渲染副本、不改库；历史库的存量清洗仍按 `docs/SECURITY_REMEDIATION_BACKLOG.md` 由独立工具在副本上处理。运维注意见 R-05 |
+
+#### 5.3.2 残留与新观察
+
+| ID | 文件:行号 | 问题 | 严重度 | 建议 |
+| --- | --- | --- | --- | --- |
+| R-01 | 写入 `admin/app/model/moduleModel.php:82-84`（仅校验 `friend`）；渲染 `admin/template/system/list/text_url.html:1` | `cms_route_guard`（`system/common/security.php:388-392`）允许编辑角色操作 `type∈[0,1] && status=1` 的模型，因此编辑可给 `author`/`inputer`/`origin`（安装 SQL 中的 `type=0,status=1`）的 `url` 字段写入 `javascript:` 等协议；后台模块列表以 `<a href="{$v[$val['name']]}" target="_blank">` 渲染（属性已由模板编译器转义，协议未限制），超级管理员打开列表并点击即可能跨角色执行脚本。前台 `aurl()` 已净化，不受影响 | 中（跨角色存储型 XSS，需点击；`javascript:` 配合 `target="_blank"` 在部分浏览器会被拦截，**具体可利用性待真实浏览器验证**） | 与 `friend` 一致：对 `url` 字段统一 `cms_safe_url()` 校验；输出侧对 `text_url` 类型也走安全 URL 过滤（`cms_escape(cms_safe_url(...))`）；回归增加“拒绝 `javascript:`/`data:`”的负向用例 |
+| R-02 | `admin/template/classify/index.html:66,70`、`classify/sorts.html:37`、`classify/execution.html:49`、`recover/index.html:52` | `{$v['html']}`/`{$info['html']}` 直接作 `href`（属性已转义），数据来自 `findall()`/`findone()`/`sqlpage()`，不经 `l()` 的协议清洗；新写入已被 `cms_safe_url()` 拦截，仅影响修复前的存量脏数据 | 低（需点击 + 依赖存量数据） | 修复前存量库抽样核对；输出侧统一套 `cms_safe_url()` |
+| R-03 | `app/controller/homeController.php:18-28`（`vccore` 在前台 read 白名单，不受 `cms_post_required()` 约束） | 跨站 `POST home&operate=vccore` 可消耗访客会话中的验证码，并使 `REMOTE_ADDR`（受害者出口 IP）的 `login_attempts` 计数 +1；累计 30 次/900 秒会返回 429 | 极低（CSRF 型轻微 DoS，需诱导受害者反复提交） | 如需收紧，可对 `vccore` 也要求 `_csrf`，或失败计数改用独立阈值/键 |
+| R-04 | 升级/部署面 | `system/driver/db_mysql.php` 删除后，存量站点若 `config.php` 仍为 `define('DB_TYPE','mysql')`，`include_once DRIVER_PATH.'db_mysql.php'` 将致命错误 | 运维（非代码漏洞） | 在升级/发布说明中标注需为 `mysqli`；仓库 `config.php` 已硬编码 |
+| R-05 | `app/model/webModel.php:17-21` | 每次前台渲染都对 `base.copyright` 执行一次 HTML Purifier；长度 >2MB 时 `cms_clean_html()` 抛 413 | 运维（性能/可用性） | 缓存清洗结果，或迁移期用独立脚本一次性清洗后不再逐次净化 |
+
 ## 6. 低危/理论风险与死代码
 
 | ID | 文件:行号 | 问题 | 建议 |
@@ -201,6 +251,10 @@
 - 未验证部署层：Nginx 对上传目录脚本执行的禁止、`install/` 入口收敛、HTTPS/HSTS、备份目录权限需在现场核查；Apache 需自行补齐 `X-Frame-Options`/`nosniff`。
 - FENG-008 的验证码字符集为 56 字符、长度 4，随机源为 `mt_rand`（非 CSPRNG，已计入修复建议）；是否可被实际爆破取决于站点请求速率与是否有反向代理限流，本文未做压力测试。
 - FENG-010 的“设计内 RCE”是否可接受取决于运维模型；若超级管理员账号可被社工/失窃，建议增加模板保存二次确认与内容扫描。
+- 第二轮整改复审（5.3 节）已实际运行 `./bin/dev check`（328 文件 0 失败）与 `./bin/dev test`（446 项通过 + 隔离库导入），但**未做真实浏览器验证**：R-01 中 `javascript:` 链接配合 `target="_blank"` 的浏览器行为（是否被拦截、是否需要点击以外的触发条件）以及后台列表的实际点击回填，均在真实浏览器中复核后再定级。
+- R-01/R-02 的可利用性依赖具体模块配置（是否为内容模型新增 `url文本框` 字段）与**修复前写入的存量数据**；本轮未在存量库副本上抽样，需按 `docs/SECURITY_REMEDIATION_BACKLOG.md` 的约定在隔离副本上核对。
+- 本轮未复核 `docs/TEMPLATE_WRITE_SECURITY.md` 之外的部署项（`FENGCMS_DISABLE_TEMPLATE_WRITE` 是否在生产启用、模板目录写权限、上传目录脚本执行禁止等），需在现场确认。
+- R-04 的升级影响需在发布说明中体现：`db_mysql.php` 已删除，存量站点的 `DB_TYPE` 必须为 `mysqli`。
 
 ## 8. 建议修复顺序
 
@@ -209,9 +263,17 @@
 3. **加固**：模板层统一转义 `{url(...)}`/`{search(...)}` 返回值；FENG-010 的模板内容限制与审计日志；L-16 的 `batchsave()` 白名单与富文本清洗；L-13 的 `base` 单行更新；L-14 的 `status` 枚举校验；L-15 的伪静态参数重建；L-17 的存量版权清洗；L-01～L-12 的死代码清理。
 4. 修复后补充回归：编辑角色构造 `enname/tags/classify[]` 的负向用例、`javascript:` 链接拒绝用例、前台输出断言、验证码失败次数断言（`9c68398` 已有报名设置：只写允许字段、拒绝多行、拒绝无主键）；仅在带 `f_dev_meta` 的开发库运行。
 
+整改复审后的状态（基线 `5d05585`，详见 5.3）：
+
+- 第 1、2 项已完成（FENG-003/007/008 关闭，FENG-012 部分关闭）；第 3 项中除 L-02、L-09 外均已落地，模板层已改为 `cms_escape(cms_safe_url(...))` 编译。
+- **仍建议优先处理**：R-01（`author`/`inputer`/`origin` 的 `url` 写入未做协议校验 + 后台 `text_url` 列表直接渲染 `href`）——与 `friend` 用同一处 `cms_safe_url()` 即可闭合，属 FENG-012 的最后一环。
+- **次要**：R-02（存量 `html` 脏数据的输出侧协议过滤）、R-03（`vccore` 是否需要 CSRF）、R-04/R-05（升级与性能/运维说明）、L-02（删除 `ereg` 死代码）。
+- **验证方式**：R-01/R-02 修复后需在真实浏览器复核点击行为，并补一条“拒绝 `javascript:`/`data:` 的 `url` 写入”回归断言。
+
 ## 9. 变更记录
 
 - 2026-10-27：创建本文档，基线 `0b43a1c`；记录 FENG-001～FENG-011 与 L-01～L-10；确认 FENG-001/005/006/009 已由 `0b43a1c`、`0183c59` 修复。
 - 2026-10-27：复审基线更新为 `d65d5de`。复核 `8940c0c` 后确认 FENG-002/004 已修复，`d65d5de` 后确认 FENG-011 已修复；FENG-007 收敛为“创建时 `enname` 未校验”，新增 FENG-012（外链/友链协议未限制）；补充安装器、备份导入、模型包、缩略图 API 与 Nginx 配置复核结论（5.1 节）。
 - 2026-10-27：第三轮复审基线 `440a5e5`。复核前台全部模型与控制器的剩余文件、后台入口/首页/safe 模型、入口与配置文件、`admin/js/` 脚本、`tools/`、`tests/`、伪静态与安全响应头；记录 FENG-013（报名设置 mass assignment，已由 `9c68398` 修复）与 L-12～L-17；确认 `047def1` 只补模板缺省数据，不改变 FENG-003/007/012 的结论（5.2 节）。
 - 本次仅新增/更新文档，未修改应用代码、模板、数据库或部署配置。
+- 2026-10-27：整改复审（第二轮安全审查），基线 `5d05585`。逐一复核开发方针对本记录的 12 个 `fix/refactor` 提交与 2 个文档提交；确认 FENG-003/007/008 关闭、FENG-012 部分关闭（残留 R-01）、FENG-010 收敛为设计边界、FENG-013 复核通过，L-01/03/04/05/06/07/08/10/11/12/13/14/15/16/17 关闭，L-02/L-09 保留；新增残留项 R-01～R-05（5.3.2）。动态验证：`./bin/dev status` 三容器 healthy、`./bin/dev check` 328 文件 0 失败、`./bin/dev test` 446 项通过并含隔离库导入。更新第 2 节结论摘要（以 `5d05585` 为准）、第 7 节待验证边界与第 8 节修复顺序。本次仅更新文档。
