@@ -213,7 +213,7 @@ final class ContentWrite
                     }
                 }
             }
-            $transactional=false; $inserted=null; $incremented=[];
+            $transactional=false; $commitAttempted=false; $inserted=null; $incremented=[];
             try {
                 $transactional=$this->allTransactional(array_unique([$this->project,...array_column($counters,0)]));
                 if ($transactional) { $this->db->begin_transaction(); }
@@ -234,9 +234,15 @@ final class ContentWrite
                 }
                 $this->db->execute_query('UPDATE '.$this->requestTable.' SET state=? WHERE account_id=? AND project=? AND request_key=?',
                     ['complete',...$lookup]);
-                if ($transactional) { $this->db->commit(); }
+                if ($transactional) { $commitAttempted=true; $this->db->commit(); }
                 return ['status'=>'y','id'=>$inserted];
             } catch (Throwable $e) {
+                if ($commitAttempted) {
+                    // A lost COMMIT response has an unknown outcome. Keep the durable
+                    // request state for inspection; never advertise a safe retry.
+                    error_log('Content creation commit outcome unknown: '.$e);
+                    cms_fail(500,'新增提交状态需要管理员核查，请勿重复提交。');
+                }
                 $clean=true;
                 if ($transactional) { try { $this->db->rollback(); } catch (Throwable $ignored) { $clean=false; } }
                 else {
