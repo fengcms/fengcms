@@ -46,6 +46,21 @@ final class ContentWrite
         catch (ContentWriteLockTimeout $e) { cms_fail(409,$e->getMessage()); }
     }
 
+    /** Category deletion and content writes for a model share this short-lived lock. */
+    public static function categoryLocked(string $project,callable $work): mixed
+    {
+        return (new self($project))->locked('category:relations',$work);
+    }
+
+    private function assertCategory(mixed $classid): void
+    {
+        if ($classid===null || (string)$classid==='0') { return; }
+        $category=$this->db->execute_query('SELECT id FROM '.self::tableName('classify').
+            ' WHERE id=? AND project=? AND type=?',[(int)$classid,$this->project,
+                $this->project==='single'?'single':'module'])->fetch_row();
+        if (!$category) { cms_fail(400,'栏目不属于当前模型。'); }
+    }
+
     public function row(int $id): ?array
     {
         return $this->db->execute_query('SELECT * FROM '.$this->table.' WHERE id=?',[$id])->fetch_assoc();
@@ -75,21 +90,22 @@ final class ContentWrite
     public function edit(int $id,array $values,string $token): array
     {
         if (!preg_match('/^[a-f0-9]{64}$/D',$token)) { cms_fail(409,'编辑页面已过期，请重新打开后保存。'); }
-        return $this->locked('row:'.$id,function() use ($id,$values,$token) {
+        return $this->locked('row:'.$id,fn()=> $this->locked('category:relations',function() use ($id,$values,$token) {
             $row=$this->row($id);
             if (!$row || (isset($row['status']) && (int)$row['status']===-1) ||
                 !hash_equals(self::editToken($row),$token)) {
                 cms_fail(409,'内容已被修改或移入回收站，请重新打开后核对。');
             }
+            if (array_key_exists('classid',$values)) { $this->assertCategory($values['classid']); }
             $this->updateRow($id,$values);
             return ['status'=>'y','id'=>$id];
-        });
+        }));
     }
 
     /** Returns changed, already or missing; callers can report each selected ID. */
     public function change(int $id,string $action,?string $attribute=null): string
     {
-        return $this->locked('row:'.$id,function() use ($id,$action,$attribute) {
+        return $this->locked('row:'.$id,fn()=> $this->locked('category:relations',function() use ($id,$action,$attribute) {
             $row=$this->row($id);
             if (!$row) { return 'missing'; }
             $status=(int)($row['status']??1);
@@ -128,7 +144,7 @@ final class ContentWrite
                 return 'changed';
             }
             cms_fail(400,'内容操作不正确。');
-        });
+        }));
     }
 
     public function batch(array $ids,string $action,?string $attribute=null): array
@@ -153,6 +169,7 @@ final class ContentWrite
             if ($index<count($ids)) {
                 return $this->locked('row:'.$ids[$index],fn()=> $work($index+1));
             }
+            return $this->locked('category:relations',function() use ($ids,$classid): bool {
             $slots=implode(',',array_fill(0,count($ids),'?'));
             $total=(int)$this->db->execute_query('SELECT COUNT(*) FROM '.$this->table.
                 ' WHERE id IN ('.$slots.') AND status>=0',$ids)->fetch_row()[0];
@@ -174,6 +191,7 @@ final class ContentWrite
             $already=(int)$this->db->execute_query('SELECT COUNT(*) FROM '.$this->table.
                 ' WHERE id IN ('.$slots.') AND classid=?',[...$ids,$classid])->fetch_row()[0];
             return $already===count($ids);
+            });
         };
         return $work(0);
     }
@@ -194,7 +212,8 @@ final class ContentWrite
             cms_fail(400,'新增请求标识不正确，请重新打开新增页面。');
         }
         ksort($values);
-        return $this->locked('create:'.$account.':'.$key,function() use ($values,$key,$account,$hash) {
+        return $this->locked('create:'.$account.':'.$key,fn()=> $this->locked('category:relations',function() use ($values,$key,$account,$hash) {
+            if (array_key_exists('classid',$values)) { $this->assertCategory($values['classid']); }
             $lookup=[$account,$this->project,$key];
             $request=$this->db->execute_query('SELECT payload_hash,state,record_id FROM '.$this->requestTable.
                 ' WHERE account_id=? AND project=? AND request_key=?',$lookup)->fetch_assoc();
@@ -273,6 +292,6 @@ final class ContentWrite
                 error_log('Content creation failed; cleanup='.($clean?'complete':'manual-review').': '.$e);
                 cms_fail(500,$clean?'新增失败，未保存内容，请稍后重试。':'新增状态需要管理员核查，请勿重复提交。');
             }
-        });
+        }));
     }
 }

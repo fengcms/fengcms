@@ -9,6 +9,7 @@
  *******************************************************************/
 // 栏目管理
 include "admin.php";
+require_once __DIR__.'/../model/contentWrite.php';
 
 class classifyController extends Controller{
 
@@ -127,6 +128,10 @@ class classifyController extends Controller{
      */
 	public function delete(){
         $arr=M($this->model)->where(['id'=>(int)$_GET['id']])->getone();
+        if (!$arr) { cms_fail(404,'栏目不存在。'); }
+        ContentWrite::single(fn()=> ContentWrite::categoryLocked($arr['project'],function() {
+        $arr=M($this->model)->where(['id'=>(int)$_GET['id']])->getone();
+        if (!$arr) { cms_fail(404,'栏目不存在。'); }
 
         if(M($this->model)->where(['classid'=>(int)$_GET['id']])->getcount()>0){
             
@@ -157,6 +162,7 @@ class classifyController extends Controller{
                 echo '<meta http-equiv="refresh" content="0;url=?controller=classify">';
             }
         }
+		}));
 	}
 
     /**
@@ -167,6 +173,10 @@ class classifyController extends Controller{
 	public function emptys(){
 
         $arr=M($this->model)->where(['id'=>(int)$_GET['id']])->getone();
+        if (!$arr) { cms_fail(404,'栏目不存在。'); }
+        ContentWrite::single(fn()=> ContentWrite::categoryLocked($arr['project'],function() {
+        $arr=M($this->model)->where(['id'=>(int)$_GET['id']])->getone();
+        if (!$arr) { cms_fail(404,'栏目不存在。'); }
         
         if(M($this->model)->where(['classid'=>(int)$_GET['id']])->getcount()>0){
             
@@ -185,6 +195,7 @@ class classifyController extends Controller{
                 echo '<meta http-equiv="refresh" content="0;url=?controller=classify">';
             }
         }
+		}));
 	}
 
     /**
@@ -214,6 +225,10 @@ class classifyController extends Controller{
         foreach($array as $v){
 
             $arr=M($this->model)->findone(['id'=>(int)$v]);
+            if (!$arr) { return false; }
+            $re=ContentWrite::single(fn()=> ContentWrite::categoryLocked($arr['project'],function() use ($v) {
+            $arr=M($this->model)->findone(['id'=>(int)$v]);
+            if (!$arr) { return false; }
 
             if($arr['type']=="module"){
 
@@ -247,6 +262,8 @@ class classifyController extends Controller{
                         $re=D($this->model)->where(['id'=>(int)$arr['id']])->delete();
                     }
             }
+            return (bool)($re??false);
+            }));
         }
         if($re){
 

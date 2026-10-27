@@ -78,6 +78,16 @@ function with_content_test_lock(mysqli $db,string $project,string $item,callable
     try{return $work();}
     finally{$db->execute_query('SELECT RELEASE_LOCK(?)',[$key]);}
 }
+function wait_for_content_lock(mysqli $db,string $project,string $item): void {
+    $key='fcw:'.substr(hash('sha256',(getenv('DB_NAME')?:'fengcms').':'.(getenv('DB_PREFIX')?:'f_').':'.$project.':'.$item),0,58);
+    for($attempt=0;$attempt<100;$attempt++){
+        $count=(int)$db->execute_query("SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE COMMAND='Execute' AND INFO LIKE ?",
+            ['SELECT GET_LOCK(%'.$key.'%'])->fetch_row()[0];
+        if($count>0){return;}
+        usleep(20000);
+    }
+    throw new RuntimeException('HTTP writer did not reach the expected lock.');
+}
 function token(array &$cookies, bool $admin=false): string {
     $page = request('GET',$admin?'/admin/index.php':'/admin/login.php',$cookies);
     $pattern = $admin ? '/name="csrf-token" content="([a-f0-9]+)"/' : '/name="_csrf" value="([a-f0-9]+)"/';
@@ -1074,6 +1084,75 @@ try {
     expect_check($restoreVersion['status']===200 &&
         (int)$db->query('SELECT status FROM f_article WHERE id='.$versionId)->fetch_row()[0]===0,
         'recycle and single restore preserve original draft state');
+    $db->query("INSERT INTO f_article (title,status,classid) VALUES ('relation_race_".$tag."',0,0)");
+    $relationRaceId=$db->insert_id; $articleIds[]=$relationRaceId;
+    $raceEditPage=request('GET','/admin/index.php?controller=module&project=article&operate=update&id='.$relationRaceId,$cookies);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$raceEditPage['body'],$raceEditToken);
+    expect_check(isset($raceEditToken[1]),'category race edit fixture has a write token');
+    $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('relation_edit_".$tag."','module','article',0,0)");
+    $raceEditCategory=$db->insert_id; $categoryIds[]=$raceEditCategory;
+    [$raceEditSocket,$raceEditDelete]=with_content_test_lock($db,'article','row:'.$relationRaceId,
+        function() use ($db,$relationRaceId,$raceEditToken,$raceEditCategory,&$versionCookies,$versionCsrf,$cookies,$newToken) {
+            $socket=start_async_request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+                ['_csrf'=>$newToken,'id'=>(string)$relationRaceId,'_write_token'=>$raceEditToken[1],
+                    'classid'=>(string)$raceEditCategory]);
+            wait_for_content_lock($db,'article','row:'.$relationRaceId);
+            $deleted=request('POST','/admin/index.php?controller=classify&operate=delete&id='.$raceEditCategory,
+                $versionCookies,['_csrf'=>$versionCsrf]);
+            return [$socket,$deleted];
+        });
+    $raceEditResponse=finish_async_request($raceEditSocket);
+    expect_check($raceEditDelete['status']===200 &&
+        $db->query('SELECT id FROM f_classify WHERE id='.$raceEditCategory)->num_rows===0 &&
+        $raceEditResponse['status']===400 &&
+        (int)$db->query('SELECT classid FROM f_article WHERE id='.$relationRaceId)->fetch_row()[0]===0,
+        'edit rejects a category deleted through the admin while waiting on the record lock');
+    $raceTagName='relation_tag_'.$tag;
+    $db->query("INSERT INTO f_tags (name,hits,status) VALUES ('$raceTagName',0,1)");
+    $raceTagId=$db->insert_id; $counterTagIds[]=$raceTagId;
+    $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('relation_create_".$tag."','module','article',0,0)");
+    $raceCreateCategory=$db->insert_id; $categoryIds[]=$raceCreateCategory;
+    $raceCreateKey=bin2hex(random_bytes(16));
+    [$raceCreateSocket,$raceCreateDelete]=with_content_test_lock($db,'article','create:'.$testId.':'.$raceCreateKey,
+        function() use ($db,$testId,$raceCreateKey,$raceCreateCategory,$raceTagName,&$versionCookies,$versionCsrf,$cookies,$newToken,$tag) {
+            $socket=start_async_request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+                ['_csrf'=>$newToken,'_create_key'=>$raceCreateKey,'title'=>'relation_create_'.$tag,
+                    'status'=>'0','classid'=>(string)$raceCreateCategory,'tags'=>$raceTagName]);
+            wait_for_content_lock($db,'article','create:'.$testId.':'.$raceCreateKey);
+            $deleted=request('POST','/admin/index.php?controller=classify&operate=batch',$versionCookies,
+                ['_csrf'=>$versionCsrf,'classify'=>[(string)$raceCreateCategory]]);
+            return [$socket,$deleted];
+        });
+    $raceCreateResponse=finish_async_request($raceCreateSocket);
+    $raceRequest=$db->execute_query('SELECT state FROM f_content_create_request WHERE account_id=? AND project=? AND request_key=?',
+        [$testId,'article',$raceCreateKey])->fetch_assoc();
+    expect_check(($raceCreateDelete['json']['status']??'')==='y' && $raceCreateResponse['status']===400 &&
+        (int)$db->query("SELECT COUNT(*) FROM f_article WHERE title='relation_create_$tag'")->fetch_row()[0]===0 &&
+        (int)$db->query('SELECT hits FROM f_tags WHERE id='.$raceTagId)->fetch_row()[0]===0 && !$raceRequest,
+        'create rejects a category deleted through batch admin without content, counter or completed request');
+    $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('relation_shift_".$tag."','module','article',0,0)");
+    $raceShiftCategory=$db->insert_id; $categoryIds[]=$raceShiftCategory;
+    [$raceShiftSocket,$raceShiftDelete]=with_content_test_lock($db,'article','row:'.$relationRaceId,
+        function() use ($db,$relationRaceId,$raceShiftCategory,&$versionCookies,$versionCsrf,$cookies,$newToken) {
+            $socket=start_async_request('POST','/admin/index.php?controller=module&project=article&operate=shift',$cookies,
+                ['_csrf'=>$newToken,'classid'=>(string)$raceShiftCategory,'classarray'=>(string)$relationRaceId]);
+            wait_for_content_lock($db,'article','row:'.$relationRaceId);
+            $deleted=request('POST','/admin/index.php?controller=classify&operate=delete&id='.$raceShiftCategory,
+                $versionCookies,['_csrf'=>$versionCsrf]);
+            return [$socket,$deleted];
+        });
+    $raceShiftResponse=finish_async_request($raceShiftSocket);
+    expect_check($raceShiftDelete['status']===200 && $raceShiftResponse['status']===400 &&
+        (int)$db->query('SELECT classid FROM f_article WHERE id='.$relationRaceId)->fetch_row()[0]===0,
+        'shift rejects a category deleted after its preliminary check');
+    $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('relation_guard_".$tag."','module','article',0,0)");
+    $raceGuardCategory=$db->insert_id; $categoryIds[]=$raceGuardCategory;
+    $blockedCategoryDelete=with_content_test_lock($db,'article','category:relations',
+        fn()=>request('POST','/admin/index.php?controller=classify&operate=delete&id='.$raceGuardCategory,
+            $versionCookies,['_csrf'=>$versionCsrf]));
+    expect_check($blockedCategoryDelete['status']===409 &&
+        $db->query('SELECT id FROM f_classify WHERE id='.$raceGuardCategory)->num_rows===1,
+        'category deletion respects the same relation lock as content writers');
     $createPage=request('GET','/admin/index.php?controller=module&project=article&operate=add',$cookies);
     preg_match('/name="_create_key" value="([a-f0-9]{32})"/',$createPage['body'],$createMatch);
     expect_check(isset($createMatch[1]),'add form provides a distinct creation request key');
@@ -1190,6 +1269,14 @@ try {
     expect_check(($deleteRetry['json']['changed']??[])===[$lockIds[2]] &&
         ($deleteRetry['json']['missing']??[])===[$lockIds[0],$lockIds[1]],
         'permanent delete retry reports completed and missing IDs');
+    $db->query("INSERT INTO f_article (title,status) VALUES ('single_lock_$tag',1)");
+    $singleLockId=$db->insert_id; $articleIds[]=$singleLockId;
+    $singleTimeout=with_content_test_lock($db,'article','row:'.$singleLockId,
+        fn()=>request('POST','/admin/index.php?controller=module&project=article&operate=recoverone&id='.$singleLockId,
+            $cookies,['_csrf'=>$newToken]));
+    expect_check($singleTimeout['status']===409 &&
+        (int)$db->query('SELECT status FROM f_article WHERE id='.$singleLockId)->fetch_row()[0]===1,
+        'single-record lock timeout remains HTTP 409 without changing content');
     $recycleIds=[];
     foreach ([-1,-1,-1] as $recycleStatus) {
         $db->query("INSERT INTO `f_$moduleProject` (title,status) VALUES ('recycle_$tag',$recycleStatus)");
