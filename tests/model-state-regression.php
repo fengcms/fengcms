@@ -43,6 +43,21 @@ try {
     }
     echo "PASS count preserves default field selection\n";
 
+    $default->sort('id', 'order', 'desc')->limit(1, 1);
+    $pagedSql = $default->buildselectsql();
+    if ((int)$default->getcount() !== 2 || $default->buildselectsql() !== $pagedSql ||
+        count($default->getall()) !== 1) {
+        throw new RuntimeException('Count must ignore pagination without changing the later list query.');
+    }
+    echo "PASS count ignores pagination and restores list query options\n";
+
+    $bound = new model($suffix);
+    $bound->where('status=?', [1]);
+    if ((int)$bound->getcount() !== 1 || (int)$bound->getall()[0]['id'] !== 1) {
+        throw new RuntimeException('Count lost bound raw-condition parameters.');
+    }
+    echo "PASS count preserves bound raw-condition parameters\n";
+
     $other = new model($suffix);
     $other->where(['status' => 0])->field('id');
     $sharedId = (int)$model->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];

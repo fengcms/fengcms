@@ -101,16 +101,15 @@ class model{
      * @return	number
      */
     public function getcount(){
-        $hadField = array_key_exists('field', $this->options);
-        $originalField = $this->options['field'] ?? null;
-        $countField = !empty($originalField) ? 'count('.$originalField.')' : 'count(id)';
+        $originalOptions = $this->options;
+        $countField = !empty($originalOptions['field']) ? 'count('.$originalOptions['field'].')' : 'count(id)';
         $this->options['field'] = $countField;
+        unset($this->options['sort'], $this->options['limit'], $this->options['page']);
         try {
             $result = $this->db->fetch($this->db->query($this->buildselectsql(), $this->options['params'] ?? []));
             return $result[0][$countField];
         } finally {
-            if ($hadField) { $this->options['field'] = $originalField; }
-            else { unset($this->options['field']); }
+            $this->options = $originalOptions;
         }
     }
 
