@@ -70,13 +70,17 @@ class moduleModel extends model{
 		$id=$rawId===null?null:(int)$rawId;
 		$columns=D($project)->getdbfields(DB_PREFIX.$project);
 		$physical=array_fill_keys($columns,true);
-		$fields=D('view_field')->field('name')->where(['project'=>$project,'status'=>1])->getall();
+		$fields=D('view_field')->field('name,type_quote')->where(['project'=>$project,'status'=>1])->getall();
 		$writable=[];
+		$urlFields=['url'=>true];
 		$hasAttrib=false;
 		foreach($fields as $field){
 			$name=$field['name'];
 			if($name==='attrib'){$hasAttrib=true;continue;}
-			if(isset($physical[$name]) && !in_array($name,['id','hits','html','time','password'],true)){$writable[$name]=true;}
+			if(isset($physical[$name]) && !in_array($name,['id','hits','html','time','password'],true)){
+				$writable[$name]=true;
+				if($field['type_quote']==='text_url.html'){$urlFields[$name]=true;}
+			}
 		}
 		$attributes=['attrib_j','attrib_g','attrib_t','attrib_r','attrib_d','attrib_h'];
 		if($hasAttrib){
@@ -85,8 +89,10 @@ class moduleModel extends model{
 		$array=array_intersect_key($array,$writable);
 		foreach($array as $name=>$value){if(!is_string($value) && !is_int($value)){cms_fail(400,'字段内容不正确。');}}
 		if($project==='tags' && isset($array['name'])){$this->validateTag($array['name']);}
-		if(isset($array['url']) && $array['url']!=='' && cms_safe_url($array['url'])===''){
-			cms_fail(400,'链接地址只允许安全的链接。');
+		foreach($urlFields as $urlField=>$_){
+			if(isset($array[$urlField]) && $array[$urlField]!=='' && cms_safe_url($array[$urlField])===''){
+				cms_fail(400,'链接地址只允许安全的链接。');
+			}
 		}
 		if(isset($array['status']) && !in_array((string)$array['status'],['0','1'],true)){cms_fail(400,'状态不正确。');}
 		$array=cms_clean_record($array,$project);
