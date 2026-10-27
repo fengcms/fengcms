@@ -203,7 +203,7 @@ class smtp{
 		$response = str_replace("\r\n", "", fgets($this->sock, 512));
 		$this->smtp_debug($response."\n");
 
-		if (!ereg("^[23]", $response)) {
+		if (!preg_match('/^[23]/', $response)) {
 		fputs($this->sock, "QUIT\r\n");
 		fgets($this->sock, 512);
 		$this->log_write("Error: Remote host returned \"".$response."\"\n");
@@ -249,16 +249,16 @@ class smtp{
 	}
 
 	public function strip_comment($address){
-		$comment = "\\([^()]*\\)";
-		while (ereg($comment, $address)){
-		$address = ereg_replace($comment, "", $address);
+		$comment = '/\\([^()]*\\)/';
+		while (preg_match($comment, $address)){
+		$address = preg_replace($comment, '', $address);
 		}
 		return $address;
 	}
 
 	public function get_address($address){
-		$address = ereg_replace("([ \t\r\n])+", "", $address);
-		$address = ereg_replace("^.*<(.+)>.*$", "\\1", $address);
+		$address = preg_replace('/[ \t\r\n]+/', '', $address);
+		$address = preg_replace('/^.*<(.+)>.*$/', '$1', $address);
 
 		return $address;
 	}

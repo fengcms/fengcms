@@ -1090,6 +1090,9 @@ try {
     $smtpFixture=new smtp('smtp.example.test',2525,false,'test-user','test-pass');
     expect_check($smtpFixture->relay_host==='smtp.example.test' && $smtpFixture->smtp_port===2525 &&
         $smtpFixture->user==='test-user','legacy SMTP helper initializes on PHP 8');
+    expect_check($smtpFixture->strip_comment('User (outer (inner)) <user@example.test>')==='User  <user@example.test>' &&
+        $smtpFixture->get_address('User <user@example.test>')==='user@example.test',
+        'legacy SMTP address helpers no longer call removed ereg functions');
     $replyData=['_csrf'=>$newToken,'id'=>$messageId,'reply'=>'谢谢反馈，已处理。','status'=>'1','rtime'=>(string)time()];
     $replySave=request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData);
     expect_check(($replySave['json']['status']??'')==='y' && (int)($replySave['json']['id']??0)===(int)$messageId,'message reply returns the actual saved record ID');

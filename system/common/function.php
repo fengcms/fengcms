@@ -345,7 +345,7 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 	  fputs($fp, "$query\n");
 
 	  $line = fgets($fp,1024);
-	  if (!eregi("^HTTP/1\.. 200", $line)) return;
+	  if (!preg_match('/^HTTP\/1\.. 200/i', (string)$line)) { fclose($fp); return; }
 
 	  $results = ""; $inheader = 1;
 	  while(!feof($fp)) {
