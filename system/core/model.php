@@ -357,8 +357,13 @@ class model{
 	 public function excsql($sql, array $params = []){
         // Native SQL may carry transaction or session state, including inside
         // executable comments. Share only a narrow, plain read-only subset.
-        if (!$this->shareableRawRead($sql)) { $this->isolateConnection(); }
-        return $this->db->fetch($this->db->query($sql, $params));
+        $shareable = $this->shareableRawRead($sql);
+        if (!$shareable) { $this->isolateConnection(); }
+        $result = $this->db->query($sql, $params);
+        // A native COMMIT can make writes visible after another connection
+        // cached their old values. Unknown native SQL invalidates conservatively.
+        if (!$shareable) { self::$requestWriteRevision++; }
+        return $this->db->fetch($result);
 	 }
 
 	/**
@@ -372,9 +377,7 @@ class model{
         // This avoids trying to parse every MySQL comment and session command.
         $this->isolateConnection();
 		if($this->db->query($sql, $params)){
-            if (preg_match('/^\s*(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|TRUNCATE)\b/i', $sql)) {
-                self::$requestWriteRevision++;
-            }
+            self::$requestWriteRevision++;
 			return true;
 		}else{
 			return false;
@@ -429,10 +432,12 @@ class model{
 
 			case 'commit':		//事务确认
 				$this->db->query('COMMIT');
+                self::$requestWriteRevision++;
 			break;
 
 			case 'rollback':	//事务回滚
 				$this->db->query('ROLLBACK');
+                self::$requestWriteRevision++;
 			break;
 
 			default:
