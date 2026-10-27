@@ -12,7 +12,8 @@
 class homeController extends Controller{
 
 	public function index(){
-		return $this->display(M("web")->information['template'],M("web")->information);
+        $information = M('web')->information;
+        return $this->display($information['template'], $information);
 	}
 
 	public function vccore(){

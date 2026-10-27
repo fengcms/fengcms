@@ -19,6 +19,7 @@ include_once DRIVER_PATH.'db_'.DB_TYPE.'.php';
 class model{
 
 	private	 $db = "";
+    private bool $transactionConnection = false;
     
 	// 数据表前缀
     protected $prefix      =   '';
@@ -57,9 +58,7 @@ class model{
         foreach (explode(',', $this->name) as $table) { self::identifier($table); }
         // 数据库初始化
 		$classname='db_'.DB_TYPE;
-		if(!is_object($classname)){
-			$this->db=new $classname(DB_HOST,DB_USER,DB_PASS,DB_NAME);
-		}
+        $this->db = new $classname(DB_HOST, DB_USER, DB_PASS, DB_NAME, true);
     }
 
 	/*
@@ -389,6 +388,13 @@ class model{
 	 public function affairs($string){
 		switch($string){			
 			case 'begin':		//开始一个事务
+                // Transactions keep their own connection, as they did before
+                // ordinary model queries began sharing a request connection.
+                if (!$this->transactionConnection) {
+                    $classname = 'db_'.DB_TYPE;
+                    $this->db = new $classname(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+                    $this->transactionConnection = true;
+                }
 				$this->db->query('BEGIN');
 			break;
 

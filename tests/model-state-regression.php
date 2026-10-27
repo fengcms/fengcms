@@ -42,6 +42,28 @@ try {
         throw new RuntimeException('Count must preserve the default field selection.');
     }
     echo "PASS count preserves default field selection\n";
+
+    $other = new model($suffix);
+    $other->where(['status' => 0])->field('id');
+    $sharedId = (int)$model->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
+    $otherId = (int)$other->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
+    $otherRows = $other->getall();
+    if ($sharedId !== $otherId || count($otherRows) !== 1 || (int)$otherRows[0]['id'] !== 2 ||
+        (int)$model->getall()[0]['id'] !== 1) {
+        throw new RuntimeException('Models must share only the connection, not query options.');
+    }
+    echo "PASS models share a connection without sharing query options\n";
+
+    $transaction = new model($suffix);
+    $transaction->affairs('begin');
+    try {
+        $transaction->insert(['id' => 3, 'status' => 1]);
+        $transactionId = (int)$transaction->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
+        if ($transactionId === $sharedId || (int)$model->getcount() !== 1) {
+            throw new RuntimeException('A model transaction leaked into ordinary queries.');
+        }
+    } finally { $transaction->affairs('rollback'); }
+    echo "PASS model transactions retain an isolated connection\n";
 } finally {
     $guard->query("DROP TABLE IF EXISTS `$table`");
 }

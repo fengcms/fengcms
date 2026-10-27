@@ -13,13 +13,18 @@ class webModel extends model{
 
 	private $d_name		 = "base";
 	public $information = array();
+    private static ?array $requestInformation = null;
 
 	public function __construct(){
 		parent::__construct($this->d_name);
-		$this->information=$this->getone();
-        // Imported or older database rows may predate write-time sanitization.
-        // Clean only the rendered copy; do not rewrite stored content here.
-        $this->information['copyright']=cms_html(cms_clean_copyright($this->information['copyright'] ?? ''));
+        if (self::$requestInformation === null) {
+            $information = $this->getone();
+            // Imported or older database rows may predate write-time sanitization.
+            // Clean only the rendered copy; do not rewrite stored content here.
+            $information['copyright'] = cms_html(cms_clean_copyright($information['copyright'] ?? ''));
+            self::$requestInformation = $information;
+        }
+        $this->information = self::$requestInformation;
 	}
 }
 

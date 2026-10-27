@@ -5,11 +5,23 @@ class db_mysqli extends database
 {
     public $name = '';
     private int $affectedRows = 0;
+    private int $insertId = 0;
+    private bool $shared = false;
+    /** @var array<string, mysqli> Request-local connections used by ordinary models. */
+    private static array $sharedLinks = [];
 
-    public function __construct($host, $user, $pass, $name)
+    public function __construct($host, $user, $pass, $name, bool $shared = false)
     {
+        $this->shared = $shared;
+        $key = hash('sha256', serialize([$host, $user, $pass, $name]));
+        if ($shared && isset(self::$sharedLinks[$key])) {
+            $this->link_id = self::$sharedLinks[$key];
+            $this->name = $name;
+            return;
+        }
         $this->connect($host, $user, $pass);
         $this->select_db($name);
+        if ($shared) { self::$sharedLinks[$key] = $this->link_id; }
     }
 
     public function connect($host, $user, $pass)
@@ -30,6 +42,7 @@ class db_mysqli extends database
         if (!$params) {
             $result = $this->link_id->query($sql);
             $this->affectedRows = $this->link_id->affected_rows;
+            $this->insertId = $this->link_id->insert_id;
             return $this->query_id = $result;
         }
         $stmt = $this->link_id->prepare($sql);
@@ -42,6 +55,7 @@ class db_mysqli extends database
         $result = $stmt->get_result();
         // Closing a statement resets mysqli::affected_rows to -1.
         $this->affectedRows = $stmt->affected_rows;
+        $this->insertId = $this->link_id->insert_id;
         $stmt->close();
         return $this->query_id = ($result ?: true);
     }
@@ -79,14 +93,19 @@ class db_mysqli extends database
 
     public function is_links() { return $this->link_id instanceof mysqli; }
     public function affected_rows() { return $this->affectedRows; }
-    public function insert_id() { return $this->link_id->insert_id; }
+    public function insert_id() { return $this->insertId; }
     public function free_result($result = null)
     {
         if ($result instanceof mysqli_result) { $result->free(); }
     }
     public function close()
     {
-        if ($this->is_links()) { $this->link_id->close(); $this->link_id = null; }
+        if ($this->is_links()) {
+            // A model releases only its handle. The request-local pool owns the
+            // connection until PHP finishes this request.
+            if (!$this->shared) { $this->link_id->close(); }
+            $this->link_id = null;
+        }
     }
     public function __destruct() { $this->close(); }
 }
