@@ -303,13 +303,22 @@ try {
         'batch category creation rejects executable URL slugs');
     $safeBatchCategory=request('POST','/admin/index.php?controller=classify&operate=save',$editorCookies,
         ['_csrf'=>$editorToken,'type'=>'module','project'=>'article','name'=>'批量安全|audit-safe-'.$tag,
-            'classid'=>'0','intro'=>'<p>说明</p><script>alert(1)</script>','genre'=>'batch']);
+            'classid'=>'0','intro'=>'<p>说明</p><script>alert(1)</script>',
+            'classify_template'=>'/article_class.html','genre'=>'batch']);
     $safeBatchRow=$db->query("SELECT id,intro FROM f_classify WHERE enname='audit-safe-".$tag."'")->fetch_assoc();
     $safeBatchId=$safeBatchRow['id']??null;
     if($safeBatchId){$categoryIds[]=(int)$safeBatchId;}
     expect_check(($safeBatchCategory['json']['status']??'')==='y' && $safeBatchRow &&
         str_contains($safeBatchRow['intro'],'<p>说明</p>') && !str_contains($safeBatchRow['intro'],'<script'),
         'batch categories keep valid slugs and sanitize introductions');
+    if($safeBatchId){
+        $safeCategoryPath='/article_audit-safe-'.$tag.'_'.$safeBatchId.'.html';
+        $safeCategoryPage=request('GET',$safeCategoryPath,$editorCookies);
+        expect_check($safeCategoryPage['status']===200 && str_contains($safeCategoryPage['body'],'批量安全'),
+            'hyphenated category slug renders its listing page');
+        expect_check(request('GET','/?controller=classify&project=goods&classify=audit-safe-'.$tag.'&classid='.$safeBatchId,$editorCookies)['status']===404,
+            'category route rejects a mismatched project');
+    }
     $db->query('DELETE FROM f_classify WHERE id='.(int)$safeBatchId);
     array_pop($categoryIds);
     $badExternalName='audit_external_'.$tag;

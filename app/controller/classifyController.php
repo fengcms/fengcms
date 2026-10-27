@@ -15,13 +15,22 @@ class classifyController extends Controller{
 	private $classify	=	array();
 
 	public function __construct(){
-
-		$_GET['classid']	= (int)$_GET['classid'];
+		$slug=$_GET['classify']??null;
+		$rawId=$_GET['classid']??null;
+		$project=$_GET['project']??null;
+		if(!is_string($slug) || !preg_match('/^[A-Za-z0-9_-]{1,50}$/D',$slug) ||
+			!is_string($rawId) || !preg_match('/^[1-9][0-9]{0,9}$/D',$rawId) ||
+			!is_string($project) || !preg_match('/^[A-Za-z][A-Za-z0-9_]*$/D',$project)){
+			cms_fail(404,'栏目不存在。');
+		}
+		$_GET['classid']=(int)$rawId;
 
 		$this->classify=D($this->d_name)->where(array(
-			'enname'	=>	lib_replace_end_tag($_GET['classify']),
-			'id'		=>	intval($_GET['classid'])
+			'enname'	=>	$slug,
+			'id'		=>	(int)$rawId,
+			'project'	=>	$project
 			))->getone();
+		if(!$this->classify){cms_fail(404,'栏目不存在。');}
 	}
 
 	public function index(){
