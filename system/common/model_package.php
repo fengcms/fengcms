@@ -1,5 +1,6 @@
 <?php
 // Portable model definitions. Package strings never become SQL statements.
+require_once __DIR__.'/model_schema.php';
 final class CmsModelPackage
 {
     private const MAX_BYTES = 1048576;
@@ -58,6 +59,13 @@ final class CmsModelPackage
         try {
             $module = $db->execute_query('SELECT * FROM `'.DB_PREFIX.'module` WHERE id=? AND type=1', [$id])->fetch_assoc();
             if (!$module) { throw new InvalidArgumentException('模型不存在。'); }
+            if(!CmsModelSchema::isHeld($module['project'])){
+                $project=$module['project'];
+                return CmsModelSchema::withLock($project,fn()=> self::export($id));
+            }
+            if((int)$module['status']<0 || CmsModelSchema::pending($db,$module['project'])){
+                throw new RuntimeException('模型结构操作尚未完成，暂不能导出。');
+            }
             $table = self::table($module['project']);
             $columns = [];
             $result = $db->query('SHOW FULL COLUMNS FROM '.$table);
@@ -185,7 +193,9 @@ final class CmsModelPackage
             }
             $existing = $db->execute_query('SELECT id FROM `'.DB_PREFIX.'module` WHERE project=?', [$project])->fetch_row();
             $tableExists = $db->execute_query('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [DB_PREFIX.$project])->fetch_row()[0];
-            if ($existing || (int)$tableExists>0) { throw new InvalidArgumentException('模型名称或数据表已存在。'); }
+            if ($existing || (int)$tableExists>0 || CmsModelSchema::pending($db,$project)) {
+                throw new InvalidArgumentException('模型名称或数据表已存在，或有待恢复的结构操作。');
+            }
             foreach ($data['field_types'] as $type) {
                 $targetType=$db->execute_query('SELECT id,f,class,`quote` FROM `'.DB_PREFIX.'module_field_type` WHERE id=?',[(int)$type['id']])->fetch_assoc();
                 if (!$targetType || (int)$targetType['f']!==(int)$type['f'] ||
@@ -210,7 +220,7 @@ final class CmsModelPackage
             $created = true;
             $m = $data['module'];
             $db->execute_query('INSERT INTO `'.DB_PREFIX.'module` (name,project,type,item,unit,description,recover,search,status,time) VALUES (?,?,1,?,?,?,?,?,?,?)',
-                [$m['name'],$project,$m['item'],$m['unit'],$m['description'],(int)$m['recover'],(int)$m['search'],(int)$m['status'],time()]);
+                [$m['name'],$project,$m['item'],$m['unit'],$m['description'],(int)$m['recover'],(int)$m['search'],-2,time()]);
             $moduleId = $db->insert_id;
             $keys = self::FIELD_KEYS;
             $sql = 'INSERT INTO `'.DB_PREFIX.'module_field` (module_id,'.implode(',',array_map(self::quote(...),$keys)).') VALUES (?,'.implode(',',array_fill(0,count($keys),'?')).')';
@@ -218,6 +228,7 @@ final class CmsModelPackage
                 $values = array_map(static fn($key) => $field[$key], $keys);
                 $db->execute_query($sql, array_merge([$moduleId], $values));
             }
+            $db->execute_query('UPDATE `'.DB_PREFIX.'module` SET status=? WHERE id=?',[(int)$m['status'],$moduleId]);
             return $moduleId;
         } catch (Throwable $e) {
             if ($moduleId) {

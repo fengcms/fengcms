@@ -34,6 +34,8 @@ x-php: &php
 services:
   db:
     image: mysql:8.4
+    # Regression tests use short-lived row-specific fault-injection triggers.
+    command: ["--log-bin-trust-function-creators=1"]
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Run ./bin/dev up first}
       MYSQL_DATABASE: fengcms

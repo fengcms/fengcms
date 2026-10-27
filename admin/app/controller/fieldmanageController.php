@@ -9,6 +9,7 @@
  *******************************************************************/
 // 
 include "admin.php";
+require_once ROOT_PATH.'/system/common/model_schema.php';
 
 class fieldmanageController extends Controller{
 
@@ -81,7 +82,9 @@ class fieldmanageController extends Controller{
      */
     public function enable(){
         if(!in_array($_GET['status']??null,['0','1'],true)){cms_fail(400,'字段状态不正确。');}
-        if(M($this->model)->status((int)$_GET['id'],$_GET['status'])){
+        $changed=CmsModelSchema::withLock((string)($_GET['project']??''),
+            fn()=>M($this->model)->status((int)$_GET['id'],$_GET['status'],$_GET['project']));
+        if($changed){
             echo '<meta http-equiv="refresh" content="0;url=?controller=fieldmanage&project='.$_GET['project'].'">';
         }else{
             echo '<meta http-equiv="refresh" content="0;url=?controller=fieldmanage&project='.$_GET['project'].'">';
@@ -94,7 +97,8 @@ class fieldmanageController extends Controller{
      * @return array
      */
 	public function sort(){
-		echo json_encode(M($this->model)->sort(array_filter($_POST)));
+		echo json_encode(CmsModelSchema::withLock((string)($_GET['project']??''),
+            fn()=>M($this->model)->sort(array_filter($_POST),$_GET['project'])));
 	}
 
     /**
@@ -103,14 +107,9 @@ class fieldmanageController extends Controller{
      * @return array
      */
 	public function delete(){
-        $id=$_GET['id'];
-		M($this->model)->fielddel($id);
-		$re=M($this->model)->delete('id="'.$id.'"');
-		if($re){
-			echo '<meta http-equiv="refresh" content="0;url=?controller=fieldmanage&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
-		}else{
-			echo '<meta http-equiv="refresh" content="0;url=?controller=fieldmanage&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
-		}
+        $result=M($this->model)->deleteField((int)($_GET['id']??0),(string)($_GET['project']??''));
+        if($result['status']!=='y'){cms_fail(409,$result['message']);}
+        echo '<meta http-equiv="refresh" content="0;url=?controller=fieldmanage&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 	}
 
     /**

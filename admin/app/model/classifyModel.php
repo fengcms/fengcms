@@ -178,6 +178,7 @@ class classifyModel extends model{
 			$re=$array?D($this->d_name)->where(['id'=>$id])->update($array):false;
 		}else{
 			if(($array['type']??null)==='single'){$array['project']='single';}
+			if(($array['type']??null)==='module'){$this->assertModuleProject($array['project']??null);}
 			$array['topid']=$this->topid($array['classid']??0);
 			$id=D($this->d_name)->insert($array);
 			$re=$id;
@@ -195,6 +196,14 @@ class classifyModel extends model{
 			return array('status' => 'n','id' => $id);
 		}
 
+	}
+
+	private function assertModuleProject(mixed $project): void{
+		if(!is_string($project) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,29}$/D',$project)){
+			cms_fail(400,'栏目所属模型不正确。');
+		}
+		$module=D('module')->where(['project'=>$project,'type'=>1])->getone();
+		if(!$module || (int)$module['status']<0){cms_fail(409,'栏目所属模型不存在或尚未完成创建。');}
 	}
 
 	private function topid($classid){
@@ -223,6 +232,7 @@ class classifyModel extends model{
 			!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D',$classify['project'])){
 			cms_fail(400,'批量栏目类型或模型不正确。');
 		}
+		$this->assertModuleProject($classify['project']);
 		foreach(['name','classid','intro','img','key','description','channel_template','classify_template','content_template'] as $field){
 			if(isset($classify[$field]) && !is_string($classify[$field])){cms_fail(400,'栏目内容不正确。');}
 		}

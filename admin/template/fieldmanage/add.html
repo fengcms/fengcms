@@ -22,6 +22,8 @@ $(function(){
 				location.href =	FengAdmin.executionURL('fieldmanage',data);
 			}else if(data.status=="e"){
 				alert("字段已存在！")
+			}else if(data.status=="p"){
+				alert(data.message || "字段结构操作未完成，请保持当前输入并重试。");
 			}else{
 				location.href =	FengAdmin.executionURL('fieldmanage',data);
 

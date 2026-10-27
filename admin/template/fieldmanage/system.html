@@ -18,6 +18,8 @@ $(function(){
 				location.href =	FengAdmin.executionURL('fieldmanage',data,{includeId:false});
 			}else if(data.status=="e"){
 				alert("您没有选择字段！")
+			}else if(data.status=="p"){
+				alert(FengAdmin.batchSummary(data) || "部分字段未完成，请检查后重试。");
 			}else{
 				location.href =	FengAdmin.executionURL('fieldmanage',data,{includeId:false});
 

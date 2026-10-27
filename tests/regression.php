@@ -121,6 +121,7 @@ $counterTagIds=[]; $counterAuthorId=$faultTagId=null;
 $signupFixtureCreated=false;
 $articleIds=[]; $singleContentId=null; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
+$schemaProjects=[]; $schemaTriggers=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
 $importProject='qa_copy_'.$tag; $importFixtureId=null;
 $originalBase=$db->query('SELECT name,copyright FROM f_base LIMIT 1')->fetch_assoc();
@@ -1366,6 +1367,264 @@ try {
     expect_check($singleTimeout['status']===409 &&
         (int)$db->query('SELECT status FROM f_article WHERE id='.$singleLockId)->fetch_row()[0]===1,
         'single-record lock timeout remains HTTP 409 without changing content');
+    $schemaProject='qa_schema_'.$tag; $schemaProjects[]=$schemaProject;
+    $schemaCreate=request('POST','/admin/index.php?controller=modulemanage&operate=save',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaProject,'name'=>'结构回归模型']);
+    $schemaId=(int)($schemaCreate['json']['id']??0);
+    expect_check(($schemaCreate['json']['status']??'')==='y' && $schemaId>0,
+        'schema fixture model is created through the backend');
+    $schemaFieldRoute='/admin/index.php?controller=fieldmanage&project='.$schemaProject;
+    $schemaField=function(string $name,array $extra=[]) use (&$cookies,$newToken,$schemaProject,$schemaId,$schemaFieldRoute): array {
+        return request('POST',$schemaFieldRoute.'&operate=save',$cookies,
+            array_replace(['_csrf'=>$newToken,'module_id'=>(string)$schemaId,'project'=>$schemaProject,
+                'name'=>$name,'aliases'=>'结构回归','type'=>'17'],$extra));
+    };
+    $tooLong=$schemaField('ms_long_'.substr($tag,0,4),['aliases'=>str_repeat('长',51)]);
+    $tooLongName='ms_long_'.substr($tag,0,4);
+    expect_check($tooLong['status']===400 &&
+        $db->query("SHOW COLUMNS FROM `f_$schemaProject` LIKE '$tooLongName'")->num_rows===0,
+        'overlong field metadata is rejected before DDL');
+    $faultName='ms_fault_'.substr($tag,0,4);
+    $insertTrigger='qa_ms_ins_'.$tag; $schemaTriggers[]=$insertTrigger;
+    $db->query("CREATE TRIGGER `$insertTrigger` BEFORE INSERT ON f_module_field FOR EACH ROW
+        BEGIN IF NEW.name='$faultName' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='schema regression'; END IF; END");
+    $faultAdd=$schemaField($faultName);
+    expect_check(($faultAdd['json']['status']??'')==='p' &&
+        $db->query("SHOW COLUMNS FROM `f_$schemaProject` LIKE '$faultName'")->num_rows===1 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=? AND action=? AND field_name=?',
+            [$schemaProject,'field_add',$faultName])->fetch_row()[0]===1,
+        'failed field metadata insert keeps a recoverable physical-column journal');
+    $db->query('DROP TRIGGER `'.$insertTrigger.'`');
+    $faultRetry=$schemaField($faultName);
+    expect_check(($faultRetry['json']['status']??'')==='y' &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_module_field WHERE module_id=? AND name=?',
+            [$schemaId,$faultName])->fetch_row()[0]===1 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=?',
+            [$schemaProject])->fetch_row()[0]===0,
+        'field creation retry completes metadata without adding a duplicate column');
+    $deleteName='ms_delete_'.substr($tag,0,4);
+    $deleteField=$schemaField($deleteName);
+    $deleteFieldId=(int)($deleteField['json']['id']??0);
+    $db->query("INSERT INTO `f_$schemaProject` (title,`$deleteName`) VALUES ('schema deletion','original-value')");
+    $deleteTrigger='qa_ms_del_'.$tag; $schemaTriggers[]=$deleteTrigger;
+    $db->query("CREATE TRIGGER `$deleteTrigger` BEFORE DELETE ON f_module_field FOR EACH ROW
+        BEGIN IF OLD.id=$deleteFieldId THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='schema regression'; END IF; END");
+    $deleteFault=request('POST',$schemaFieldRoute.'&operate=delete&id='.$deleteFieldId,$cookies,['_csrf'=>$newToken]);
+    expect_check($deleteFieldId>0 && $deleteFault['status']===409 &&
+        $db->query("SHOW COLUMNS FROM `f_$schemaProject` LIKE '$deleteName'")->num_rows===0 &&
+        $db->query('SELECT id FROM f_module_field WHERE id='.$deleteFieldId)->num_rows===1,
+        'failed field metadata delete reports the already dropped column');
+    $db->query('DROP TRIGGER `'.$deleteTrigger.'`');
+    $deleteRetry=request('POST',$schemaFieldRoute.'&operate=delete&id='.$deleteFieldId,$cookies,['_csrf'=>$newToken]);
+    expect_check($deleteRetry['status']===200 &&
+        $db->query('SELECT id FROM f_module_field WHERE id='.$deleteFieldId)->num_rows===0,
+        'field deletion retry clears metadata after an earlier DROP');
+    $reserved=$schemaField('attrib_j');
+    expect_check($reserved['status']===400 &&
+        $db->query("SHOW COLUMNS FROM `f_$schemaProject` LIKE 'attrib_j'")->num_rows===0,
+        'new custom fields cannot use system composite column names');
+    $db->query("ALTER TABLE `f_$schemaProject` ADD COLUMN `attrib_j` varchar(255) NULL");
+    $db->query("UPDATE `f_$schemaProject` SET attrib_j='legacy-value'");
+    $collision=request('POST',$schemaFieldRoute.'&operate=systemsave',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaProject,'record'=>['2','3']]);
+    expect_check($collision['status']===409 &&
+        $db->query("SHOW COLUMNS FROM `f_$schemaProject` LIKE 'classid'")->num_rows===0 &&
+        $db->query("SELECT attrib_j FROM `f_$schemaProject` LIMIT 1")->fetch_row()[0]==='legacy-value',
+        'system batch rejects a composite collision before changing earlier fields or existing values');
+    $db->query("ALTER TABLE `f_$schemaProject` DROP COLUMN `attrib_j`");
+    $systemRetry=request('POST',$schemaFieldRoute.'&operate=systemsave',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaProject,'record'=>['2','3']]);
+    expect_check(($systemRetry['json']['status']??'')==='y' &&
+        ($systemRetry['json']['changed']??[])===['classid','attrib'] &&
+        $db->query("SHOW COLUMNS FROM `f_$schemaProject` LIKE 'attrib_h'")->num_rows===1,
+        'system batch succeeds once the legacy physical-column conflict is resolved');
+    $systemTrigger='qa_ms_system_'.$tag; $schemaTriggers[]=$systemTrigger;
+    $db->query("CREATE TRIGGER `$systemTrigger` BEFORE INSERT ON f_module_field FOR EACH ROW
+        BEGIN IF NEW.module_id=$schemaId AND NEW.name='date'
+            THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='schema regression'; END IF; END");
+    $systemPartial=request('POST',$schemaFieldRoute.'&operate=systemsave',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaProject,'record'=>['4','12']]);
+    expect_check(($systemPartial['json']['status']??'')==='p' &&
+        ($systemPartial['json']['changed']??[])===['tags'] &&
+        ($systemPartial['json']['failed']??[])===['date'] &&
+        $db->query("SHOW COLUMNS FROM `f_$schemaProject` LIKE 'date'")->num_rows===1 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=? AND action=? AND field_name=?',
+            [$schemaProject,'field_add','date'])->fetch_row()[0]===1,
+        'system batch reports completed and failed fields after a metadata write fault');
+    $db->query('DROP TRIGGER `'.$systemTrigger.'`');
+    $systemPartialRetry=request('POST',$schemaFieldRoute.'&operate=systemsave',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaProject,'record'=>['4','12','12']]);
+    expect_check(($systemPartialRetry['json']['status']??'')==='y' &&
+        ($systemPartialRetry['json']['already']??[])===['tags'] &&
+        ($systemPartialRetry['json']['changed']??[])===['date'] &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_module_field WHERE module_id=? AND name=?',
+            [$schemaId,'date'])->fetch_row()[0]===1,
+        'system batch retry resumes one pending field without duplicating completed fields');
+    $schemaCategory=function(string $project,int $parent,string $suffix) use (&$cookies,$newToken,$tag,&$categoryIds): int {
+        $saved=request('POST','/admin/index.php?controller=classify&operate=save',$cookies,
+            ['_csrf'=>$newToken,'genre'=>'one','type'=>'module','project'=>$project,
+                'name'=>'schema_'.$suffix.'_'.$tag,'enname'=>'schema_'.$suffix.'_'.$tag,
+                'classid'=>(string)$parent,'nav'=>'0']);
+        $id=(int)($saved['json']['id']??0);
+        expect_check(($saved['json']['status']??'')==='y' && $id>0,'schema reference category '.$suffix.' is created');
+        $categoryIds[]=$id;
+        return $id;
+    };
+    $schemaParent=$schemaCategory($schemaProject,0,'parent');
+    $schemaChild=$schemaCategory('article',$schemaParent,'child');
+    $referenceBlocked=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check($referenceBlocked['status']===409 &&
+        $db->query("SHOW TABLES LIKE 'f_$schemaProject'")->num_rows===1 &&
+        $db->query('SELECT id FROM f_classify WHERE id='.$schemaChild)->num_rows===1,
+        'model deletion rejects cross-model category references before DROP');
+    $schemaCategoryRemoval=request('POST','/admin/index.php?controller=classify&operate=delete&id='.$schemaParent,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check($schemaCategoryRemoval['status']===200 &&
+        $db->query('SELECT id FROM f_classify WHERE id IN ('.$schemaParent.','.$schemaChild.')')->num_rows===0,
+        'references can be explicitly removed before deleting the model');
+    $schemaRow=(int)$db->query("SELECT id FROM `f_$schemaProject` LIMIT 1")->fetch_row()[0];
+    $schemaEditPage=request('GET','/admin/index.php?controller=module&project='.$schemaProject.
+        '&operate=update&id='.$schemaRow,$cookies);
+    preg_match('/name="_write_token" value="([a-f0-9]{64})"/',$schemaEditPage['body'],$schemaWriteToken);
+    expect_check(isset($schemaWriteToken[1]),'schema content fixture has a write token');
+    $db->begin_transaction();
+    try{
+        $db->query("SELECT id FROM `f_$schemaProject` WHERE id=$schemaRow FOR UPDATE");
+        $schemaSocket=start_async_request('POST','/admin/index.php?controller=module&project='.$schemaProject.'&operate=save',
+            $cookies,['_csrf'=>$newToken,'id'=>(string)$schemaRow,
+                '_write_token'=>$schemaWriteToken[1],'title'=>'schema in flight']);
+        $rowKey='fcw:'.substr(hash('sha256',(getenv('DB_NAME')?:'fengcms').':'.
+            (getenv('DB_PREFIX')?:'f_').':'.$schemaProject.':row:'.$schemaRow),0,58);
+        $writerOwnsRow=false;
+        for($attempt=0;$attempt<100;$attempt++){
+            $writerOwnsRow=$db->execute_query('SELECT IS_USED_LOCK(?)',[$rowKey])->fetch_row()[0]!==null;
+            if($writerOwnsRow){break;}
+            usleep(20000);
+        }
+        expect_check($writerOwnsRow,'content editor acquires its record lock before model deletion');
+        $blockedDelete=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
+            $parallelCookies,['_csrf'=>$parallelCsrf]);
+    }finally{$db->commit();}
+    $schemaSaveAfterBlock=finish_async_request($schemaSocket);
+    expect_check($blockedDelete['status']===409 && $schemaSaveAfterBlock['status']===200 &&
+        $db->query("SHOW TABLES LIKE 'f_$schemaProject'")->num_rows===1,
+        'model deletion cannot drop a table while a content save holds the lifecycle lock (delete='.
+            $blockedDelete['status'].', save='.$schemaSaveAfterBlock['status'].')');
+    $db->execute_query('INSERT INTO f_content_recycle_state (project,record_id,previous_status) VALUES (?,?,?)',
+        [$schemaProject,$schemaRow,1]);
+    $db->execute_query('INSERT INTO f_content_create_request (account_id,project,request_key,payload_hash,state) VALUES (?,?,?,?,?)',
+        [$testId,$schemaProject,bin2hex(random_bytes(16)),str_repeat('a',64),'complete']);
+    $modelTrigger='qa_ms_model_'.$tag; $schemaTriggers[]=$modelTrigger;
+    $db->query("CREATE TRIGGER `$modelTrigger` BEFORE DELETE ON f_module FOR EACH ROW
+        BEGIN IF OLD.id=$schemaId THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='schema regression'; END IF; END");
+    $modelFault=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check($modelFault['status']===409 &&
+        $db->query("SHOW TABLES LIKE 'f_$schemaProject'")->num_rows===0 &&
+        $db->query('SELECT id FROM f_module WHERE id='.$schemaId)->num_rows===1 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=? AND action=?',
+            [$schemaProject,'model_delete'])->fetch_row()[0]===1,
+        'model deletion failure after DROP retains a resumable identity-bound journal');
+    $db->query('DROP TRIGGER `'.$modelTrigger.'`');
+    $modelRetry=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check($modelRetry['status']===200 &&
+        $db->query('SELECT id FROM f_module WHERE id='.$schemaId)->num_rows===0 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_module_field WHERE module_id=?',[$schemaId])->fetch_row()[0]===0 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_content_recycle_state WHERE project=?',[$schemaProject])->fetch_row()[0]===0 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_content_create_request WHERE project=?',[$schemaProject])->fetch_row()[0]===0 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=?',[$schemaProject])->fetch_row()[0]===0,
+        'model deletion retry clears module, fields and content-state records');
+    $schemaRecreate=request('POST','/admin/index.php?controller=modulemanage&operate=save',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaProject,'name'=>'重建结构模型']);
+    $schemaNewId=(int)($schemaRecreate['json']['id']??0);
+    $staleModelDelete=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaId,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check(($schemaRecreate['json']['status']??'')==='y' && $schemaNewId>$schemaId &&
+        $staleModelDelete['status']===404 &&
+        $db->query('SELECT id FROM f_module WHERE id='.$schemaNewId)->num_rows===1,
+        'an old delete request cannot remove a rebuilt model with the same project name');
+    $fieldCleanupTrigger='qa_ms_cleanup_'.$tag; $schemaTriggers[]=$fieldCleanupTrigger;
+    $db->query("CREATE TRIGGER `$fieldCleanupTrigger` BEFORE DELETE ON f_module_field FOR EACH ROW
+        BEGIN IF OLD.module_id=$schemaNewId
+            THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='schema regression'; END IF; END");
+    $fieldCleanupFault=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaNewId,
+        $cookies,['_csrf'=>$newToken]);
+    $pendingPage=request('GET','/admin/index.php?controller=modulemanage',$cookies);
+    expect_check($fieldCleanupFault['status']===409 &&
+        $db->query("SHOW TABLES LIKE 'f_$schemaProject'")->num_rows===0 &&
+        $db->query('SELECT id FROM f_module WHERE id='.$schemaNewId)->num_rows===1 &&
+        str_contains($pendingPage['body'],'删除待完成'),
+        'model field-cleanup failure remains visible and retryable after DROP');
+    $db->query('DROP TRIGGER `'.$fieldCleanupTrigger.'`');
+    $fieldCleanupRetry=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaNewId,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check($fieldCleanupRetry['status']===200 &&
+        $db->query('SELECT id FROM f_module WHERE id='.$schemaNewId)->num_rows===0,
+        'model deletion retries after a field-cleanup failure');
+    $schemaThird=request('POST','/admin/index.php?controller=modulemanage&operate=save',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaProject,'name'=>'第三次结构模型']);
+    $schemaThirdId=(int)($schemaThird['json']['id']??0);
+    expect_check(($schemaThird['json']['status']??'')==='y' && $schemaThirdId>$schemaNewId,
+        'model project can be rebuilt after completed recovery');
+    $journalTrigger='qa_ms_journal_'.$tag; $schemaTriggers[]=$journalTrigger;
+    $db->query("CREATE TRIGGER `$journalTrigger` BEFORE DELETE ON f_model_schema_operation FOR EACH ROW
+        BEGIN IF OLD.project='$schemaProject' AND OLD.action='model_delete'
+            THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='schema regression'; END IF; END");
+    $journalFault=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaThirdId,
+        $cookies,['_csrf'=>$newToken]);
+    $journalPage=request('GET','/admin/index.php?controller=modulemanage',$cookies);
+    expect_check($journalFault['status']===409 &&
+        $db->query('SELECT id FROM f_module WHERE id='.$schemaThirdId)->num_rows===0 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=? AND action=?',
+            [$schemaProject,'model_delete'])->fetch_row()[0]===1 &&
+        str_contains($journalPage['body'],$schemaProject),
+        'journal cleanup failure remains listed even after the model row was removed');
+    $db->query('DROP TRIGGER `'.$journalTrigger.'`');
+    $journalRetry=request('POST','/admin/index.php?controller=modulemanage&operate=delete&id='.$schemaThirdId,
+        $cookies,['_csrf'=>$newToken]);
+    expect_check($journalRetry['status']===200 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=?',
+            [$schemaProject])->fetch_row()[0]===0,
+        'model deletion can finish a journal after its model row is gone');
+    $orphanCategory=request('POST','/admin/index.php?controller=classify&operate=save',$cookies,
+        ['_csrf'=>$newToken,'genre'=>'one','type'=>'module','project'=>$schemaProject,
+            'name'=>'失效模型栏目','enname'=>'orphan_'.$tag,'classid'=>'0','nav'=>'0']);
+    expect_check($orphanCategory['status']===409 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_classify WHERE project=?',[$schemaProject])->fetch_row()[0]===0,
+        'category creation cannot add a reference after model deletion');
+    $schemaImportProject='qa_imprace_'.$tag; $schemaProjects[]=$schemaImportProject;
+    $schemaImportPreview=request('POST','/admin/index.php?controller=modulemanage&operate=preview',$cookies,
+        ['_csrf'=>$newToken,'project'=>$schemaImportProject,'package_json'=>$export['body']]);
+    preg_match('/name="nonce" value="([a-f0-9]{32})"/',$schemaImportPreview['body'],$schemaImportNonce);
+    expect_check($schemaImportPreview['status']===200 && isset($schemaImportNonce[1]),
+        'concurrent import fixture passes the normal package preview');
+    $importTrigger='qa_ms_import_'.$tag; $schemaTriggers[]=$importTrigger;
+    $db->query("CREATE TRIGGER `$importTrigger` BEFORE INSERT ON f_module_field FOR EACH ROW
+        BEGIN IF NEW.name='title' AND EXISTS
+          (SELECT 1 FROM f_module WHERE id=NEW.module_id AND project='$schemaImportProject')
+          THEN DO SLEEP(8); END IF; END");
+    $schemaImportSocket=start_async_request('POST','/admin/index.php?controller=modulemanage&operate=loading',
+        $cookies,['_csrf'=>$newToken,'nonce'=>$schemaImportNonce[1]]);
+    $importingId=0;
+    for($attempt=0;$attempt<150;$attempt++){
+        $importingId=(int)($db->execute_query('SELECT id FROM f_module WHERE project=?',
+            [$schemaImportProject])->fetch_row()[0]??0);
+        if($importingId>0){break;}
+        usleep(20000);
+    }
+    $importDelete=$importingId>0 ? request('POST',
+        '/admin/index.php?controller=modulemanage&operate=delete&id='.$importingId,
+        $parallelCookies,['_csrf'=>$parallelCsrf]) : ['status'=>0];
+    $schemaImportResult=finish_async_request($schemaImportSocket);
+    $db->query('DROP TRIGGER `'.$importTrigger.'`');
+    expect_check($importingId>0 && $importDelete['status']===409 &&
+        $schemaImportResult['status']===303 &&
+        $db->query("SHOW TABLES LIKE 'f_$schemaImportProject'")->num_rows===1 &&
+        (int)$db->execute_query('SELECT COUNT(*) FROM f_module_field WHERE module_id=?',[$importingId])->fetch_row()[0]
+            ===count($package['fields']),
+        'model deletion waits for import publication and leaves no orphan field metadata');
     $recycleIds=[];
     foreach ([-1,-1,-1] as $recycleStatus) {
         $db->query("INSERT INTO `f_$moduleProject` (title,status) VALUES ('recycle_$tag',$recycleStatus)");
@@ -1832,6 +2091,16 @@ try {
     expect_check($captchaRate['status']===429,'captcha guesses are limited per remote address');
     echo "All $passed regression checks passed.\n";
 } finally {
+    foreach($schemaTriggers as $trigger){$db->query('DROP TRIGGER IF EXISTS `'.$trigger.'`');}
+    foreach($schemaProjects as $project){
+        $rows=$db->execute_query('SELECT id FROM f_module WHERE project=?',[$project])->fetch_all(MYSQLI_ASSOC);
+        foreach($rows as $row){$db->query('DELETE FROM f_module_field WHERE module_id='.(int)$row['id']);}
+        $db->execute_query('DELETE FROM f_module WHERE project=?',[$project]);
+        $db->execute_query('DELETE FROM f_content_recycle_state WHERE project=?',[$project]);
+        $db->execute_query('DELETE FROM f_content_create_request WHERE project=?',[$project]);
+        $db->execute_query('DELETE FROM f_model_schema_operation WHERE project=?',[$project]);
+        $db->query('DROP TABLE IF EXISTS `f_'.$project.'`');
+    }
     if ($signupFixtureCreated) { $db->query('DROP TABLE f_signup_base'); }
     $db->query("DROP VIEW IF EXISTS `$viewFixture`");
     if ($backupId !== null) {

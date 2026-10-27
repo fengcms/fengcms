@@ -55,6 +55,19 @@ class moduleModel extends model{
         if (!is_string($project) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $project)) {
             cms_fail(400, '模型名称不正确。');
         }
+        if(!CmsModelSchema::isHeld($project)){
+            $expected=D('module')->where(['project'=>$project])->getone();
+            return CmsModelSchema::withLock($project,function() use ($array,$project,$expected){
+                $current=D('module')->where(['project'=>$project])->getone();
+                if(!$expected || !$current || (int)$expected['id']!==(int)$current['id']){
+                    cms_fail(409,'模型已变更，请刷新页面后重试。');
+                }
+                return $this->save($array,$project);
+            });
+        }
+        if(!D('module')->where(['project'=>$project])->getone()){
+            cms_fail(409,'模型已删除，请刷新后重试。');
+        }
         $updateTime = array_key_exists('time', $array);
 		$rawId=$array['id']??null;
 		if($rawId!==null && (!is_string($rawId) || !preg_match('/^[1-9][0-9]{0,9}$/D',$rawId))){cms_fail(400,'记录 ID 不正确。');}
@@ -168,6 +181,21 @@ class moduleModel extends model{
      * @return array
      */
 	public function batchsave($arr){
+        $project=$_GET['project']??null;
+        if(!is_string($project)){cms_fail(400,'模型名称不正确。');}
+        if(!CmsModelSchema::isHeld($project)){
+            $expected=D('module')->where(['project'=>$project])->getone();
+            return CmsModelSchema::withLock($project,function() use ($arr,$project,$expected){
+                $current=D('module')->where(['project'=>$project])->getone();
+                if(!$expected || !$current || (int)$expected['id']!==(int)$current['id']){
+                    cms_fail(409,'模型已变更，请刷新页面后重试。');
+                }
+                return $this->batchsave($arr);
+            });
+        }
+        if(!D('module')->where(['project'=>$project])->getone()){
+            cms_fail(409,'模型已删除，请刷新后重试。');
+        }
 		$batch=$arr['batch']??null;
 		if(!is_string($batch) || $batch===''){cms_fail(400,'批量内容不正确。');}
 		$rows=[];

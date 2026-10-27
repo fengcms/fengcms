@@ -1,5 +1,6 @@
 <?php
 defined('TPL_INCLUDE') or die('Restricted access');
+require_once ROOT_PATH.'/system/common/model_schema.php';
 
 final class ContentWriteLockTimeout extends RuntimeException {}
 
@@ -12,6 +13,7 @@ final class ContentWrite
     private string $table;
     private string $recycleTable;
     private string $requestTable;
+    private ?int $moduleId;
     private ?float $batchDeadline = null;
 
     public function __construct(string $project)
@@ -23,6 +25,8 @@ final class ContentWrite
         $this->requestTable=self::tableName('content_create_request');
         $this->db=new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME);
         $this->db->set_charset('utf8mb4');
+        $module=$this->db->execute_query('SELECT id FROM '.self::tableName('module').' WHERE project=?',[$project])->fetch_row();
+        $this->moduleId=isset($module[0])?(int)$module[0]:null;
     }
 
     private static function tableName(string $name): string
@@ -34,6 +38,16 @@ final class ContentWrite
 
     private function locked(string $item, callable $work): mixed
     {
+        if($item!=='category:relations' && !CmsModelSchema::isHeld($this->project)){
+            return CmsModelSchema::withLock($this->project,fn()=> $this->locked($item,$work));
+        }
+        if($item!=='category:relations'){
+            $module=$this->db->execute_query('SELECT id,status FROM '.self::tableName('module').
+                ' WHERE project=?',[$this->project])->fetch_row();
+            if($this->moduleId===null || !$module || (int)$module[0]!==$this->moduleId || (int)$module[1]<0){
+                cms_fail(409,'模型已变更，请刷新页面后重试。');
+            }
+        }
         $scope=$item==='category:relations'?'all-categories':$this->project;
         $key='fcw:'.substr(hash('sha256',DB_NAME.':'.DB_PREFIX.':'.$scope.':'.$item),0,58);
         $remaining=$this->batchDeadline===null?5.0:max(0.0,$this->batchDeadline-microtime(true));
@@ -154,6 +168,9 @@ final class ContentWrite
 
     public function batch(array $ids,string $action,?string $attribute=null): array
     {
+        if(!CmsModelSchema::isHeld($this->project)){
+            return CmsModelSchema::withLock($this->project,fn()=> $this->batch($ids,$action,$attribute));
+        }
         $result=['changed'=>[],'already'=>[],'missing'=>[],'failed'=>[],'unprocessed'=>[]];
         $this->batchDeadline=microtime(true)+self::BATCH_SECONDS;
         try {

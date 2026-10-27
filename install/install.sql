@@ -40,6 +40,18 @@ CREATE TABLE `#prefix_content_create_request` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`account_id`,`project`,`request_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='内容创建请求';
+CREATE TABLE `#prefix_model_schema_operation` (
+  `project` varchar(30) NOT NULL,
+  `module_id` int unsigned NOT NULL,
+  `field_id` int unsigned DEFAULT NULL,
+  `action` varchar(20) NOT NULL,
+  `field_name` varchar(50) NOT NULL DEFAULT '',
+  `stage` varchar(20) NOT NULL,
+  `payload` text NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`project`,`action`,`field_name`),
+  KEY (`module_id`,`field_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='模型结构操作进度';
 CREATE TABLE `#prefix_author` (
   `id` int(11) NOT NULL auto_increment,
   `name` varchar(50) default NULL COMMENT '名称',

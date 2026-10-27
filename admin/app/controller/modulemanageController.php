@@ -11,6 +11,8 @@
 
 include "admin.php";
 require_once ROOT_PATH.'/system/common/model_package.php';
+require_once ROOT_PATH.'/system/common/model_schema.php';
+require_once __DIR__.'/../model/contentWrite.php';
 
 class modulemanageController extends Controller{
 
@@ -24,7 +26,8 @@ class modulemanageController extends Controller{
      */
 	public function index(){
 		return $this->display('modulemanage/index.html',array(
-			'module' =>	M($this->model)->findall("type=1")
+			'module' =>	M($this->model)->findall("type=1"),
+            'pending'=>D('model_schema_operation')->where(['action'=>'model_delete'])->getall(),
 			));
 	}
 
@@ -66,18 +69,21 @@ class modulemanageController extends Controller{
      * @return array
      */
 	public function delete(){
-		$arr=M($this->model)->findone(['id'=>(int)$_GET['id']]);
-		if(!$arr){cms_fail(404,'模型不存在。');}
-
-		$deltable=D($arr['project'])->droptable();
-		$delmodule=M($this->model)->delete(['id'=>(int)$arr['id']]);
-		$delfield=M("fieldmanage")->delete(['module_id'=>(int)$arr['id']]);
-
-		if($deltable&&$delmodule&&$delfield){
-			echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage">';
-		}else{
-			echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage">';
-		}
+		$id=(int)($_GET['id']??0);
+        $db=CmsModelSchema::connection();
+        try{
+            $row=$db->execute_query('SELECT project FROM '.CmsModelSchema::table('module').' WHERE id=?',[$id])->fetch_assoc();
+            if(!$row){
+                $row=$db->execute_query('SELECT project FROM '.CmsModelSchema::table('model_schema_operation').
+                    ' WHERE module_id=? AND action=?',[$id,'model_delete'])->fetch_assoc();
+            }
+            if(!$row){cms_fail(404,'模型不存在。');}
+            $project=$row['project'];
+        }finally{$db->close();}
+        CmsModelSchema::withLock($project,function(mysqli $db) use ($id,$project){
+            ContentWrite::categoryLocked($project,fn()=> CmsModelSchema::deleteModel($db,$id,$project));
+        });
+        echo '<meta http-equiv="refresh" content="0;url=?controller=modulemanage">';
 	}
 
     /**
