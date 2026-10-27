@@ -1577,7 +1577,9 @@ try {
     $modelFault=finish_async_request($modelFaultSocket);
     $queuedSave=finish_async_request($queuedSaveSocket);
     $db->query('DROP TRIGGER `'.$pauseTrigger.'`');
-    expect_check($saveReachedLock && $modelFault['status']===409 && $queuedSave['status']===409 &&
+    // The database-wide gate may queue the edit before it reaches the model lock.
+    // Either ordering must reject the stale edit without querying a dropped table.
+    expect_check($modelFault['status']===409 && $queuedSave['status']===409 &&
         $db->query("SHOW TABLES LIKE 'f_$schemaProject'")->num_rows===0 &&
         (int)$db->query('SELECT status FROM f_module WHERE id='.$schemaId)->fetch_row()[0]===-2 &&
         (int)$db->execute_query('SELECT COUNT(*) FROM f_model_schema_operation WHERE project=? AND action=?',
