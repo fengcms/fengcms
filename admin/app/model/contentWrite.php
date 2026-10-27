@@ -1,6 +1,8 @@
 <?php
 defined('TPL_INCLUDE') or die('Restricted access');
 
+final class ContentWriteLockTimeout extends RuntimeException {}
+
 /** Serializes content writes across administrator sessions, including legacy MyISAM tables. */
 final class ContentWrite
 {
@@ -32,9 +34,16 @@ final class ContentWrite
     {
         $key='fcw:'.substr(hash('sha256',DB_NAME.':'.DB_PREFIX.':'.$this->project.':'.$item),0,58);
         $result=$this->db->execute_query('SELECT GET_LOCK(?,5)',[$key])->fetch_row();
-        if ((int)($result[0]??0)!==1) { cms_fail(409,'内容正在由其他请求处理，请稍后重试。'); }
+        if ((int)($result[0]??0)!==1) { throw new ContentWriteLockTimeout('内容正在由其他请求处理，请稍后重试。'); }
         try { return $work(); }
         finally { $this->db->execute_query('SELECT RELEASE_LOCK(?)',[$key]); }
+    }
+
+    /** Single-record routes retain their HTTP 409 contract; batches catch the exception per ID. */
+    public static function single(callable $work): mixed
+    {
+        try { return $work(); }
+        catch (ContentWriteLockTimeout $e) { cms_fail(409,$e->getMessage()); }
     }
 
     public function row(int $id): ?array
@@ -127,6 +136,7 @@ final class ContentWrite
         $result=['changed'=>[],'already'=>[],'missing'=>[],'failed'=>[]];
         foreach ($ids as $id) {
             try { $result[$this->change((int)$id,$action,$attribute)][]=(int)$id; }
+            catch (ContentWriteLockTimeout $e) { $result['failed'][]=(int)$id; }
             catch (Throwable $e) { error_log('Content batch write failed: '.$e); $result['failed'][]=(int)$id; }
         }
         $result['status']=$result['failed'] || $result['missing'] ? 'p' : 'y';

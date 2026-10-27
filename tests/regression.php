@@ -72,6 +72,12 @@ function finish_async_request($socket,int $timeout=20): array {
     preg_match('~HTTP/\S+ (\d+)~',$parts[0],$status);
     return ['status'=>(int)($status[1]??0),'body'=>$parts[1]??'','timed_out'=>$timedOut];
 }
+function with_content_test_lock(mysqli $db,string $project,string $item,callable $work): mixed {
+    $key='fcw:'.substr(hash('sha256',(getenv('DB_NAME')?:'fengcms').':'.(getenv('DB_PREFIX')?:'f_').':'.$project.':'.$item),0,58);
+    if((int)$db->execute_query('SELECT GET_LOCK(?,0)',[$key])->fetch_row()[0]!==1){throw new RuntimeException('Test lock is busy.');}
+    try{return $work();}
+    finally{$db->execute_query('SELECT RELEASE_LOCK(?)',[$key]);}
+}
 function token(array &$cookies, bool $admin=false): string {
     $page = request('GET',$admin?'/admin/index.php':'/admin/login.php',$cookies);
     $pattern = $admin ? '/name="csrf-token" content="([a-f0-9]+)"/' : '/name="_csrf" value="([a-f0-9]+)"/';
@@ -1128,6 +1134,62 @@ try {
         ($partialDelete['json']['changed']??[])===[$partialIds[0],$partialIds[2]] &&
         ($partialDelete['json']['missing']??[])===[$missingId],
         'batch permanent delete reports partial completion and does not stop early');
+    $lockIds=[];
+    foreach ([1,1,1] as $lockStatus) {
+        $db->query("INSERT INTO f_article (title,status,attrib_j) VALUES ('lock_batch_$tag',$lockStatus,0)");
+        $lockIds[]=$db->insert_id; $articleIds[]=$db->insert_id;
+    }
+    $lockRecycle=with_content_test_lock($db,'article','row:'.$lockIds[1],
+        fn()=>request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+            ['_csrf'=>$newToken,'method'=>'recover','record'=>array_map('strval',$lockIds)]));
+    expect_check(($lockRecycle['json']['status']??'')==='p' &&
+        ($lockRecycle['json']['changed']??[])===[$lockIds[0],$lockIds[2]] &&
+        ($lockRecycle['json']['failed']??[])===[$lockIds[1]] &&
+        array_map(static fn($id)=>(int)$db->query('SELECT status FROM f_article WHERE id='.$id)->fetch_row()[0],$lockIds)===[-1,1,-1],
+        'middle lock timeout reports partial recycle and continues with the last record');
+    $recycleRetry=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'recover','record'=>array_map('strval',$lockIds)]);
+    expect_check(($recycleRetry['json']['status']??'')==='y' &&
+        ($recycleRetry['json']['changed']??[])===[$lockIds[1]] &&
+        ($recycleRetry['json']['already']??[])===[$lockIds[0],$lockIds[2]],
+        'recycle retry changes only the previously locked record');
+    $lockRestore=with_content_test_lock($db,'article','row:'.$lockIds[0],
+        fn()=>request('POST','/admin/index.php?controller=recover&project=article&operate=batch',$cookies,
+            ['_csrf'=>$newToken,'method'=>'recovers','article'=>array_map('strval',$lockIds)]));
+    expect_check(($lockRestore['json']['status']??'')==='p' &&
+        ($lockRestore['json']['changed']??[])===[$lockIds[1],$lockIds[2]] &&
+        ($lockRestore['json']['failed']??[])===[$lockIds[0]],
+        'first lock timeout reports partial restore and continues');
+    $restoreRetry=request('POST','/admin/index.php?controller=recover&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'recovers','article'=>array_map('strval',$lockIds)]);
+    expect_check(($restoreRetry['json']['changed']??[])===[$lockIds[0]] &&
+        ($restoreRetry['json']['already']??[])===[$lockIds[1],$lockIds[2]],
+        'restore retry preserves earlier results');
+    $lockAttrib=with_content_test_lock($db,'article','row:'.$lockIds[1],
+        fn()=>request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+            ['_csrf'=>$newToken,'method'=>'attrib','parameter'=>'attrib_j','record'=>array_map('strval',$lockIds)]));
+    expect_check(($lockAttrib['json']['status']??'')==='p' &&
+        ($lockAttrib['json']['changed']??[])===[$lockIds[0],$lockIds[2]] &&
+        ($lockAttrib['json']['failed']??[])===[$lockIds[1]],
+        'middle lock timeout reports partial attribute update');
+    $attribRetry=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'attrib','parameter'=>'attrib_j','record'=>array_map('strval',$lockIds)]);
+    expect_check(($attribRetry['json']['changed']??[])===[$lockIds[1]] &&
+        ($attribRetry['json']['already']??[])===[$lockIds[0],$lockIds[2]],
+        'attribute retry changes only the previously locked record');
+    $lockDelete=with_content_test_lock($db,'article','row:'.$lockIds[2],
+        fn()=>request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+            ['_csrf'=>$newToken,'method'=>'thorough','record'=>array_map('strval',$lockIds)]));
+    expect_check(($lockDelete['json']['status']??'')==='p' &&
+        ($lockDelete['json']['changed']??[])===[$lockIds[0],$lockIds[1]] &&
+        ($lockDelete['json']['failed']??[])===[$lockIds[2]] &&
+        $db->query('SELECT id FROM f_article WHERE id='.$lockIds[2])->num_rows===1,
+        'last lock timeout reports partial permanent deletion');
+    $deleteRetry=request('POST','/admin/index.php?controller=module&project=article&operate=batch',$cookies,
+        ['_csrf'=>$newToken,'method'=>'thorough','record'=>array_map('strval',$lockIds)]);
+    expect_check(($deleteRetry['json']['changed']??[])===[$lockIds[2]] &&
+        ($deleteRetry['json']['missing']??[])===[$lockIds[0],$lockIds[1]],
+        'permanent delete retry reports completed and missing IDs');
     $recycleIds=[];
     foreach ([-1,-1,-1] as $recycleStatus) {
         $db->query("INSERT INTO `f_$moduleProject` (title,status) VALUES ('recycle_$tag',$recycleStatus)");

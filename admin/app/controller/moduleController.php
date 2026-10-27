@@ -142,7 +142,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function deleteone(){
-		if((new ContentWrite($_GET['project']))->change((int)$_GET['id'],'delete')==='changed'){
+		if(ContentWrite::single(fn()=> (new ContentWrite($_GET['project']))->change((int)$_GET['id'],'delete'))==='changed'){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
@@ -155,7 +155,7 @@ class moduleController extends Controller{
      * @return template,array
      */
 	public function recoverone(){
-		if((new ContentWrite($_GET['project']))->change((int)$_GET['id'],'recycle')==='changed'){
+		if(ContentWrite::single(fn()=> (new ContentWrite($_GET['project']))->change((int)$_GET['id'],'recycle'))==='changed'){
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 		}else{
 			echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';
@@ -198,7 +198,7 @@ class moduleController extends Controller{
 		$ids=array_values(array_unique(array_map('intval',explode(',',$classarray))));
 		M($this->model)->validateCategory($_GET['project'],$classid);
 		if ($ids) {
-			if((new ContentWrite($_GET['project']))->shift($ids,(int)$classid)){
+			if(ContentWrite::single(fn()=> (new ContentWrite($_GET['project']))->shift($ids,(int)$classid))){
 				echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=1">';
 			}else{
 				echo '<meta http-equiv="refresh" content="0;url=?controller=module&project='.$_GET['project'].'&operate=execution&type=exc&re=0">';

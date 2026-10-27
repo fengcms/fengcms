@@ -103,11 +103,13 @@ class moduleModel extends model{
 		if(isset($physical['time']) && $updateTime){$array['time']=time();}
 		$writer=new ContentWrite($project);
 		if($id!==null){
-			return $writer->edit($id,$array,is_string($_POST['_write_token']??null)?$_POST['_write_token']:'');
+			return ContentWrite::single(fn()=> $writer->edit($id,$array,
+				is_string($_POST['_write_token']??null)?$_POST['_write_token']:''));
 		}
 		if(isset($physical['hits'])){$array['hits']=0;}
-		return $writer->create($array,is_string($_POST['_create_key']??null)?$_POST['_create_key']:'',
-			(int)($_SESSION['manage_id']??0),$createHash);
+		return ContentWrite::single(fn()=> $writer->create($array,
+			is_string($_POST['_create_key']??null)?$_POST['_create_key']:'',
+			(int)($_SESSION['manage_id']??0),$createHash));
 	}
 
 	/** An absent edit field keeps its old value; a supplied value follows its field contract. */

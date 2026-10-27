@@ -50,7 +50,7 @@ class recoverController extends Controller{
 
 	public function recoverone(){
 		if($_GET['id']){
-			if((new ContentWrite($this->model))->change((int)$_GET['id'],'restore')==='changed'){
+			if(ContentWrite::single(fn()=> (new ContentWrite($this->model))->change((int)$_GET['id'],'restore'))==='changed'){
 				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=1">';
 			}else{
 				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=0">';
@@ -62,7 +62,7 @@ class recoverController extends Controller{
 
 	public function delete(){
 		if($_GET['id']){
-			if((new ContentWrite($this->model))->change((int)$_GET['id'],'delete_recycled')==='changed'){
+			if(ContentWrite::single(fn()=> (new ContentWrite($this->model))->change((int)$_GET['id'],'delete_recycled'))==='changed'){
 				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=1">';
 			}else{
 				echo '<meta http-equiv="refresh" content="0;url=?controller=recover&project='.$this->model.'&operate=execution&type=exc&re=0">';
