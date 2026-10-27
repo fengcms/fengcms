@@ -238,12 +238,16 @@ class moduleModel extends model{
         if (!$queries) { return arraypage([], $num); }
         $source = ' FROM ('.implode(' UNION ', $queries).') search_results';
         $repository = D($this->d_name);
-        $count = $repository->excsql('SELECT COUNT(*) AS total'.$source, $params);
+        // These generated SELECTs can share the ordinary connection when the
+        // template supplied only column names. Keep custom SQL expressions on
+        // the native SQL isolation path because they may change session state.
+        $trustedRead = $field === '' || preg_match('/^\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*\s*$/D', $field) === 1;
+        $count = $repository->excsql('SELECT COUNT(*) AS total'.$source, $params, $trustedRead);
         $pager = new page((int)($count[0]['total'] ?? 0), $num);
         $info = $pager->getinfo();
         $offset = ($info['curpage'] - 1) * $info['pageper'];
         return [
-            'list' => $repository->excsql('SELECT *'.$source.' ORDER BY time DESC, id DESC, html ASC LIMIT '.$offset.','.$info['pageper'], $params),
+            'list' => $repository->excsql('SELECT *'.$source.' ORDER BY time DESC, id DESC, html ASC LIMIT '.$offset.','.$info['pageper'], $params, $trustedRead),
             'fy' => $pager->getpage(),
             'total' => $info['total'],
         ];
