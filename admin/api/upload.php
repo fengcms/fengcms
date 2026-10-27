@@ -46,9 +46,28 @@ $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
 if (!in_array($mime, $mimeTypes[$ext], true)) { cms_fail(400, '文件内容与扩展名不符。'); }
 if ($dir === 'image') {
     $size = @getimagesize($file['tmp_name']);
-    if (!$size || $size[0] * $size[1] > 20000000 || !in_array($size['mime'], $mimeTypes[$ext], true)) {
+    if (!$size || $size[0] < 1 || $size[1] < 1 || $size[0] * $size[1] > 20000000 ||
+        !in_array($size['mime'], $mimeTypes[$ext], true)) {
         cms_fail(400, '图片不正确或尺寸过大。');
     }
+    // GD may need several pixel buffers while decoding. Reject images that exceed
+    // the current PHP process budget before loading their complete byte stream.
+    $memoryLimit=trim((string)ini_get('memory_limit'));
+    if(preg_match('/^([1-9][0-9]*)([KMG]?)$/iD',$memoryLimit,$memoryParts)){
+        $multiplier=match(strtoupper($memoryParts[2])){'G'=>1073741824,'M'=>1048576,'K'=>1024,default=>1};
+        $available=(int)$memoryParts[1]*$multiplier-memory_get_usage(true);
+        if($size[0]*$size[1]*8+(int)$file['size']+16*1048576>$available){
+            cms_fail(413,'图片尺寸超过服务器可处理范围。');
+        }
+    }
+    $bytes=@file_get_contents($file['tmp_name']);
+    $decoded=$bytes===false?false:@imagecreatefromstring($bytes);
+    unset($bytes);
+    if(!$decoded || imagesx($decoded)!==$size[0] || imagesy($decoded)!==$size[1]){
+        if($decoded){imagedestroy($decoded);}
+        cms_fail(400,'图片无法解码，请检查文件是否损坏。');
+    }
+    imagedestroy($decoded);
 }
 // Binary images/documents may legitimately contain PHP/ASP-looking byte sequences.
 // Security relies on the extension/MIME allowlists and a non-executable upload

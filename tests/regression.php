@@ -1810,7 +1810,9 @@ try {
     expect_check(upload($cookies,'','test.png','x')['status']===403,'upload requires CSRF');
     expect_check(upload($cookies,$newToken,'test.php','<?php echo 1;')['status']===400,'executable upload rejected');
     expect_check(upload($cookies,$newToken,'test.png','<?php echo 1;')['status']===400,'spoofed image rejected');
-    $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aQ1cAAAAASUVORK5CYII=');
+    $pixel=imagecreatetruecolor(1,1);
+    imagefill($pixel,0,0,imagecolorallocate($pixel,28,88,148));
+    ob_start();imagepng($pixel);$png=ob_get_clean();imagedestroy($pixel);
     expect_check(upload($cookies,$newToken,'shell.php.png',$png)['status']===400,
         'script double extension is rejected even when image bytes are valid');
     expect_check(upload($cookies,$newToken,'pixel.png',$png,'../image')['status']===400,
@@ -1821,6 +1823,14 @@ try {
     $hugePng=substr_replace($hugePng,hash('crc32b',substr($hugePng,12,17),true),29,4);
     expect_check(upload($cookies,$newToken,'huge.png',$hugePng)['status']===400,
         'image pixel count is bounded independently of byte size');
+    $imageUploadDir=dirname(__DIR__).'/upload/image/'.date('Ymd');
+    $imageCountBefore=count(glob($imageUploadDir.'/*')?:[]);
+    foreach (['header-only'=>substr($png,0,33),'truncated'=>substr($png,0,-8)] as $kind=>$brokenPng){
+        $broken=upload($cookies,$newToken,'broken_'.$kind.'_'.$tag.'.png',$brokenPng);
+        if(isset($broken['json']['url'])){$files[]=dirname(__DIR__).$broken['json']['url'];}
+        expect_check($broken['status']===400 && count(glob($imageUploadDir.'/*')?:[])===$imageCountBefore,
+            'PNG '.$kind.' is rejected before a final upload file is published');
+    }
     expect_check(in_array(upload($cookies,$newToken,'oversize.png',str_repeat('x',10*1024*1024+1))['status'],[400,413],true),
         'oversize upload is rejected');
     $uploaded=upload($cookies,$newToken,'pixel.png',$png);
