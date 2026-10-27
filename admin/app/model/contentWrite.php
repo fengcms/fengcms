@@ -65,7 +65,7 @@ final class ContentWrite
     /** Every category mutation and content association shares one lock across models. */
     public static function categoryLocked(string $project,callable $work): mixed
     {
-        return (new self($project))->locked('category:relations',$work);
+        return CmsDatabaseGate::write(fn()=>(new self($project))->locked('category:relations',$work));
     }
 
     private function assertCategory(mixed $classid): void

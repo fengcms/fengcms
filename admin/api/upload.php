@@ -1,6 +1,7 @@
 <?php
 require_once dirname(__DIR__, 2).'/system/common/security.php';
 require_once dirname(__DIR__, 2).'/system/common/upload_request.php';
+require_once dirname(__DIR__, 2).'/system/common/database_gate.php';
 cms_session_start();
 cms_admin_required();
 cms_post_required();
@@ -77,8 +78,10 @@ if ($dir === 'image') {
 // Binary images/documents may legitimately contain PHP/ASP-looking byte sequences.
 // Security relies on the allowlists and non-executable upload directory.
 try{
-    $url=CmsUploadRequest::save($file['tmp_name'],$file['name'],(int)$file['size'],
-        $dir,$ext,$accountId,$requestKey);
+    $url=CmsDatabaseGate::write(fn()=>CmsUploadRequest::save($file['tmp_name'],$file['name'],
+        (int)$file['size'],$dir,$ext,$accountId,$requestKey));
+}catch(CmsDatabaseGateBusy $e){
+    cms_fail(409,$e->getMessage());
 }catch(CmsUploadRequestException $e){
     cms_fail($e->httpStatus,$e->getMessage());
 }catch(Throwable $e){

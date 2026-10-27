@@ -1,5 +1,6 @@
 <?php
 defined('TPL_INCLUDE') or die('Restricted access');
+require_once __DIR__.'/database_gate.php';
 
 /** Coordinates schema DDL, imports and content writes for one model project. */
 final class CmsModelSchema
@@ -42,6 +43,9 @@ final class CmsModelSchema
 
     public static function withLock(string $project,callable $work): mixed
     {
+        if(!CmsDatabaseGate::held()){
+            return CmsDatabaseGate::write(fn()=>self::withLock($project,$work));
+        }
         $key=self::lockName($project);
         if(isset(self::$held[$key])){
             self::$held[$key]++;

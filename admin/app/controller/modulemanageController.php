@@ -156,6 +156,7 @@ class modulemanageController extends Controller{
         cms_session_release();
         try{CmsModelPackage::import($preview['package'],$preview['project']);}
         catch(InvalidArgumentException $e){cms_fail(400,$e->getMessage());}
+        catch(CmsDatabaseGateBusy $e){cms_fail(409,$e->getMessage());}
         catch(Throwable $e){error_log('Model import failed: '.$e);cms_fail(500,'模型导入失败，请查看私有错误日志。');}
         header('Location: ?controller=modulemanage&imported=1',true,303);
 	}

@@ -291,7 +291,7 @@ class moduleModel extends model{
 
 			if($this->attrib($table,"hits")){
 
-				D($table)->where(['id'=>(int)$id])->update("hits=hits+1");
+				CmsDatabaseGate::write(fn()=>D($table)->where(['id'=>(int)$id])->update("hits=hits+1"));
 			}
 			
 			$arr['classname']=M("classify")->classname($arr['classid']);

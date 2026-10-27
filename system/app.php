@@ -72,6 +72,7 @@ ini_set("memory_limit","256M");
 
 // 加载配置
 include_once ROOT_PATH.'/config.php'; 
+require_once __DIR__.'/common/database_gate.php';
 
 // 加载函数
 include_once COMMON_PATH.'function.php';
@@ -109,12 +110,23 @@ final class app {
         $_WORKER['controller'] = $controller.'Controller';
         $_WORKER['operate'] = $action;
         spl_autoload_register(['app', 'loadController']);
-        try {
-            $class = $_WORKER['controller'];
+        $className=$_WORKER['controller'];
+        $dispatch=static function() use ($action,$className): mixed {
+            $class = $className;
             if (!class_exists($class)) { cms_fail(404, '页面不存在。'); }
             $object = new $class;
             if (!is_callable([$object, $action])) { cms_fail(404, '页面不存在。'); }
             return $object->$action();
+        };
+        try {
+            if(($_SERVER['REQUEST_METHOD']??'GET')==='POST' &&
+                !($admin && (($controller==='dbmanage' && in_array($action,['create','runimport','recoverimport'],true)) ||
+                    ($controller==='modulemanage' && $action==='loading')))){
+                return CmsDatabaseGate::write($dispatch);
+            }
+            return $dispatch();
+        } catch (CmsDatabaseGateBusy $e) {
+            cms_fail(409,$e->getMessage());
         } catch (Throwable $e) {
             systemerror($e);
         }

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/database_gate.php';
 // Portable model definitions. Package strings never become SQL statements.
 require_once __DIR__.'/model_schema.php';
 final class CmsModelPackage
@@ -180,6 +181,11 @@ final class CmsModelPackage
     }
 
     public static function import(array $data, string $project): int
+    {
+        return CmsDatabaseGate::write(fn()=>self::importLocked($data,$project));
+    }
+
+    private static function importLocked(array $data,string $project): int
     {
         // Validate again even when the preview was stored in a server session.
         $data = self::parse(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $project);

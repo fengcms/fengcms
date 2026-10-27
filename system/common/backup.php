@@ -1,5 +1,6 @@
 <?php
 // A logical backup for shared hosts without a shell or a database client binary.
+require_once __DIR__.'/database_gate.php';
 final class CmsBackup
 {
     private const MAX_BYTES = 536870912;
@@ -51,25 +52,36 @@ final class CmsBackup
         }
     }
 
-    private static function inspect(mysqli $db): array
+    private static function limit(mysqli $db,float $deadline): void
+    {
+        $remaining=$deadline-microtime(true);
+        if($remaining<=0){throw new RuntimeException('备份超时，请使用主机备份工具。');}
+        $db->query('SET SESSION lock_wait_timeout='.max(1,min(5,(int)ceil($remaining))));
+    }
+
+    private static function inspect(mysqli $db,float $deadline): array
     {
         foreach (['TRIGGERS'=>'TRIGGER_SCHEMA', 'ROUTINES'=>'ROUTINE_SCHEMA', 'EVENTS'=>'EVENT_SCHEMA'] as $object=>$column) {
+            self::limit($db,$deadline);
             $count = $db->query("SELECT COUNT(*) AS n FROM information_schema.$object WHERE $column=DATABASE()")->fetch_assoc()['n'];
             if ((int)$count > 0) { throw new RuntimeException('数据库包含尚未支持的触发器、例程或事件，请使用主机备份工具。'); }
         }
         $objects = [];
+        self::limit($db,$deadline);
         $result = $db->query('SHOW FULL TABLES');
         while ($row = $result->fetch_row()) {
             [$name, $type] = $row;
             if (!in_array($type, ['BASE TABLE', 'VIEW'], true)) {
                 throw new RuntimeException('数据库包含尚未支持的对象类型。');
             }
+            self::limit($db,$deadline);
             $create = $db->query('SHOW CREATE '.($type === 'VIEW' ? 'VIEW ' : 'TABLE ').self::quoted($name))->fetch_row();
             $ddl = $create[1] ?? null;
             if (!is_string($ddl) || $ddl === '') { throw new RuntimeException('无法读取数据库对象定义。'); }
             if ($type === 'VIEW') { $ddl = self::portableView($ddl); }
             $columns = [];
             if ($type === 'BASE TABLE') {
+                self::limit($db,$deadline);
                 $details = $db->query('SHOW FULL COLUMNS FROM '.self::quoted($name));
                 while ($column = $details->fetch_assoc()) {
                     $columns[$column['Field']] = preg_match('/^(?:tinyblob|blob|mediumblob|longblob|binary|varbinary|bit)(?:\b|\()/i', $column['Type']) === 1;
@@ -89,10 +101,19 @@ final class CmsBackup
 
     public static function create(): array
     {
+        @set_time_limit(self::MAX_SECONDS + 10);
+        $deadline=microtime(true)+self::MAX_SECONDS;
+        return CmsDatabaseGate::barrier(fn()=>self::createLocked($deadline));
+    }
+
+    private static function createLocked(float $deadline): array
+    {
         // A shared host may still enforce a lower hard request limit. Such a
         // failure leaves no published backup and releases database locks.
-        @set_time_limit(self::MAX_SECONDS + 10);
         $root = self::root();
+        if(is_file($root.'/.import-operation.json') || is_link($root.'/.import-operation.json')){
+            throw new RuntimeException('有待恢复的数据库导入，请先核对并清理中断操作。');
+        }
         $guard = fopen($root.'/.backup.lock', 'c');
         if (!$guard || !flock($guard, LOCK_EX | LOCK_NB)) { throw new RuntimeException('已有备份任务正在运行。'); }
         $id = bin2hex(random_bytes(16));
@@ -103,35 +124,45 @@ final class CmsBackup
         $publishedSql = false;
         try {
             mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-            $db = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+            $db = mysqli_init();
+            $db->options(MYSQLI_OPT_CONNECT_TIMEOUT,5);
+            $db->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
             $db->set_charset('utf8mb4');
-            $objects = self::inspect($db);
+            self::limit($db,$deadline);
+            if(microtime(true)>$deadline){throw new RuntimeException('备份超时，请使用主机备份工具。');}
+            $objects = self::inspect($db,$deadline);
+            if(microtime(true)>$deadline){throw new RuntimeException('备份超时，请使用主机备份工具。');}
             $tables = array_values(array_filter($objects, static fn($o) => $o['type'] === 'BASE TABLE'));
             $views = array_values(array_filter($objects, static fn($o) => $o['type'] === 'VIEW'));
             if (!$tables) { throw new RuntimeException('数据库没有可备份的表。'); }
             $handle = fopen($temporary, 'xb');
             if (!$handle) { throw new RuntimeException('无法创建备份临时文件。'); }
             chmod($temporary, 0600);
-            $bytes = 0; $started = microtime(true);
+            $bytes = 0;
             self::write($handle, "-- FengCMS logical backup; restore into an empty database only.\nSET NAMES utf8mb4;\nSET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO';\nSET FOREIGN_KEY_CHECKS=0;\n", $bytes);
             $db->query('SET autocommit=0'); $autocommitOff = true;
             try {
-                $locks = implode(', ', array_map(static fn($table) => self::quoted($table['name']).' READ', $tables));
+                self::limit($db,$deadline);
+                $locks = implode(', ', array_map(static fn($object) => self::quoted($object['name']).' READ', $objects));
                 $db->query('LOCK TABLES '.$locks);
             } catch (mysqli_sql_exception $e) {
                 throw new RuntimeException('无法取得数据库读锁，请检查 LOCK TABLES 权限并使用主机备份工具。', 0, $e);
             }
             $locked = true;
+            if(self::inspect($db,$deadline)!==$objects){
+                throw new RuntimeException('数据库结构在取得读锁前发生变化，请重新创建备份。');
+            }
+            if(microtime(true)>$deadline){throw new RuntimeException('备份超时，请使用主机备份工具。');}
             $summary = [];
             foreach ($tables as $table) {
-                if (microtime(true) - $started > self::MAX_SECONDS) { throw new RuntimeException('备份超时，请使用主机备份工具。'); }
+                if (microtime(true)>$deadline) { throw new RuntimeException('备份超时，请使用主机备份工具。'); }
                 $name = self::quoted($table['name']);
                 self::write($handle, "\n-- Table: ".str_replace(["\r", "\n"], ' ', $table['name'])."\n".$table['ddl'].";\n", $bytes);
                 $rows = 0;
                 $result = $db->query('SELECT * FROM '.$name, MYSQLI_USE_RESULT);
                 try {
                     while ($row = $result->fetch_assoc()) {
-                        if (($rows % 100) === 0 && microtime(true) - $started > self::MAX_SECONDS) {
+                        if (($rows % 100) === 0 && microtime(true)>$deadline) {
                             throw new RuntimeException('备份超时，请使用主机备份工具。');
                         }
                         $values = [];
@@ -151,6 +182,10 @@ final class CmsBackup
                 self::write($handle, "\n-- View: ".str_replace(["\r", "\n"], ' ', $view['name'])."\n".$view['ddl'].";\n", $bytes);
                 $summary[] = ['name'=>$view['name'], 'type'=>'view'];
             }
+            if(self::inspect($db,$deadline)!==$objects){
+                throw new RuntimeException('数据库结构在备份过程中发生变化，请重新创建备份。');
+            }
+            if(microtime(true)>$deadline){throw new RuntimeException('备份超时，请使用主机备份工具。');}
             self::write($handle, "SET FOREIGN_KEY_CHECKS=1;\n", $bytes);
             fflush($handle);
             fclose($handle); $handle = null;
