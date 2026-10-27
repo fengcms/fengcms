@@ -97,6 +97,15 @@ img { border:none;}
 	/* 首页幻灯 */
 	#home_hd {width: 300px;height:274px;float: left;margin: 0 15px 0 0}
 		#home_hd .title {line-height:20px;}
+	#home_hd.cms-home-slider {position:relative;overflow:hidden;}
+	#home_hd.cms-home-slider > a {display:block;width:300px;height:274px;}
+	#home_hd.cms-home-slider > a[hidden] {display:none;}
+	#home_hd.cms-home-slider > a img {display:block;width:300px;height:274px;object-fit:cover;}
+	#home_hd .cms-slider-caption {position:absolute;right:0;bottom:0;left:0;height:26px;padding:0 108px 0 6px;background:rgba(8,53,92,.7);color:#fff;font:12px/26px "微软雅黑",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;pointer-events:none;}
+	#home_hd .cms-slider-controls {position:absolute;right:10px;bottom:5px;display:flex;gap:3px;}
+	#home_hd .cms-slider-controls button {width:16px;height:16px;padding:0;border:1px solid #ccc;background:#fff;color:#000;font:11px/14px Arial,sans-serif;cursor:pointer;}
+	#home_hd .cms-slider-controls button[aria-current="true"],#home_hd .cms-slider-controls button:hover {border-color:#1188c0;background:#1072aa;color:#fff;}
+	#home_hd .cms-slider-controls button:focus-visible {outline:2px solid #fff;outline-offset:1px;}
 	/* 首页最新头条 */
 	#home_news {width: 390px;float: left;overflow: hidden;height: 274px;}
 		#home_news_tt {width: 390px;overflow: hidden;margin:-5px 0 0;}

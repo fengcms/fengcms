@@ -68,13 +68,54 @@ function SetHome(url){
 }
 //首页幻灯
 $(function(){
-	if (!$.fn.KinSlideshow || !$("#home_hd").length) return;
-	$("#home_hd").KinSlideshow({
-			moveStyle:"right",
-			titleBar:{titleBar_height:26,titleBar_bgColor:"#08355c",titleBar_alpha:0.5},
-			titleFont:{TitleFont_size:12,TitleFont_color:"#FFFFFF",TitleFont_weight:"normal"},
-			btn:{btn_bgColor:"#FFFFFF",btn_bgHoverColor:"#1072aa",btn_fontColor:"#000000",btn_fontHoverColor:"#FFFFFF",btn_borderColor:"#cccccc",btn_borderHoverColor:"#1188c0",btn_borderWidth:1}
+	var root = document.getElementById("home_hd");
+	if (!root) return;
+	var slides = Array.from(root.children).filter(function (node) {
+		return node.tagName === "A" && node.querySelector("img");
 	});
+	if (!slides.length) return;
+	root.classList.add("cms-home-slider");
+	var caption = document.createElement("div");
+	caption.className = "cms-slider-caption";
+	root.appendChild(caption);
+	var controls = document.createElement("div");
+	controls.className = "cms-slider-controls";
+	controls.setAttribute("aria-label", "焦点图切换");
+	var buttons = slides.map(function (slide, index) {
+		var button = document.createElement("button");
+		button.type = "button";
+		button.textContent = String(index + 1);
+		button.setAttribute("aria-label", "显示第 " + (index + 1) + " 张焦点图");
+		button.addEventListener("click", function () { show(index); start(); });
+		controls.appendChild(button);
+		return button;
+	});
+	if (slides.length > 1) root.appendChild(controls);
+	var current = 0;
+	var timer;
+	function show(index) {
+		current = index;
+		slides.forEach(function (slide, position) { slide.hidden = position !== index; });
+		caption.textContent = slides[index].querySelector("img").alt || "";
+		buttons.forEach(function (button, position) {
+			button.setAttribute("aria-current", position === index ? "true" : "false");
+		});
+	}
+	function stop() { if (timer) clearInterval(timer); timer = null; }
+	function start() {
+		stop();
+		if (slides.length > 1) timer = setInterval(function () {
+			show((current + 1) % slides.length);
+		}, 5000);
+	}
+	root.addEventListener("mouseenter", stop);
+	root.addEventListener("mouseleave", start);
+	root.addEventListener("focusin", stop);
+	root.addEventListener("focusout", function (event) {
+		if (!root.contains(event.relatedTarget)) start();
+	});
+	show(0);
+	start();
 });
 
 
