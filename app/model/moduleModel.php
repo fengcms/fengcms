@@ -256,12 +256,17 @@ class moduleModel extends model{
         // the native SQL isolation path because they may change session state.
         $trustedRead = $field === '' || preg_match('/^\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*\s*$/D', $field) === 1;
         $count = $repository->excsql('SELECT COUNT(*) AS total'.$source, $params, $trustedRead);
-        $pager = new page((int)($count[0]['total'] ?? 0), $num, [], $pageContext);
+        $total=(int)($count[0]['total'] ?? 0);
+        $pager = new page($total, $num, [], $pageContext, 100);
         $info = $pager->getinfo();
         $offset = ($info['curpage'] - 1) * $info['pageper'];
+        $pagination=$pager->getpage();
+        if ($total>100*$info['pageper']) {
+            $pagination=cms_html((string)$pagination.' <span class="search-limit">最多可浏览前 100 页，请缩小关键词范围以查找更多结果。</span>');
+        }
         return [
             'list' => $repository->excsql('SELECT *'.$source.' ORDER BY time DESC, id DESC, html ASC LIMIT '.$offset.','.$info['pageper'], $params, $trustedRead),
-            'fy' => $pager->getpage(),
+            'fy' => $pagination,
             'total' => $info['total'],
         ];
     }

@@ -23,7 +23,8 @@ final class CmsPageContext
 
     public static function fromGlobals(int $currentPage): self
     {
-        return new self($currentPage, $_GET, $_SERVER['REQUEST_URI'] ?? '/index.php', $_SERVER['PHP_SELF'] ?? '/index.php');
+        $query=$GLOBALS['_CMS_RENDER_QUERY']??$_GET;
+        return new self($currentPage, $query, $_SERVER['REQUEST_URI'] ?? '/index.php', $_SERVER['PHP_SELF'] ?? '/index.php');
     }
 }
 
@@ -75,13 +76,14 @@ final class CmsPageContext
      * @param string $pagestyle 分页样式
      * return string
      */
-    function __construct($itemtotal, $pageper = 10,  $pagestyle=array(), ?CmsPageContext $requestContext = null) {
+    function __construct($itemtotal, $pageper = 10,  $pagestyle=array(), ?CmsPageContext $requestContext = null, ?int $maxPages = null) {
         $this->requestContext = $requestContext ?? CmsPageContext::fromGlobals((int)@sprintf("%d", $_GET[$this->pagetag] ?? null));
         $this->curpage = $this->requestContext->currentPage;
         $this->total = $itemtotal;  //记录总数
         $this->pageper = ($pageper>0) ? $pageper : 10; //每页记录数
         $this->pagetag = !empty($this->pagetag) ? $this->pagetag : 'page';   //分页参数名称                
         $this->pagenum = max(1, (int)ceil($this->total / $this->pageper)); //计算总页数
+        if ($maxPages !== null) { $this->pagenum = min($this->pagenum, max(1, $maxPages)); }
         //校验当前页
         $this->curpage = ($this->curpage<=0) ? 1 : (($this->curpage > $this->pagenum) ? $this->pagenum : $this->curpage);
         $this->url = $this->geturl();  //得到分页URL
@@ -360,7 +362,8 @@ final class CmsPageContext
     public function geturl($page=null, $mode=1) {
         $page = max(1, (int)($page ?? $this->curpage));
         $path = parse_url($this->requestContext->requestUri, PHP_URL_PATH);
-        if (URL_TYPE == 1 && str_ends_with($path, '.html')) {
+        // Full category routes may have numeric suffixes in their slug.
+        if (URL_TYPE == 1 && !isset($this->requestContext->query['route']) && str_ends_with($path, '.html')) {
             if (isset($this->requestContext->query['page'])) { $path = preg_replace('/_[0-9]+\.html$/', '.html', $path); }
             return htmlspecialchars(substr($path, 0, -5).'_'.$page.'.html', ENT_QUOTES, 'UTF-8');
         }

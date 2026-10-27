@@ -370,14 +370,15 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 			if(substr($url,0,4)=="http"){
 				return $url;
 			}else{
-				$u=explode('.',$url);
-				$url=explode('_',$u[0]);
-
-				if(substr($url[0],1)=='content'){
-					return '?controller=content&project='.rawurlencode($url[1]??'').'&id='.rawurlencode($url[2]??'');
-				}else{
-					return '?controller=classify&project='.rawurlencode(substr($url[0],1)).'&classify='.rawurlencode($url[1]??'').'&classid='.rawurlencode($url[2]??'');
+				if(preg_match('~^/content_([A-Za-z][A-Za-z0-9_]*)_([0-9]+)\.html$~D',$url,$parts)){
+					return '?controller=content&project='.rawurlencode($parts[1]).'&id='.$parts[2];
 				}
+				if(preg_match('~^/([^/?#]+)\.html$~D',$url,$parts)){
+					// The complete route is resolved against the category ID. Splitting on
+					// underscores loses legal project and category names.
+					return '?controller=classify&route='.rawurlencode($parts[1]);
+				}
+				return '';
 			}
 		}
 	}
@@ -404,11 +405,12 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 
 	function search($string){
 		if(!is_scalar($string)){return '';}
-		if(URL_TYPE=='1'){
-			return '/tags/'.rawurlencode((string)$string).'.html';
-		}elseif(URL_TYPE=='0'){
-			return '/?controller=search&tags='.rawurlencode((string)$string);
+		$tags=(string)$string;
+		$dynamic='/?controller=search&tags='.rawurlencode($tags);
+		if(URL_TYPE=='1' && !preg_match('~[/&=?]|_[0-9]+$~D',$tags)){
+			return '/tags/'.rawurlencode($tags).'.html';
 		}
+		return $dynamic;
 	}
 
 	/* 字体转换 

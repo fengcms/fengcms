@@ -33,6 +33,9 @@ class controller{
 				extract($data,EXTR_SKIP);
 			}
 			$originalGet = $_GET;
+			$hadRenderQuery = array_key_exists('_CMS_RENDER_QUERY', $GLOBALS);
+			$previousRenderQuery = $GLOBALS['_CMS_RENDER_QUERY'] ?? null;
+			$GLOBALS['_CMS_RENDER_QUERY'] = $originalGet;
 			// Legacy templates read optional query keys directly. Supply their empty state
 			// only during rendering, after routing and authorization have completed.
 			foreach(['controller'=>'','project'=>'','classid'=>'0','id'=>'0','tags'=>'',
@@ -50,7 +53,11 @@ class controller{
                 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { cms_session_release(); }
                 include template::tpl($path);
             }
-            finally { $_GET = $originalGet; }
+            finally {
+                $_GET = $originalGet;
+                if ($hadRenderQuery) { $GLOBALS['_CMS_RENDER_QUERY'] = $previousRenderQuery; }
+                else { unset($GLOBALS['_CMS_RENDER_QUERY']); }
+            }
 		}
 	}
 

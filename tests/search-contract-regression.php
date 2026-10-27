@@ -3,6 +3,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 
 define('TPL_INCLUDE', true);
 define('URL_TYPE', 0);
+require dirname(__DIR__).'/system/common/security.php';
 require dirname(__DIR__).'/app/searchCriteria.php';
 require dirname(__DIR__).'/system/core/page.php';
 
@@ -45,3 +46,23 @@ if ($legacy->getinfo()['curpage'] !== 2 ||
     throw new RuntimeException('Legacy pagination changed.');
 }
 echo "PASS legacy pagination still uses its request context\n";
+
+$exactHundred=new page(1000,10,[],$context,100);
+$overHundred=new page(1001,10,[],$context,100);
+if ($exactHundred->getinfo()['pagenum']!==100 || $overHundred->getinfo()['pagenum']!==100 ||
+    $overHundred->getinfo()['total']!==1001 ||
+    str_contains((string)$overHundred->getpage(),'page=101')) {
+    throw new RuntimeException('Search page limit disagrees with its visible links or total.');
+}
+echo "PASS bounded pager retains the true total and never links past page 100\n";
+
+$GLOBALS['_CMS_RENDER_QUERY']=['controller'=>'search','tags'=>'测试'];
+$_GET=['controller'=>'search','tags'=>'测试','operate'=>'','id'=>'0','classid'=>'0'];
+$renderPager=new page(20,10);
+$renderLink=html_entity_decode($renderPager->geturl(2),ENT_QUOTES,'UTF-8');
+unset($GLOBALS['_CMS_RENDER_QUERY']);
+if (str_contains($renderLink,'operate=') || str_contains($renderLink,'id=0') ||
+    !str_contains($renderLink,'tags=%E6%B5%8B%E8%AF%95&page=2')) {
+    throw new RuntimeException('Template-only query defaults leaked into pagination.');
+}
+echo "PASS pagination excludes temporary template query defaults\n";

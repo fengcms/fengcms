@@ -15,6 +15,27 @@ class classifyController extends Controller{
 	private $classify	=	array();
 
 	public function __construct(){
+		if(array_key_exists('route',$_GET)){
+			$route=$_GET['route'];
+			if(!is_string($route) || !preg_match('/^[A-Za-z][A-Za-z0-9_-]{1,90}$/D',$route)){
+				cms_fail(404,'栏目不存在。');
+			}
+			$this->classify=$this->categoryForRoute($route);
+			if(!$this->classify){
+				$separator=strrpos($route,'_');
+				$page=$separator===false?'':substr($route,$separator+1);
+				if(!preg_match('/^[1-9][0-9]{0,9}$/D',$page)){
+					cms_fail(404,'栏目不存在。');
+				}
+				$this->classify=$this->categoryForRoute(substr($route,0,$separator));
+				if(!$this->classify){cms_fail(404,'栏目不存在。');}
+				$_GET['page']=$page;
+			}
+			$_GET['project']=$this->classify['project'];
+			$_GET['classify']=$this->classify['enname'];
+			$_GET['classid']=(int)$this->classify['id'];
+			return;
+		}
 		$slug=$_GET['classify']??null;
 		$rawId=$_GET['classid']??null;
 		$project=$_GET['project']??null;
@@ -31,6 +52,14 @@ class classifyController extends Controller{
 			'project'	=>	$project
 			))->getone();
 		if(!$this->classify){cms_fail(404,'栏目不存在。');}
+	}
+
+	private function categoryForRoute(string $route): array
+	{
+		if(!preg_match('/^(.+)_([0-9]{1,10})$/D',$route,$parts) ||
+			(int)$parts[2]<1 || (int)$parts[2]>2147483647){return [];}
+		$row=D($this->d_name)->where(['id'=>(int)$parts[2]])->getone();
+		return $row && $parts[1]===$row['project'].'_'.$row['enname'] ? $row : [];
 	}
 
 	public function index(){
