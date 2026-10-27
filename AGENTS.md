@@ -17,7 +17,7 @@
 - `docs/`：维护记录；`docs/legacy/`：原 Windows 文档的 UTF-8 归档。新文档使用 UTF-8。
 - 根目录 `LICENSE` 是 FengCMS 自有代码与文档的 MIT 许可；第三方组件许可证与版权声明独立保留，见 `docs/THIRD_PARTY_LICENSES.md`。历史文档中的旧授权条款已失效，不得复制回现行界面或安装流程。
 
-按工作范围阅读 `docs/LOCAL_DEVELOPMENT.md`、`docs/SECURITY_UPGRADE.md`、`docs/EDITOR_MIGRATION.md`、`docs/RESOURCE_PICKER_UI_PLAN.md`、`docs/PERFORMANCE_OPTIMIZATION_2026-10-27.md`。安全记录中的早期测试数量和旧组件状态属于阶段记录，以后续记录和实际代码为准。
+按工作范围阅读 `docs/LOCAL_DEVELOPMENT.md`、`docs/SECURITY_UPGRADE.md`、`docs/EDITOR_MIGRATION.md`、`docs/RESOURCE_PICKER_UI_PLAN.md`、`docs/PERFORMANCE_OPTIMIZATION_2026-10-27.md`、`docs/SEARCH_REQUEST_CONTRACT.md`。安全记录中的早期测试数量和旧组件状态属于阶段记录，以后续记录和实际代码为准。
 
 ## 开发与验证
 
