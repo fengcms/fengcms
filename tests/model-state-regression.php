@@ -80,6 +80,15 @@ try {
     } finally { $transaction->affairs('rollback'); }
     echo "PASS model transactions retain an isolated connection\n";
 
+    $sessionSql = new model($suffix);
+    $sessionSql->query('SET @fengcms_model_probe = 1');
+    $sessionId = (int)$sessionSql->excsql('SELECT CONNECTION_ID() AS id')[0]['id'];
+    $sharedProbe = $model->excsql('SELECT @fengcms_model_probe AS value')[0]['value'];
+    if ($sessionId === $sharedId || $sharedProbe !== null) {
+        throw new RuntimeException('A model session setting leaked into the shared connection.');
+    }
+    echo "PASS model session SQL stays on an isolated connection\n";
+
     $revision = model::requestWriteRevision();
     $model->where(['id' => 1])->update(['status' => 1]);
     if (model::requestWriteRevision() <= $revision) {

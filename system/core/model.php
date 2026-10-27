@@ -355,6 +355,7 @@ class model{
 	 * @return bool
 	 */
 	 public function excsql($sql, array $params = []){
+        $this->isolateForSessionSql($sql);
         return $this->db->fetch($this->db->query($sql, $params));
 	 }
 
@@ -365,6 +366,7 @@ class model{
 	 * @return bool
 	 */
 	 public function query($sql, array $params = []){
+        $this->isolateForSessionSql($sql);
 		if($this->db->query($sql, $params)){
             if (preg_match('/^\s*(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|TRUNCATE)\b/i', $sql)) {
                 self::$requestWriteRevision++;
@@ -374,6 +376,19 @@ class model{
 			return false;
 		}
 	 }
+
+    private function isolateForSessionSql(string $sql): void {
+        if (preg_match('/^\s*(?:BEGIN|START\s+TRANSACTION|SET|LOCK\s+TABLES|UNLOCK\s+TABLES|USE)\b/i', $sql)) {
+            $this->isolateConnection();
+        }
+    }
+
+    private function isolateConnection(): void {
+        if ($this->transactionConnection) { return; }
+        $classname = 'db_'.DB_TYPE;
+        $this->db = new $classname(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        $this->transactionConnection = true;
+    }
 
     /** Invalidate request-local read snapshots after model writes. */
     public static function requestWriteRevision(): int {
@@ -405,11 +420,7 @@ class model{
 			case 'begin':		//开始一个事务
                 // Transactions keep their own connection, as they did before
                 // ordinary model queries began sharing a request connection.
-                if (!$this->transactionConnection) {
-                    $classname = 'db_'.DB_TYPE;
-                    $this->db = new $classname(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-                    $this->transactionConnection = true;
-                }
+                $this->isolateConnection();
 				$this->db->query('BEGIN');
 			break;
 
