@@ -12,6 +12,7 @@
 **/error/logs/
 /var/
 /template/**/.fengcms-*
+/template/goods_search.html
 /css/.fengcms-*
 .DS_Store
 
