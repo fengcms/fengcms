@@ -371,12 +371,12 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 				return $url;
 			}else{
 				if(preg_match('~^/content_([A-Za-z][A-Za-z0-9_]*)_([0-9]+)\.html$~D',$url,$parts)){
-					return '?controller=content&project='.rawurlencode($parts[1]).'&id='.$parts[2];
+					return '/?controller=content&project='.rawurlencode($parts[1]).'&id='.$parts[2];
 				}
 				if(preg_match('~^/([^/?#]+)\.html$~D',$url,$parts)){
 					// The complete route is resolved against the category ID. Splitting on
 					// underscores loses legal project and category names.
-					return '?controller=classify&route='.rawurlencode($parts[1]);
+					return '/?controller=classify&route='.rawurlencode($parts[1]);
 				}
 				return '';
 			}

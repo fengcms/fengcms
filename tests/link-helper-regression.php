@@ -12,12 +12,12 @@ $categories=['/article_news_7.html','/article_news_local_7.html','/qa_mod_news_7
 foreach ($categories as $path) {
     $link=url($path);
     if ($mode==='rewrite' ? $link!==$path :
-        $link!=='?controller=classify&route='.rawurlencode(substr($path,1,-5))) {
+        $link!=='/?controller=classify&route='.rawurlencode(substr($path,1,-5))) {
         throw new RuntimeException('Category link lost its complete route.');
     }
 }
 $content='/content_qa_mod_7.html';
-if (url($content)!==($mode==='rewrite'?$content:'?controller=content&project=qa_mod&id=7')) {
+if (url($content)!==($mode==='rewrite'?$content:'/?controller=content&project=qa_mod&id=7')) {
     throw new RuntimeException('Content link lost its model name.');
 }
 foreach (['A&B','a/b','x=1','what?','part_2','part_2026','part_0','many_under_scores_2'] as $keyword) {

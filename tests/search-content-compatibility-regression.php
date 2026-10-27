@@ -81,6 +81,8 @@ try {
                 'category route '.$path.' returns its own record (HTTP '.$status.')');
         }
     }
+    compatibility_expect(str_starts_with(url($categories[1]['path']),'/?controller=classify&route='),
+        'generated category link is absolute from a rewritten page');
     compatibility_expect(compatibility_page('/article_news&controller=home_'.$categoryIds[0].'.html')[0]===404,
         'category path cannot inject a controller parameter');
     [$overrideStatus,$overrideBody]=compatibility_page($categories[0]['path'].'?controller=home');
