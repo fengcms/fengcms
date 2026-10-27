@@ -21,7 +21,8 @@ CREATE TABLE `#prefix_article` (
   `status` int(1) default '1',
   `time` int(11) default NULL,
   `html` varchar(255) default NULL COMMENT 'HTML',
-  PRIMARY KEY  (`id`)
+  PRIMARY KEY  (`id`),
+  KEY `idx_status_id` (`status`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章系统';
 CREATE TABLE `#prefix_author` (
   `id` int(11) NOT NULL auto_increment,
