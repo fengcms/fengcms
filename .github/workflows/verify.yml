@@ -23,6 +23,7 @@ jobs:
           node --check admin/js/session-warning.js
           node tests/editor-regression.js
           node tests/navigation-regression.js
+          python3 tests/php-diagnostics-regression.py
 
   integration:
     runs-on: ubuntu-latest
@@ -37,7 +38,7 @@ jobs:
         run: ./bin/dev test
       - name: 汇总 PHP Warning 与 Deprecated
         if: always()
-        run: docker compose logs php | python3 tools/summarize-php-diagnostics.py
+        run: docker compose logs php | python3 tools/summarize-php-diagnostics.py --fail-on-diagnostics
       - name: 停止测试容器
         if: always()
         run: ./bin/dev down
