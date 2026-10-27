@@ -32,8 +32,9 @@ class classifyModel extends model{
 
 
 	public function classname($classid){
+		if((int)$classid<1){return '';}
 		$array=D($this->d_name)->where('id="'.$classid.'"')->getone();
-		return $array['name'];
+		return $array['name']??'';
 	}
 
     /**

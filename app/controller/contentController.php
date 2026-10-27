@@ -21,11 +21,12 @@ class contentController extends Controller{
 		} catch (InvalidArgumentException $error) {
 			cms_fail(400,$error->getMessage());
 		}
-		if($request->project!=='single' &&
-			!D('module')->where(['project'=>$request->project,'type'=>1,'status'=>1])->getone()){
-			cms_fail(404,'内容模型不存在。');
+		$project=$request->project;
+		if($project!=='single'){
+			$module=D('module')->where(['project'=>$project,'type'=>1,'status'=>1])->getone();
+			if(!$module || $module['project']!==$project){cms_fail(404,'内容模型不存在。');}
 		}
-		$this->content=M('module')->content($request->project,$request->id);
+		$this->content=M('module')->content($project,$request->id);
 	}
 
 	public function index(){
