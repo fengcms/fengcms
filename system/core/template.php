@@ -231,6 +231,9 @@ class template{
         if (realpath(ABS_PATH) === realpath(ROOT_PATH.'/admin')) {
             $head = '<meta name="csrf-token" content="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>"><script src="/admin/js/navigation.js"></script><script src="/admin/js/security.js"></script>';
             $s = str_ireplace('</head>', $head.'</head>', $s);
+        } else {
+            $head = '<meta name="csrf-token" content="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>"><script src="/js/csrf.js"></script>';
+            $s = str_ireplace('</head>', $head.'</head>', $s);
         }
 
         return $s;

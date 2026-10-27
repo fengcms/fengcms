@@ -337,7 +337,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         'recover' => 'index execution', 'tplmanage' => 'index add update execution',
 			'dbmanage' => 'index dbbackup dbmanages dbimport', 'safe' => 'index',
     ] : [
-        'home' => 'index vccore validate', 'classify' => 'index', 'content' => 'index',
+        'home' => 'index validate', 'classify' => 'index', 'content' => 'index',
         'down' => 'index', 'map' => 'index', 'message' => 'index add',
         'search' => 'index', 'single' => 'index', 'tags' => 'index',
     ];
@@ -350,7 +350,7 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
         'message' => 'deleteone deletebatch save', 'signup' => 'deleteone deletebatch save',
         'recover' => 'recoverone delete batch', 'tplmanage' => 'delete save',
 		'dbmanage' => 'create download delete previewimport runimport', 'cache' => 'index',
-    ] : ['message' => 'save'];
+    ] : ['home' => 'vccore', 'message' => 'save'];
     $readable = in_array($action, explode(' ', $read[$controller] ?? ''), true);
     $writable = in_array($action, explode(' ', $write[$controller] ?? ''), true);
     if (!$readable && !$writable) { cms_fail(404, '页面不存在。'); }

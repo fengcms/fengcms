@@ -42,6 +42,14 @@ function token(array &$cookies, bool $admin=false): string {
     if (!preg_match($pattern,$page['body'],$m)) { throw new RuntimeException('No CSRF token; HTTP '.$page['status']); }
     return $m[1];
 }
+function visitor_token(array &$cookies): string {
+    $page=request('GET','/?controller=message&operate=add',$cookies);
+    if ($page['status']!==200 || !str_contains($page['body'],'/js/csrf.js') ||
+        !preg_match('/name="csrf-token" content="([a-f0-9]+)"/',$page['body'],$m)) {
+        throw new RuntimeException('Public message page has no CSRF token.');
+    }
+    return $m[1];
+}
 function upload(array &$cookies,string $token,string $name,string $content, string $dir="image"): array {
     $b = 'fengcms'.bin2hex(random_bytes(8));
     $body = "--$b\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$token\r\n";
@@ -81,7 +89,11 @@ try {
     expect_check(str_contains(request('GET','/?controller=tags',$cookies)['body'],'id="tags_list"'),'dynamic tag cloud URL remains available');
     $captchaCookies=[];
     expect_check(request('GET','/vccore.php',$captchaCookies)['status']===200,'visitor can request a captcha image');
-    $arrayCaptcha=request('POST','/?controller=home&operate=vccore',$captchaCookies,['param'=>['abcd']]);
+    $visitorToken=visitor_token($captchaCookies);
+    expect_check(request('POST','/?controller=home&operate=vccore',$captchaCookies,['param'=>'abcd'])['status']===403,
+        'asynchronous captcha validation requires the visitor CSRF token');
+    $arrayCaptcha=request('POST','/?controller=home&operate=vccore',$captchaCookies,
+        ['param'=>['abcd']],['X-CSRF-Token'=>$visitorToken]);
     expect_check($arrayCaptcha['status']!==500 && $arrayCaptcha['body']!=='y',
         'captcha verification rejects array input without a PHP error');
     $tagSearch=request('GET','/tags/security-test.html',$cookies);
@@ -1212,8 +1224,10 @@ try {
     }
     expect_check($rate['status']===429,'login rate limit enforced');
     $captchaRateCookies=[];
+    $captchaRateToken=visitor_token($captchaRateCookies);
     for($i=0;$i<31;$i++){
-        $captchaRate=request('POST','/?controller=home&operate=vccore',$captchaRateCookies,['param'=>'zzzz']);
+        $captchaRate=request('POST','/?controller=home&operate=vccore',$captchaRateCookies,
+            ['param'=>'zzzz'],['X-CSRF-Token'=>$captchaRateToken]);
     }
     expect_check($captchaRate['status']===429,'captcha guesses are limited per remote address');
     echo "All $passed regression checks passed.\n";
