@@ -391,6 +391,13 @@ function cms_route_guard(string $controller, string $action, bool $admin): void
                 cms_fail(403, '没有权限访问此模型。');
             }
         }
+        if ($controller==='fieldmanage' && in_array($action,['index','system','add','update'],true)) {
+            $projectName=$_GET['project']??'';
+            if ($projectName==='') { cms_fail(400, '模型名称不正确。'); }
+            if (!D('module')->where(['project'=>$projectName])->getone()) {
+                cms_fail(404, '模型不存在。');
+            }
+        }
     }
     if ($writable || ($admin && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST')) {
         cms_post_required();

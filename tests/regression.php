@@ -602,6 +602,10 @@ try {
         request('POST',$disabledRoute.'&f=1',$cookies,['_csrf'=>$newToken])['status']===200,
         'model status still toggles with validated values');
     $fieldRoute='/admin/index.php?controller=fieldmanage&project='.$moduleProject;
+    foreach (['index','system','add','update'] as $fieldReadAction) {
+        $missingFieldProject=request('GET','/admin/index.php?controller=fieldmanage&project=missing_'.$tag.'&operate='.$fieldReadAction,$cookies);
+        expect_check($missingFieldProject['status']===404,'field manager rejects a nonexistent module: '.$fieldReadAction);
+    }
     $fieldPage=request('GET',$fieldRoute.'&operate=system',$cookies);
     expect_check($fieldPage['status']===200 && !str_contains($fieldPage['body'],'data.id') && str_contains($fieldPage['body'],'name="_csrf"'),'system field form has CSRF and does not build an undefined field ID');
     expect_check(preg_match('/name="record\[\]" value="15" checked disabled/',$fieldPage['body']) && preg_match('/name="record\[\]" value="16" checked disabled/',$fieldPage['body']),'existing status and URL fields cannot be selected again');
@@ -1125,6 +1129,11 @@ try {
     expect_check($replyResult['status']===200 && str_contains($replyResult['body'],'操作成功'),'message reply result URL accepts its returned record ID');
     expect_check((request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData)['json']['status']??'')==='y','saving an unchanged message reply is successful');
     $db->query("CREATE TABLE `$fixture` (id int AUTO_INCREMENT PRIMARY KEY,name varchar(255),note text,payload blob) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $invalidDropRejected=false;
+    try { D(substr($fixture,2))->dropalter('name` DROP TABLE `f_module` --'); }
+    catch (InvalidArgumentException $e) { $invalidDropRejected=true; }
+    expect_check($invalidDropRejected && $db->query("SHOW TABLES LIKE '$fixture'")->num_rows===1,
+        'DDL column deletion rejects malformed legacy field names');
     $text="单引号' 双引号\" 反斜杠\\ 1e10 ; DROP TABLE test";
     $binary="\x00\xff\x0a<?php";
     $id=D(substr($fixture,2))->insert(['name'=>$text,'note'=>null,'payload'=>$binary]);

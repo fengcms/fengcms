@@ -159,7 +159,7 @@ class model{
 	 * @return bool|void
      */
     public function droptable(){ 
-        $this->db->query('drop table '.$this->name);
+		$this->db->query('drop table '.self::identifier($this->name));
 		return $this->db->affected_rows();		
     }
     
@@ -203,7 +203,7 @@ class model{
 	 * @return bool|void
      */
     public function dropalter($fiend){ 
-        $this->db->query('ALTER TABLE `'.$this->name.'` DROP COLUMN `'.$fiend.'`;');
+        $this->db->query('ALTER TABLE '.self::identifier($this->name).' DROP COLUMN '.self::identifier($fiend));
 		return $this->db->affected_rows();		
     }
 
