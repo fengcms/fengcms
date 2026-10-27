@@ -10,7 +10,23 @@
 //	分页类
 
 defined('TPL_INCLUDE') or die( 'Restricted access'); 
- 
+
+/** Request details needed to render pagination links without reading globals. */
+final class CmsPageContext
+{
+    public function __construct(
+        public readonly int $currentPage,
+        public readonly array $query,
+        public readonly string $requestUri,
+        public readonly string $scriptPath,
+    ) {}
+
+    public static function fromGlobals(int $currentPage): self
+    {
+        return new self($currentPage, $_GET, $_SERVER['REQUEST_URI'] ?? '/index.php', $_SERVER['PHP_SELF'] ?? '/index.php');
+    }
+}
+
  class page {
 
     //当前URL
@@ -33,6 +49,8 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
  
     //显示数字分页数目
     var $showNum = 10;
+
+    private CmsPageContext $requestContext;
 
     var $pagestyle = array (    
         'first'     =>  '首页', //设为null则不显示此项
@@ -57,8 +75,9 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
      * @param string $pagestyle 分页样式
      * return string
      */
-    function __construct($itemtotal, $pageper = 10,  $pagestyle=array()) { 
-        $this->curpage = @sprintf("%d", $_GET[$this->pagetag]); //获取当前页数
+    function __construct($itemtotal, $pageper = 10,  $pagestyle=array(), ?CmsPageContext $requestContext = null) {
+        $this->requestContext = $requestContext ?? CmsPageContext::fromGlobals((int)@sprintf("%d", $_GET[$this->pagetag] ?? null));
+        $this->curpage = $this->requestContext->currentPage;
         $this->total = $itemtotal;  //记录总数
         $this->pageper = ($pageper>0) ? $pageper : 10; //每页记录数
         $this->pagetag = !empty($this->pagetag) ? $this->pagetag : 'page';   //分页参数名称                
@@ -263,10 +282,10 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
     private function getjumpstr($mode = 'select') {    
         //跳转URL
         if($this->pagestyle['pagetype'] =='wap'){
-            $tmpurl = $_SERVER["PHP_SELF"];
+            $tmpurl = $this->requestContext->scriptPath;
             $tmparr = explode('/',$tmpurl);
             $jump_url = $tmparr[count($tmparr)-1];
-            $gets = $_GET;
+            $gets = $this->requestContext->query;
         }else{
             $jump_url = $this->geturl(null,false);
         }
@@ -340,14 +359,14 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
      */
     public function geturl($page=null, $mode=1) {
         $page = max(1, (int)($page ?? $this->curpage));
-        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/index.php', PHP_URL_PATH);
+        $path = parse_url($this->requestContext->requestUri, PHP_URL_PATH);
         if (URL_TYPE == 1 && str_ends_with($path, '.html')) {
-            if (isset($_GET['page'])) { $path = preg_replace('/_[0-9]+\.html$/', '.html', $path); }
+            if (isset($this->requestContext->query['page'])) { $path = preg_replace('/_[0-9]+\.html$/', '.html', $path); }
             return htmlspecialchars(substr($path, 0, -5).'_'.$page.'.html', ENT_QUOTES, 'UTF-8');
         }
-        $gets = $_GET;
+        $gets = $this->requestContext->query;
         if ($mode) { $gets[$this->pagetag] = $page; } else { unset($gets[$this->pagetag]); }
-        return htmlspecialchars(($_SERVER['PHP_SELF'] ?? '/index.php').($gets ? '?'.http_build_query($gets, '', '&', PHP_QUERY_RFC3986) : ''), ENT_QUOTES, 'UTF-8');
+        return htmlspecialchars($this->requestContext->scriptPath.($gets ? '?'.http_build_query($gets, '', '&', PHP_QUERY_RFC3986) : ''), ENT_QUOTES, 'UTF-8');
     }
 
 }

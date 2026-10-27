@@ -1,4 +1,6 @@
 <?php
+require_once dirname(__DIR__).'/searchCriteria.php';
+
 /*******************************************************************
  * @authors FengCms 
  * @web     http://www.fengcms.com
@@ -222,8 +224,16 @@ class moduleModel extends model{
 	搜索函数
 	*/
     public function search($arrays, $field="", $num=20){
-        $needle = '%'.($arrays['tags'] ?? '').'%';
-        $project = $arrays['project'] ?? '';
+        // Legacy templates call search($_GET, ...). Keep that entry point and
+        // capture its request context before entering the explicit query API.
+        $criteria = CmsSearchCriteria::fromInput((array)$arrays, $_GET['page'] ?? '1');
+        return $this->searchPage($criteria, CmsPageContext::fromGlobals($criteria->page), $field, $num);
+    }
+
+    /** Search with validated input and explicit pagination context. */
+    public function searchPage(CmsSearchCriteria $criteria, CmsPageContext $pageContext, $field="", $num=20): array {
+        $needle = '%'.$criteria->tags.'%';
+        $project = $criteria->project;
         $modules = D('module')->where(['type'=>1,'search'=>1,'status'=>1])->getall();
         $queries = []; $params = [];
         foreach ($modules as $module) {
@@ -235,7 +245,10 @@ class moduleModel extends model{
             $params[] = $needle;
             if ($hasTags) { $params[] = $needle; }
         }
-        if (!$queries) { return arraypage([], $num); }
+        if (!$queries) {
+            $pager = new page(0, $num, [], $pageContext);
+            return ['list'=>[], 'fy'=>$pager->getpage(), 'total'=>0];
+        }
         $source = ' FROM ('.implode(' UNION ', $queries).') search_results';
         $repository = D($this->d_name);
         // These generated SELECTs can share the ordinary connection when the
@@ -243,7 +256,7 @@ class moduleModel extends model{
         // the native SQL isolation path because they may change session state.
         $trustedRead = $field === '' || preg_match('/^\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*\s*$/D', $field) === 1;
         $count = $repository->excsql('SELECT COUNT(*) AS total'.$source, $params, $trustedRead);
-        $pager = new page((int)($count[0]['total'] ?? 0), $num);
+        $pager = new page((int)($count[0]['total'] ?? 0), $num, [], $pageContext);
         $info = $pager->getinfo();
         $offset = ($info['curpage'] - 1) * $info['pageper'];
         return [

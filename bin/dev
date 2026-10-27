@@ -36,6 +36,8 @@ case "${1:-up}" in
     check) docker compose exec -T php php tools/check.php ;;
     test)
         docker compose exec -T php php tests/template-compiler-regression.php
+        docker compose exec -T php php tests/search-contract-regression.php
+        docker compose exec -T php php tests/search-service-regression.php
         docker compose exec -T php php tests/model-state-regression.php
         docker compose exec -T php php tests/raw-sql-isolation-regression.php
         docker compose exec -T php php tests/cache-transaction-regression.php

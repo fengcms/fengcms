@@ -1,26 +1,23 @@
 <?php
+require_once dirname(__DIR__).'/searchCriteria.php';
+
 class searchController extends Controller
 {
     public function index()
     {
         $input = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ? $_POST : $_GET;
-        $tags = $input['tags'] ?? '';
-        $project = $input['project'] ?? '';
-        if (!is_string($tags) || !is_string($project) || mb_strlen($tags, 'UTF-8') > 80 ||
-            ($project !== '' && !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $project))) {
-            cms_fail(400, '搜索参数不正确。');
+        try {
+            $criteria = CmsSearchCriteria::fromInput($input, $_GET['page'] ?? '1');
+        } catch (InvalidArgumentException $error) {
+            cms_fail(400, $error->getMessage());
         }
-        $page=$_GET['page'] ?? '1';
-        if (!is_scalar($page) || !preg_match('/^[1-9][0-9]{0,2}$/D', (string)$page) || (int)$page>100) {
-            cms_fail(400, '搜索页码不正确。');
-        }
-        if ($project !== '' && !D('module')->where(['project'=>$project,'type'=>1,'search'=>1,'status'=>1])->getone()) {
+        if ($criteria->project !== '' && !D('module')->where(['project'=>$criteria->project,'type'=>1,'search'=>1,'status'=>1])->getone()) {
             cms_fail(404, '搜索模型不存在。');
         }
-        if ($tags === '') { cms_fail(400, '请输入关键词。'); }
+        if ($criteria->tags === '') { cms_fail(400, '请输入关键词。'); }
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $query = ['controller'=>'search','tags'=>$tags];
-            if ($project !== '') { $query['project']=$project; }
+            $query = ['controller'=>'search','tags'=>$criteria->tags];
+            if ($criteria->project !== '') { $query['project']=$criteria->project; }
             $url = '/?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986);
             header('Location: '.$url, true, 303);
             return;
@@ -35,6 +32,6 @@ class searchController extends Controller
             cms_fail(429, '搜索请求过于频繁，请稍后重试。');
         }
         $_SESSION['search_window']=$window;
-        return $this->display($project !== '' ? $project.'_search.html' : 'search.html');
+        return $this->display($criteria->project !== '' ? $criteria->project.'_search.html' : 'search.html');
     }
 }
