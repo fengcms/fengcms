@@ -14,6 +14,7 @@
 - [SC01 至 SC06 修复复审报告](SEARCH_CONTENT_COMPATIBILITY_RECHECK_2026-10-27.md)：六项原问题的逐项关闭证据、Nginx 与 Apache 实测，以及原有未提交配置引起的搜索词转义回归。
 - [后台内容管理数据一致性与异常恢复审阅](CONTENT_WRITE_CONSISTENCY_REVIEW_2026-10-27.md)：新增编辑、状态流转、批量及并发请求的八项实测问题、异常残留和开发验收要求。
 - [CM01 至 CM08 修复复审报告](CONTENT_WRITE_CONSISTENCY_RECHECK_2026-10-27.md)：六项关闭证据、批量锁超时与栏目删除竞态的两项未闭合问题，以及真实浏览器和多引擎故障复验。
+- [CM03 与 CM07 剩余问题再复审](CONTENT_WRITE_CM03_CM07_RECHECK_2026-10-27.md)：原最小复现已修复；累积锁等待的 HTTP 超时及跨模型子树删除仍需处理，附独立实测和验收要求。
 - [搜索与内容页兼容性修复结果](SEARCH_CONTENT_COMPATIBILITY_FIX_2026-10-27.md)：六项问题的处理、Nginx 与 Apache 实测及兼容边界。
 - [性能审阅落实记录](PERFORMANCE_OPTIMIZATION_2026-10-27.md)：开发方的实现说明、本地验证结果及搜索优化的测量边界。
 - [性能测量与优化判定](PERFORMANCE_MEASUREMENT_PLAN.md)：性能基线、执行计划、复测指标和优化合入门槛。
