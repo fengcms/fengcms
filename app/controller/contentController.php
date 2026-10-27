@@ -8,6 +8,7 @@
  * @copy    Copyright © 2013-2018 Powered by DiFang Web Studio  
  *******************************************************************/
 // 内容
+require_once dirname(__DIR__).'/contentRequest.php';
 
 class contentController extends Controller{
 
@@ -15,12 +16,28 @@ class contentController extends Controller{
 
 
 	public function __construct(){
-		$this->content=M("module")->content(lib_replace_end_tag($_GET['project']),intval($_GET['id']));
+		try {
+			$request=CmsContentRequest::fromInput($_GET);
+		} catch (InvalidArgumentException $error) {
+			cms_fail(400,$error->getMessage());
+		}
+		if($request->project!=='single' &&
+			!D('module')->where(['project'=>$request->project,'type'=>1,'status'=>1])->getone()){
+			cms_fail(404,'内容模型不存在。');
+		}
+		$this->content=M('module')->content($request->project,$request->id);
 	}
 
 	public function index(){
+		$hadClassid=array_key_exists('classid',$_GET);
+		$originalClassid=$_GET['classid']??null;
 		$_GET['classid']=$this->content['classid'];
-		return $this->display($this->content['template'],$this->content);
+		try {
+			return $this->display($this->content['template'],$this->content);
+		} finally {
+			if($hadClassid){$_GET['classid']=$originalClassid;}
+			else{unset($_GET['classid']);}
+		}
 	}
 }
 

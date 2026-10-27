@@ -90,7 +90,7 @@ $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId
 $unsafeTagId=$unsafeCategoryId=$unsafeFriendId=$legacyUnsafeTagId=$legacyUnsafeFriendId=$legacyUnsafeCategoryId=$legacyUnsafeAuthorId=$badExternalId=null;
 $counterTagIds=[]; $counterAuthorId=null;
 $signupFixtureCreated=false;
-$articleIds=[]; $messageId=null; $fieldFixtureId=null;
+$articleIds=[]; $singleContentId=null; $messageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
 $importProject='qa_copy_'.$tag; $importFixtureId=null;
@@ -186,7 +186,9 @@ try {
     $editorCode=$editorCodeMatch[1];
     $editorCookies=[]; $editorCsrf=token($editorCookies);
     $editorLogin=['_csrf'=>$editorCsrf,'user'=>$editorUser,'password'=>$editorPassword,'admincode'=>strtolower($editorCode)];
-    $wrongCode=$editorLogin; $wrongCode['admincode']=sprintf('%04d',((int)$editorCode+1)%10000);
+    $wrongCode=$editorLogin;
+    $wrongCode['admincode']=strtolower((string)getenv('ADMIN_CODE'));
+    if ($wrongCode['admincode']===strtolower($editorCode)) { $wrongCode['admincode']='0000'; }
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$wrongCode)['json']['status']??'')==='n',
         'sitewide code cannot log in as editor');
     expect_check((request('POST','/admin/index.php?controller=admin',$editorCookies,$editorLogin)['json']['status']??'')==='y',
@@ -829,13 +831,34 @@ try {
     expect_check(request('POST',$shiftRoute,$cookies,['_csrf'=>$newToken,'classid'=>(string)$categoryIds[0],'classarray'=>(string)$articleId])['status']===200 &&
         (int)$db->query('SELECT classid FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0]===(int)$categoryIds[0],
         'article shift accepts validated IDs');
+    $hitsBefore=(int)$db->query('SELECT hits FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0];
     $public=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
+    $hitsAfter=(int)$db->query('SELECT hits FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0];
     expect_check($public['status']===200 && str_contains($public['body'],'&lt;b data-probe=&quot;title&quot;&gt;') && !str_contains($public['body'],'<b data-probe="title">'),'article title is escaped');
+    expect_check($hitsAfter===$hitsBefore+1,'valid content request increments hits exactly once');
     expect_check(str_contains($public['body'],$rich),'legacy content variable retains rich markup');
     expect_check(str_contains($public['body'],'&gt;&gt;') && !str_contains($public['body'],'&amp;gt;'),
         'breadcrumb separator is HTML-escaped exactly once');
 
     expect_check(request('GET','/?controller=content&project=article&id='.$draftId,$cookies)['status']===404,'unpublished article is private');
+    foreach (['0','-1','1abc','2147483648'] as $badContentId) {
+        expect_check(request('GET','/?controller=content&project=article&id='.$badContentId,$cookies)['status']===400,
+            'content route rejects malformed ID: '.$badContentId);
+    }
+    expect_check(request('GET','/?controller=content&project=article&id%5B%5D=1',$cookies)['status']===400,
+        'content route rejects an array ID');
+    expect_check(request('GET','/?controller=content&project=article&id='.$articleId.'&classid=999',$cookies)['status']===200,
+        'content route still renders with a supplied classid');
+    expect_check(request('GET','/?controller=content&project=tags&id=1',$cookies)['status']===404,
+        'content route rejects a system model');
+    $db->query("INSERT INTO f_single (title,template,classid,status) VALUES ('single_$tag','/single.html','0',1)");
+    $singleContentId=$db->insert_id;
+    expect_check(request('GET','/?controller=content&project=single&id='.$singleContentId,$cookies)['status']===200,
+        'content route preserves the built-in single-page model');
+    $db->query('UPDATE f_module SET status=0 WHERE id='.(int)$moduleFixtureId);
+    expect_check(request('GET','/?controller=content&project='.$moduleProject.'&id='.$resultContentId,$cookies)['status']===404,
+        'content route rejects a disabled custom model');
+    $db->query('UPDATE f_module SET status=1 WHERE id='.(int)$moduleFixtureId);
     $query='/index.php?controller=search&tags='.rawurlencode('<b data-probe="search">');
     $search=request('GET',$query,$cookies);
     expect_check($search['status']===200 && str_contains($search['body'],'&lt;b data-probe=&quot;search&quot;&gt;') && !str_contains($search['body'],'<b data-probe="search">'),'search reflects escaped text');
@@ -1376,6 +1399,7 @@ try {
     foreach (array_reverse($directories) as $directory) { if (is_dir($directory)) { rmdir($directory); } }
     foreach ([$testId,$legacyId,$editorId,$extraSuperId] as $id) { if ($id) { $db->query('DELETE FROM f_manage WHERE id='.(int)$id); } }
     foreach ($articleIds as $id) { $db->query('DELETE FROM f_article WHERE id='.(int)$id); }
+    if ($singleContentId) { $db->query('DELETE FROM f_single WHERE id='.(int)$singleContentId); }
     if ($editorArticleId) { $db->query('DELETE FROM f_article WHERE id='.(int)$editorArticleId); }
     if ($editorCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$editorCategoryId); }
     if ($unsafeCategoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$unsafeCategoryId); }
