@@ -196,6 +196,7 @@ class moduleController extends Controller{
 			cms_fail(400, '转移参数不正确。');
 		}
 		$ids=array_values(array_unique(array_map('intval',explode(',',$classarray))));
+		M($this->model)->validateCategory($_GET['project'],$classid);
 		$placeholders=implode(',',array_fill(0,count($ids),'?'));
 		if ($ids) {
 			if(D($_GET['project'])->where('id IN ('.$placeholders.')',$ids)->update(['classid'=>(int)$classid])){

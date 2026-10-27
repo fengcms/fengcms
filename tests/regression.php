@@ -716,6 +716,11 @@ try {
     $zeroSaved=$db->query("SELECT status,`$zeroField` FROM `f_$moduleProject` WHERE id=$zeroRecordId")->fetch_assoc();
     expect_check(($zeroSave['json']['status']??'')==='y' && (int)$zeroSaved['status']===0 &&
         (string)$zeroSaved[$zeroField]==='0','custom model save retains numeric zero and draft status');
+    $badNumber=request('POST','/admin/index.php?controller=module&project='.$moduleProject.'&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$zeroRecordId,'title'=>'zero_'.$tag,$zeroField=>'abc']);
+    expect_check($badNumber['status']===400 &&
+        (string)$db->query("SELECT `$zeroField` FROM `f_$moduleProject` WHERE id=$zeroRecordId")->fetch_row()[0]==='0',
+        'numeric model field rejects nonnumeric input without changing data');
     $export=request('GET','/admin/index.php?controller=modulemanage&operate=elicit&id='.$moduleFixtureId,$cookies);
     $package=json_decode($export['body'],true);
     expect_check($export['status']===200 && ($package['format']??'')==='fengcms-model-v1' &&
@@ -855,10 +860,33 @@ try {
         request('GET','/?controller=content&project=article&id='.$draftId,$cookies)['status']===404,
         'saving the rendered draft values does not publish the article');
     $shiftRoute='/admin/index.php?controller=module&project=article&operate=shift';
+    $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('qa_content_".$tag."','module','article',0,0)");
+    $contentCategoryId=$db->insert_id; $categoryIds[]=$contentCategoryId;
+    $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('qa_other_".$tag."','module','single',0,0)");
+    $otherCategoryId=$db->insert_id; $categoryIds[]=$otherCategoryId;
+    $articleSaveRoute='/admin/index.php?controller=module&project=article&operate=save';
+    foreach ([$otherCategoryId,2147000000,$categoryIds[0]] as $wrongCategoryId) {
+        expect_check(request('POST',$articleSaveRoute,$cookies,
+            ['_csrf'=>$newToken,'id'=>(string)$articleId,'classid'=>(string)$wrongCategoryId])['status']===400,
+            'article rejects foreign, missing, or external-link category');
+        expect_check(request('POST',$shiftRoute,$cookies,
+            ['_csrf'=>$newToken,'classid'=>(string)$wrongCategoryId,'classarray'=>(string)$articleId])['status']===400,
+            'article shift rejects foreign, missing, or external-link category');
+    }
+    expect_check(request('POST',$articleSaveRoute,$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$articleId,'title'=>''])['status']===400 &&
+        $db->query('SELECT title FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0]===$articleTitle,
+        'required article title cannot be cleared');
+    expect_check(request('POST',$articleSaveRoute,$cookies,
+        ['_csrf'=>$newToken,'title'=>'','status'=>'0'])['status']===400,
+        'required article title cannot be omitted on creation');
+    expect_check(request('POST',$articleSaveRoute,$cookies,
+        ['_csrf'=>$newToken,'title'=>str_repeat('a',256),'status'=>'0'])['status']===400,
+        'article title is checked against physical column length before insert');
     expect_check(request('POST',$shiftRoute,$cookies,['_csrf'=>$newToken,'classid'=>(string)$categoryIds[0],'classarray'=>$articleId.' OR 1=1'])['status']===400,
         'article shift rejects injected ID lists');
-    expect_check(request('POST',$shiftRoute,$cookies,['_csrf'=>$newToken,'classid'=>(string)$categoryIds[0],'classarray'=>(string)$articleId])['status']===200 &&
-        (int)$db->query('SELECT classid FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0]===(int)$categoryIds[0],
+    expect_check(request('POST',$shiftRoute,$cookies,['_csrf'=>$newToken,'classid'=>(string)$contentCategoryId,'classarray'=>(string)$articleId])['status']===200 &&
+        (int)$db->query('SELECT classid FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0]===(int)$contentCategoryId,
         'article shift accepts validated IDs');
     $hitsBefore=(int)$db->query('SELECT hits FROM f_article WHERE id='.(int)$articleId)->fetch_row()[0];
     $public=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);

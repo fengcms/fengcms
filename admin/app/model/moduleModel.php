@@ -76,8 +76,9 @@ class moduleModel extends model{
 		$id=$rawId===null?null:(int)$rawId;
 		$columns=D($project)->getdbfields(DB_PREFIX.$project);
 		$physical=array_fill_keys($columns,true);
-		$fields=D('view_field')->field('name,type_quote')->where(['project'=>$project,'status'=>1])->getall();
+		$fields=D('view_field')->field('name,aliases,must,length,type_quote')->where(['project'=>$project,'status'=>1])->getall();
 		$writable=[];
+		$fieldRules=[];
 		$urlFields=['url'=>true];
 		$hasAttrib=false;
 		foreach($fields as $field){
@@ -85,6 +86,7 @@ class moduleModel extends model{
 			if($name==='attrib'){$hasAttrib=true;continue;}
 			if(isset($physical[$name]) && !in_array($name,['id','hits','html','time','password'],true)){
 				$writable[$name]=true;
+				$fieldRules[$name]=$field;
 				if($field['type_quote']==='text_url.html'){$urlFields[$name]=true;}
 			}
 		}
@@ -94,6 +96,8 @@ class moduleModel extends model{
 		}
 		$array=array_intersect_key($array,$writable);
 		foreach($array as $name=>$value){if(!is_string($value) && !is_int($value)){cms_fail(400,'字段内容不正确。');}}
+		$this->validateSubmittedFields($project,$array,$fieldRules,$id===null);
+		if(array_key_exists('classid',$array)){$this->validateCategory($project,$array['classid']);}
 		if($project==='tags' && isset($array['name'])){$this->validateTag($array['name']);}
 		foreach($urlFields as $urlField=>$_){
 			if(isset($array[$urlField]) && $array[$urlField]!=='' && cms_safe_url($array[$urlField])===''){
@@ -130,6 +134,48 @@ class moduleModel extends model{
 
 			return array('status' => 'n','id' => ($id)?$id:$re);
 		}
+	}
+
+	/** An absent edit field keeps its old value; a supplied value follows its field contract. */
+	private function validateSubmittedFields(string $project,array $values,array $rules,bool $creating): void
+	{
+		$columns=D($project)->excsql('SELECT COLUMN_NAME,CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?',
+			[DB_NAME,DB_PREFIX.$project],true);
+		$limits=[];
+		foreach($columns as $column){$limits[$column['COLUMN_NAME']]=$column['CHARACTER_MAXIMUM_LENGTH'];}
+		foreach($rules as $name=>$rule){
+			if(!array_key_exists($name,$values)){
+				if($creating && (int)$rule['must']===1){cms_fail(400,($rule['aliases']?:$name).'不能为空。');}
+				continue;
+			}
+			$value=(string)$values[$name];
+			$label=(string)($rule['aliases']?:$name);
+			if((int)$rule['must']===1 && trim($value)===''){cms_fail(400,$label.'不能为空。');}
+			if($value==='' && (int)$rule['must']!==1){continue;}
+			if($rule['type_quote']==='text_n.html' && !preg_match('/^-?[0-9]+(?:\.[0-9]+)?$/D',$value)){
+				cms_fail(400,$label.'必须是数字。');
+			}
+			// Rich text, textareas and generated values use their database limits, not Validform's input length hint.
+			if(in_array($rule['type_quote'],['title.html','text_n.html','text_w.html','text_s.html','text_z.html','text_p.html','text_m.html','text_e.html','text_url.html'],true) &&
+				is_string($rule['length']) && preg_match('/^([0-9]+)-([0-9]+)$/D',$rule['length'],$range) &&
+				(mb_strlen($value,'UTF-8')<(int)$range[1] || mb_strlen($value,'UTF-8')>(int)$range[2])){
+				cms_fail(400,$label.'长度不正确。');
+			}
+			if(isset($limits[$name]) && $limits[$name]!==null && mb_strlen($value,'UTF-8')>(int)$limits[$name]){
+				cms_fail(400,$label.'超过字段长度。');
+			}
+		}
+	}
+
+	/** Zero remains valid for legacy uncategorized content. */
+	public function validateCategory(string $project,string|int $classid): void
+	{
+		$value=(string)$classid;
+		if(!preg_match('/^[0-9]{1,10}$/D',$value) || (int)$value>2147483647){cms_fail(400,'栏目编号不正确。');}
+		if((int)$value===0){return;}
+		$category=D('classify')->where(['id'=>(int)$value,'project'=>$project,
+			'type'=>$project==='single'?'single':'module'])->getone();
+		if(!$category || $category['project']!==$project){cms_fail(400,'栏目不属于当前模型。');}
 	}
 
 	public function isfield($project,$field){
