@@ -42,6 +42,16 @@ try {
         throw new RuntimeException('POST rendering released a writable session unexpectedly.');
     }
     echo "PASS POST rendering keeps its writable session\n";
+
+    $_GET = ['custom'=>'original'];
+    file_put_contents($GLOBALS['probeTemplate'], '<?php echo $_GET["classid"].":".$_GET["custom"]; $_GET["custom"]="changed"; ?>');
+    ob_start();
+    (new controller())->display('probe');
+    $rendered = ob_get_clean();
+    if ($rendered !== '0:original' || $_GET !== ['custom'=>'original']) {
+        throw new RuntimeException('Legacy template defaults changed the original request.');
+    }
+    echo "PASS template request defaults remain available without leaking globally\n";
 } finally {
     cms_session_release();
     foreach (glob($directory.'/*') ?: [] as $file) { unlink($file); }

@@ -32,6 +32,7 @@ class controller{
 			if(!empty($data)){
 				extract($data,EXTR_SKIP);
 			}
+			$originalGet = $_GET;
 			// Legacy templates read optional query keys directly. Supply their empty state
 			// only during rendering, after routing and authorization have completed.
 			foreach(['controller'=>'','project'=>'','classid'=>'0','id'=>'0','tags'=>'',
@@ -45,8 +46,11 @@ class controller{
             // GET controllers have completed routing, authentication and any
             // search-window write by the time rendering begins. Templates may
             // still read the in-memory token after the file lock is released.
-            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { cms_session_release(); }
-			include template::tpl($path);
+            try {
+                if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { cms_session_release(); }
+                include template::tpl($path);
+            }
+            finally { $_GET = $originalGet; }
 		}
 	}
 
