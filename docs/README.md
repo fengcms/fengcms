@@ -25,6 +25,7 @@
 - [DB01 至 DB04 修复复审报告](DATABASE_BACKUP_RECOVERY_RECHECK_2026-10-28.md)：DB01、DB04 关闭；原导入并发及交换前中断场景已修复，但交换后待恢复期间已确认编辑仍会丢失，DB02、DB03 保留。
 - [DB02 与 DB03 剩余问题关闭复验](DATABASE_BACKUP_DB02_DB03_CLOSURE_2026-10-28.md)：双引擎真实交换后中断、排队与后到编辑拒绝、数据冲突保护及实际恢复重试通过，确认两项关闭。
 - [站点设置与模板缓存发布一致性审阅](SETTINGS_TEMPLATE_CACHE_REVIEW_2026-10-28.md)：五项 P2，覆盖设置半成功、旧表单覆盖、模板版本身份、编译/清理空白响应及单侧与移动缓存遗漏，附独立副本实测与验收要求。
+- [TC01 至 TC05 修复复审报告](SETTINGS_TEMPLATE_CACHE_RECHECK_2026-10-28.md)：四项关闭；TC04 编译失败已受控、原生缓存卷并发通过，但绑定挂载仍出现 2 次读取 500，保留环境限定的并发问题。
 - [搜索与内容页兼容性修复结果](SEARCH_CONTENT_COMPATIBILITY_FIX_2026-10-27.md)：六项问题的处理、Nginx 与 Apache 实测及兼容边界。
 - [性能审阅落实记录](PERFORMANCE_OPTIMIZATION_2026-10-27.md)：开发方的实现说明、本地验证结果及搜索优化的测量边界。
 - [性能测量与优化判定](PERFORMANCE_MEASUREMENT_PLAN.md)：性能基线、执行计划、复测指标和优化合入门槛。
