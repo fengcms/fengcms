@@ -1878,6 +1878,15 @@ try {
             (int)$db->execute_query('SELECT COUNT(*) FROM f_upload_request WHERE account_id=? AND request_key=?',
                 [$testId,$pendingKey])->fetch_row()[0]===0,
             'independent upload refuses pending database recovery before saving');
+        $pendingRead=request('GET','/admin/index.php?controller=dbmanage&operate=dbimport',$cookies);
+        expect_check($pendingRead['status']===200 && str_contains($pendingRead['body'],'核对并恢复中断导入') &&
+            request('GET','/admin/index.php?controller=module&project=article&operate=update&id='.$articleId,$cookies)['status']===200,
+            'recovery page and read-only article editor remain accessible');
+        $pendingLoginCookies=[];$pendingLoginToken=token($pendingLoginCookies);
+        $pendingLogin=request('POST','/admin/index.php?controller=admin',$pendingLoginCookies,
+            ['_csrf'=>$pendingLoginToken,'user'=>$versionUser,'password'=>$versionPassword,'admincode'=>$versionCode]);
+        expect_check(($pendingLogin['json']['status']??'')==='y',
+            'administrator login remains available during pending recovery');
     }finally{if(is_file($pendingJournal)){unlink($pendingJournal);}}
     foreach (['header-only'=>substr($png,0,33),'truncated'=>substr($png,0,-8)] as $kind=>$brokenPng){
         $broken=upload($cookies,$newToken,'broken_'.$kind.'_'.$tag.'.png',$brokenPng);
