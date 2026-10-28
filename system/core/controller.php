@@ -51,7 +51,19 @@ class controller{
             // still read the in-memory token after the file lock is released.
             try {
                 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { cms_session_release(); }
-                include template::tpl($path);
+                require_once __DIR__.'/../common/template_cache.php';
+                $cacheLock=CmsTemplateCache::lock(false);
+                $bufferLevel=ob_get_level();
+                ob_start();
+                try {
+                    $compiled=template::tpl($path);
+                    if(!is_file($compiled)){throw new RuntimeException('模板编译产物不可用。');}
+                    if((include $compiled)===false){throw new RuntimeException('模板编译产物执行失败。');}
+                    ob_end_flush();
+                }catch(Throwable $e){
+                    while(ob_get_level()>$bufferLevel){ob_end_clean();}
+                    throw $e;
+                }finally{CmsTemplateCache::unlock($cacheLock);}
             }
             finally {
                 $_GET = $originalGet;

@@ -1859,6 +1859,17 @@ try {
     $renderedTemplate=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check($renderedTemplate['status']===200 && str_contains($renderedTemplate['body'],'模板回归 '.$tag) && !str_contains($renderedTemplate['body'],'{$title}'),'new template can render a frontend article');
     $db->query('UPDATE f_article SET template="/article_content.html" WHERE id='.(int)$articleId);
+    $cacheRaceOk=true;
+    for($cacheAttempt=0;$cacheAttempt<12;$cacheAttempt++){
+        $visitorSocket=start_async_request('GET','/',[]);
+        $clearSocket=start_async_request('POST','/admin/index.php?controller=cache&operate=index',
+            $superCookies,['_csrf'=>$superToken]);
+        $visitorResult=finish_async_request($visitorSocket);
+        $clearResult=finish_async_request($clearSocket);
+        if($visitorResult['status']!==200 || !str_contains($visitorResult['body'],'</html>') ||
+            $clearResult['status']!==200){$cacheRaceOk=false;break;}
+    }
+    expect_check($cacheRaceOk,'concurrent public rendering and cache clear never return an empty successful page');
     expect_check(request('GET','/template/'.$templateName.'.html',$cookies)['status']===404,'new template source is not publicly downloadable');
     expect_check(request('GET','/css/'.$templateName.'.css',$cookies)['body']==='body { color:#123456; }','saved stylesheet is served by Nginx');
     foreach ([['name'=>'../escape'],['name'=>'nested/file'],['name'=>'x.php/evil'],['name'=>['array']],['project'=>'../template'],['type'=>'2'],['type'=>['0']],['content'=>['array']]] as $invalidTemplate) {

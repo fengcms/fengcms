@@ -17,28 +17,16 @@ class cacheController extends Controller{
      * @access public
      */
 	public function index(){
-
-		$qcache = ROOT_PATH.'/app/cache/compile/';
-
-		$hcache = ABS_PATH.'/app/cache/compile/';
-
-		if(file_exists($qcache) and file_exists($hcache)){
-			
-			if(rmdirs($qcache) and rmdirs($hcache)){
-
-					echo '<script type="text/javascript">alert("缓存更新成功");</script>';
-					echo '<meta http-equiv="refresh" content="0;url=?controller=home&operate=main">';
-				exit();
-
-				}else{
-					echo '<script type="text/javascript">alert("缓存更新失败");</script>';
-					echo '<meta http-equiv="refresh" content="0;url=?controller=home&operate=main">';
-				exit();
-			}
-		}else{
-			echo '<script type="text/javascript">alert("缓存已经更新");</script>';
-			echo '<meta http-equiv="refresh" content="0;url=?controller=home&operate=main">';
-		}
+        require_once ROOT_PATH.'/system/common/template_cache.php';
+        try{
+            $removed=CmsTemplateCache::clear();
+            $message=$removed>0?'已更新 '.$removed.' 处编译缓存':'编译缓存已经是空的';
+        }catch(Throwable $e){
+            error_log('Template cache clear failed: '.$e);
+            cms_fail(500,'编译缓存更新失败，请检查私有错误日志。');
+        }
+        echo '<script type="text/javascript">alert('.json_encode($message,JSON_UNESCAPED_UNICODE).');</script>';
+        echo '<meta http-equiv="refresh" content="0;url=?controller=home&operate=main">';
 	}
 
 }

@@ -50,6 +50,8 @@ case "${1:-up}" in
         docker compose exec -T php php tests/session-release-regression.php
         docker compose exec -T php php tests/driver-regression.php
         docker compose exec -T php php tests/regression.php
+        sh tests/site-settings-regression.sh
+        sh tests/template-cache-regression.sh
         sh tests/backup-import-regression.sh
         sh tests/backup-consistency-regression.sh
         sh tests/model-schema-myisam-regression.sh

@@ -144,10 +144,13 @@ class template{
      */
     private static function wfile($file_path, $str, $mode='w'){
         $temp = $file_path.'.'.bin2hex(random_bytes(8)).'.tmp';
-        if (file_put_contents($temp, $str, LOCK_EX) === false) { return false; }
-        chmod($temp, 0600);
-        if (!rename($temp, $file_path)) { unlink($temp); return false; }
-        return true;
+        try{
+            if(@file_put_contents($temp,$str,LOCK_EX)!==strlen($str) ||
+                !@chmod($temp,0600) || !@rename($temp,$file_path)){
+                throw new RuntimeException('模板编译文件写入失败。');
+            }
+            if(function_exists('opcache_invalidate')){@opcache_invalidate($file_path,true);}
+        }finally{if(is_file($temp)){unlink($temp);}}
     }
 
     /**
@@ -191,8 +194,10 @@ class template{
         if(!defined("TPL_INCLUDE")){
 				throwexce(sprintf('For your security, please call before the procedure to define a template called TPL_INCLUDE constant'),'Template');
         }
+        $source=file_get_contents($tpl_file);
+        if($source===false){throw new RuntimeException('模板源文件读取失败。');}
         $d = "<?php defined('TPL_INCLUDE') OR exit('Access Denied'); ?>\r\n";
-        $s = $d.file_get_contents($tpl_file);
+        $s = $d.$source;
         // Insert into template HTML before compilation: generated PHP contains closing delimiters
         // inside action attributes, which is not the end of the form tag.
         $s = preg_replace_callback('~<form\b(?:[^>\"\']|\"[^\"]*\"|\'[^\']*\')*>~i', static function ($m) {
