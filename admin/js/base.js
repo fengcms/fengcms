@@ -2,11 +2,11 @@ $(function(){
 	data=$(".form").Validform({
 		tiptype:2,
 		callback:function(data){
-			if(data.status=="y"){
+			var result=data && data.responseJSON ? data.responseJSON : data;
+			if(result.status=="y"){
 				location.href =	"?controller=base&operate=execution&url="+encodeURIComponent('?controller=base')+"&re=1";
 			}else{
-				location.href =	"?controller=base&operate=execution&url="+encodeURIComponent('?controller=base')+"&re=0";
-
+				alert(result.message || "保存失败，请刷新页面后重试。");
 			}
 		}
 	});

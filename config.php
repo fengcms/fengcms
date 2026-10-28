@@ -56,6 +56,9 @@ if (in_array(cms_required_setting('DB_PASS','db_pass'), ['123456','password'], t
 /*---------------- 网站设置项（伪静态和后台认证码）---------*/
 
 	$runtimePath = getenv('APP_RUNTIME_PATH') ?: ROOT_PATH.'/var/runtime';
+    require_once ROOT_PATH.'/system/common/site_settings.php';
+    try { CmsSiteSettings::recoverPending(); }
+    catch (Throwable $e) { error_log('Site settings recovery failed: '.$e); cms_fail(503,'网站设置正在恢复，请稍后重试。'); }
     $siteSettings = is_readable($runtimePath.'/site.json') ? json_decode(file_get_contents($runtimePath.'/site.json'), true) : [];
     define('URL_TYPE', (int)($siteSettings['url_type'] ?? ($localConfig['url_type'] ?? 0)));														//访问地址方法，0动态1伪静态
 

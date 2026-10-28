@@ -30,7 +30,8 @@ class baseController extends Controller{
      * @return array
      */
 	public function save(){
-		echo json_encode(M($this->model)->save($_POST));
+        try { echo json_encode(M($this->model)->save($_POST)); }
+        catch (CmsSiteSettingsConflict $e) { cms_fail(409,$e->getMessage()); }
 	}
 
     /**

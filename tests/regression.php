@@ -96,6 +96,13 @@ function token(array &$cookies, bool $admin=false): string {
     if (!preg_match($pattern,$page['body'],$m)) { throw new RuntimeException('No CSRF token; HTTP '.$page['status']); }
     return $m[1];
 }
+function settings_version(array &$cookies): string {
+    $page=request('GET','/admin/index.php?controller=base',$cookies);
+    if($page['status']!==200 || !preg_match('/name="_settings_version" value="([a-f0-9]{64})"/',$page['body'],$match)){
+        throw new RuntimeException('No settings version on base edit page');
+    }
+    return $match[1];
+}
 function visitor_token(array &$cookies): string {
     $page=request('GET','/?controller=message&operate=add',$cookies);
     if ($page['status']!==200 || !str_contains($page['body'],'/js/csrf.js') ||
@@ -1716,25 +1723,37 @@ try {
     expect_check(request('GET',$recoverRoute.'&operate=recovers',$cookies)['status']===404,'recycle bin internal batch helpers cannot be called as routes');
     expect_check(request('GET',$recoverRoute.'&operate=execution&type=save&re=1&id=undefined',$cookies)['status']===400,'invalid numeric query parameters are still rejected after recycle bin repair');
 
-    $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>'base_'.$tag,'url_type'=>'1']);
+    $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'_settings_version'=>settings_version($cookies),'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');
     $baseForge=request('POST','/admin/index.php?controller=base&operate=save',$cookies,
-        ['_csrf'=>$newToken,'name'=>'base_safe_'.$tag,'time'=>'1','unlisted'=>'injected','url_type'=>'1']);
+        ['_csrf'=>$newToken,'_settings_version'=>settings_version($cookies),'name'=>'base_safe_'.$tag,'time'=>'1','unlisted'=>'injected','url_type'=>'1']);
     $baseAfterForge=$db->query('SELECT name,time FROM f_base LIMIT 1')->fetch_assoc();
     expect_check(($baseForge['json']['status']??'')==='y' && $baseAfterForge['name']==='base_safe_'.$tag &&
         (string)$baseAfterForge['time']!=='1','site settings ignore unknown and client-owned fields');
+    $superToken=token($superCookies,true);
+    $staleBaseVersion=settings_version($superCookies);
+    $freshBaseVersion=settings_version($cookies);
+    $firstBaseEdit=request('POST','/admin/index.php?controller=base&operate=save',$cookies,
+        ['_csrf'=>$newToken,'_settings_version'=>$freshBaseVersion,'name'=>'base_new_'.$tag,'url_type'=>'1']);
+    $staleBaseEdit=request('POST','/admin/index.php?controller=base&operate=save',$superCookies,
+        ['_csrf'=>$superToken,'_settings_version'=>$staleBaseVersion,'name'=>'base_safe_'.$tag,
+            'description'=>'stale_'.$tag,'url_type'=>'1']);
+    expect_check(($firstBaseEdit['json']['status']??'')==='y' && $staleBaseEdit['status']===409 &&
+        $db->query('SELECT name FROM f_base LIMIT 1')->fetch_row()[0]==='base_new_'.$tag,
+        'stale settings form cannot overwrite another confirmed save in the same second');
+    $ambiguousBaseVersion=settings_version($cookies);
     $extraBase=$db->prepare('INSERT INTO f_base (name,copyright) VALUES (?,?)');
     $extraBaseName='extra_'.$tag; $extraBase->bind_param('ss',$extraBaseName,$extraBaseCopyright);
     $extraBase->execute(); $extraBase->close();
     $ambiguousBase=request('POST','/admin/index.php?controller=base&operate=save',$cookies,
-        ['_csrf'=>$newToken,'name'=>'should_not_write_'.$tag,'url_type'=>'1']);
+        ['_csrf'=>$newToken,'_settings_version'=>$ambiguousBaseVersion,'name'=>'should_not_write_'.$tag,'url_type'=>'1']);
     $ambiguousBaseRows=$db->query("SELECT COUNT(*) FROM f_base WHERE name='should_not_write_".$tag."'")->fetch_row()[0];
     $deleteExtra=$db->prepare('DELETE FROM f_base WHERE copyright=?');
     $deleteExtra->bind_param('s',$extraBaseCopyright); $deleteExtra->execute(); $deleteExtra->close();
     expect_check($ambiguousBase['status']===409 && (int)$ambiguousBaseRows===0,
         'site settings refuse an ambiguous multi-row table');
     expect_check(request('GET','/tags.html',$cookies)['status']===200,'tag cloud URL works in pseudo-static mode');
-    $copyrightSave=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'copyright'=>$attack,'url_type'=>'1']);
+    $copyrightSave=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'_settings_version'=>settings_version($cookies),'copyright'=>$attack,'url_type'=>'1']);
     $copyright=$db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_assoc()['copyright'];
     expect_check(($copyrightSave['json']['status']??'')==='y' && !str_contains($copyright,'<script') && str_contains($copyright,'<strong>加粗</strong>'), 'copyright HTML uses the server sanitizer');
     $importedCopyright='<p>保留段落</p><script>window.auditCopyright=1</script>';
@@ -1769,7 +1788,7 @@ try {
     }
 
     expect_check(request('GET','/index.html',$cookies)['status']===200,'rewrite mode renders homepage');
-    request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'name'=>$originalName,'url_type'=>'0']);
+    request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'_settings_version'=>settings_version($cookies),'name'=>$originalName,'url_type'=>'0']);
     expect_check(request('GET','/tags.html',$cookies)['status']===200 && request('GET','/?controller=tags',$cookies)['status']===200,'tag cloud URLs work in dynamic mode');
     foreach (['home&operate=main','base','manage&operate=password','modulemanage','module&project=article','classify','message','tplmanage','dbmanage&operate=dbmanages'] as $route) {
         $page=request('GET','/admin/index.php?controller='.$route,$cookies);
