@@ -17,14 +17,23 @@ for(const source of sources){
     for(const status of ['y','n'])for(const id of [undefined,null,false,0,'','undefined','null',-1,[],{},'1 OR 1=1',37]){
         let callback;
         const location={href:'http://localhost/admin/index.php?controller=fieldmanage&project=goods'};
+        const alerts=[];
         const chain={attr(){return '?controller=recover&project=goods&operate=batch';},Validform(options){callback=options.callback;return chain;},click(){return chain;},on(){return chain;},ajaxError(){return chain;},keypress(){return chain;},ready(fn){fn();return chain;}};
         const $=arg=>{if(typeof arg==='function')arg();return chain;};
-        const context={URL,URLSearchParams,encodeURIComponent,document:{},window:{location},location,$,alert(){}};
+        const context={URL,URLSearchParams,encodeURIComponent,document:{},window:{location},location,$,alert(message){alerts.push(message);}};
         vm.runInNewContext(fs.readFileSync(path.join(root,'admin/js/navigation.js'),'utf8'),context);
         context.FengAdmin=context.window.FengAdmin;
         vm.runInNewContext(text,context,{filename:source});
         assert.equal(typeof callback,'function',source);
-        callback({status,id});
+        const result={status,id};
+        if(source.includes('message/reply') && status==='n')result.message='留言回复保存失败';
+        callback(result);
+        if(source.includes('message/reply') && status==='n'){
+            assert.equal(location.href,'http://localhost/admin/index.php?controller=fieldmanage&project=goods',source+' retains the reply form after save failure');
+            assert.deepEqual(alerts,['留言回复保存失败'],source+' displays the save error');
+            checked++;
+            continue;
+        }
         if(source.includes('filemanage.js') && status==='n'){assert.equal(location.href,'http://localhost/admin/index.php?controller=fieldmanage&project=goods');checked++;continue;}
         if((source.includes('module/add.html') || source.includes('module/update.html')) && status==='n'){
             assert.equal(location.href,'http://localhost/admin/index.php?controller=fieldmanage&project=goods',source+' retains the form after save failure');
