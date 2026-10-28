@@ -1816,15 +1816,37 @@ try {
         expect_check(($templateSave['json']['status']??'')==='y' && is_file($templateFile) && file_get_contents($templateFile)===$source,'template manager creates exact source: '.$templateType);
         $templateEdit=request('GET',$templateRoute.'&operate=update&project='.$templateType.'&name='.$templateName,$cookies);
         preg_match('~<textarea\b[^>]*name="content"[^>]*>(.*?)</textarea>~s',$templateEdit['body'],$templateTextarea);
+        preg_match('/name="_file_version" value="([a-f0-9]{64})"/',$templateEdit['body'],$templateVersion);
         expect_check($templateEdit['status']===200 && isset($templateTextarea[1]) && html_entity_decode($templateTextarea[1],ENT_QUOTES|ENT_HTML5,'UTF-8')===$source,'template source reopens without executing or double escaping: '.$templateType);
+        expect_check(isset($templateVersion[1]),'template edit page carries a server version: '.$templateType);
         $templateDuplicate=request('POST',$templateRoute.'&operate=save',$cookies,$templateData);
         expect_check(($templateDuplicate['json']['status']??'')==='e' && file_get_contents($templateFile)===$source,'new template cannot overwrite an existing name: '.$templateType);
-        $templateData['type']='1';$templateData['content']='';
+        $templateData['type']='1';$templateData['content']='';$templateData['_file_version']=$templateVersion[1];
         $emptyTemplate=request('POST',$templateRoute.'&operate=save',$cookies,$templateData);
         clearstatcache(true,$templateFile);
         expect_check(($emptyTemplate['json']['status']??'')==='y' && filesize($templateFile)===0,'zero-byte template save is successful: '.$templateType);
+        $latestTemplateEdit=request('GET',$templateRoute.'&operate=update&project='.$templateType.'&name='.$templateName,$cookies);
+        preg_match('/name="_file_version" value="([a-f0-9]{64})"/',$latestTemplateEdit['body'],$latestTemplateVersion);
+        $templateData['_file_version']=$latestTemplateVersion[1]??'';
         $templateData['content']=$source;
         expect_check((request('POST',$templateRoute.'&operate=save',$cookies,$templateData)['json']['status']??'')==='y' && file_get_contents($templateFile)===$source,'template manager updates exact source: '.$templateType);
+        $staleTemplate=request('POST',$templateRoute.'&operate=save',$cookies,$templateData);
+        expect_check($staleTemplate['status']===409 && file_get_contents($templateFile)===$source,
+            'stale edit cannot overwrite a newer template version: '.$templateType);
+        if(in_array($templateType,['tpl','css'],true)){
+            $beforeDelete=request('GET',$templateRoute.'&operate=update&project='.$templateType.'&name='.$templateName,$cookies);
+            preg_match('/name="_file_version" value="([a-f0-9]{64})"/',$beforeDelete['body'],$beforeDeleteVersion);
+            $deletedTemplate=request('POST',$templateRoute.'&operate=delete&project='.$templateType.'&name='.$templateName,
+                $cookies,['_csrf'=>$newToken]);
+            $recreated=request('POST',$templateRoute.'&operate=save',$cookies,
+                ['_csrf'=>$newToken,'project'=>$templateType,'name'=>$templateName,'type'=>'0','content'=>$source]);
+            $oldForm=request('POST',$templateRoute.'&operate=save',$cookies,
+                ['_csrf'=>$newToken,'project'=>$templateType,'name'=>$templateName,'type'=>'1',
+                    '_file_version'=>$beforeDeleteVersion[1]??'','content'=>'stale replacement']);
+            expect_check($deletedTemplate['status']===200 && ($recreated['json']['status']??'')==='y' &&
+                $oldForm['status']===409 && file_get_contents($templateFile)===$source,
+                'delete and same-name recreate invalidate the old edit form: '.$templateType);
+        }
         $templateList=request('GET',$templateRoute.'&project='.$templateType,$cookies);
         preg_match_all('~class="art_title_txt"><a[^>]*>([^<]+)</a>~',$templateList['body'],$listedTemplates);
         $orderedTemplates=array_map(static fn($name)=>html_entity_decode($name,ENT_QUOTES|ENT_HTML5,'UTF-8'),$listedTemplates[1]);
@@ -1843,7 +1865,7 @@ try {
         $invalidTemplateSave=request('POST',$templateRoute.'&operate=save',$cookies,array_replace(['_csrf'=>$newToken,'project'=>'tpl','name'=>$templateName,'type'=>'0','content'=>'valid'],$invalidTemplate));
         expect_check($invalidTemplateSave['status']===400,'invalid template save parameters are rejected');
     }
-    $missingTemplate=request('POST',$templateRoute.'&operate=save',$cookies,['_csrf'=>$newToken,'project'=>'tpl','name'=>'qa_missing_'.$tag,'type'=>'1','content'=>'missing']);
+    $missingTemplate=request('POST',$templateRoute.'&operate=save',$cookies,['_csrf'=>$newToken,'project'=>'tpl','name'=>'qa_missing_'.$tag,'type'=>'1','content'=>'missing','_file_version'=>str_repeat('0',64)]);
     expect_check($missingTemplate['status']===404,'template update cannot create a missing file');
     $symlinkName='qa_link_'.$tag;$symlinkPath=dirname(__DIR__).'/template/'.$symlinkName.'.html';
     symlink(dirname(__DIR__).'/config.php',$symlinkPath);$files[]=$symlinkPath;

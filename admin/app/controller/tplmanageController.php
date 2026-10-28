@@ -38,13 +38,8 @@ class tplmanageController extends Controller{
      * @return template,array
      */
 	public function update(){
-        $path=M($this->model)->pathset($_GET['name']??null,$_GET['project']??null);
-        if(!is_file($path)){cms_fail(404,'模板不存在。');}
-		return $this->display('tplmanage/update.html',array(
-				'name'		=> $_GET['name'],
-				'content'	=> file_get_contents($path)
-				)
-			);
+        return $this->display('tplmanage/update.html',
+            M($this->model)->read($_GET['name']??null,$_GET['project']??null));
 	}
 	/**
      * 删除信息
@@ -67,7 +62,8 @@ class tplmanageController extends Controller{
      * @return array
      */
 	public function save(){
-		echo json_encode(M($this->model)->save($_POST));
+        try { echo json_encode(M($this->model)->save($_POST)); }
+        catch (CmsTemplateEditConflict $e) { cms_fail(409,$e->getMessage()); }
 	}
 
     /**

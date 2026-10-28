@@ -5,12 +5,13 @@ $(function(){
 	data=$(".form").Validform({
 		tiptype:1,
 		callback:function(data){
-			if(data.status=="y"){
-				location.href =	FengAdmin.executionURL('tplmanage',data,{type:null,includeId:false});
-			}else if(data.status=="e"){
+			var result=data && data.responseJSON ? data.responseJSON : data;
+			if(result.status=="y"){
+				location.href =	FengAdmin.executionURL('tplmanage',result,{type:null,includeId:false});
+			}else if(result.status=="e"){
 				alert("文件已存在，请换一个名称。")
 			}else{
-				alert(data.message || "保存失败，请稍后重试。");
+				alert(result.message || "保存失败，请稍后重试。");
 
 			}
 		}
