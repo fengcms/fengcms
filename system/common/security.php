@@ -222,16 +222,38 @@ function cms_editor_content_project(string $name): bool
     return $allowed[$name]=$module && (int)$module['type']===1 && (int)$module['status']===1;
 }
 
-function cms_editor_category_row(array $row): void
+function cms_editor_category_allowed(array $row): bool
 {
     $type=$row['type']??null;
     $project=(string)($row['project']??'');
     if (($type==='module' && cms_editor_content_project($project)) ||
         ($type==='single' && $project==='single') ||
         ($type==='url' && ($project==='' || $project==='single' || cms_editor_content_project($project)))) {
-        return;
+        return true;
     }
+    return false;
+}
+
+function cms_editor_category_row(array $row): void
+{
+    if (cms_editor_category_allowed($row)) { return; }
     cms_fail(403,'没有权限管理此栏目。');
+}
+
+function cms_editor_visible_category_rows(array $rows): array
+{
+    if (cms_admin_role()!=='editor') { return $rows; }
+    return array_values(array_filter($rows,'cms_editor_category_allowed'));
+}
+
+function cms_editor_category_read_target($rawId): void
+{
+    if (!is_string($rawId) || !preg_match('/^[0-9]{1,10}$/D',$rawId)) { cms_fail(400,'栏目编号不正确。'); }
+    $id=(int)$rawId;
+    if ($id===0) { return; }
+    $row=D('classify')->where(['id'=>$id])->getone();
+    if (!$row) { cms_fail(404,'栏目不存在。'); }
+    cms_editor_category_row($row);
 }
 
 function cms_editor_category_tree(int $id): void
@@ -264,7 +286,11 @@ function cms_editor_classify_guard(string $action): void
     if ($action==='classify' && isset($_GET['p']) && $_GET['p']!=='' && !cms_editor_content_project($_GET['p'])) {
         cms_fail(403,'没有权限读取此模型的栏目。');
     }
-    if ($action==='save') {
+    if ($action==='index') {
+        cms_editor_category_read_target($_GET['id']??'0');
+    } elseif ($action==='sorts') {
+        cms_editor_category_read_target($_GET['classid']??'0');
+    } elseif ($action==='save') {
         $id=$_POST['id']??null;
         if (is_string($id) && $id!=='' && (int)$id>0) {
             cms_editor_category_tree((int)$id);

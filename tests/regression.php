@@ -169,6 +169,7 @@ $counterTagIds=[]; $counterAuthorId=$faultTagId=null;
 $signupFixtureCreated=false;
 $articleIds=[]; $singleContentId=null; $messageId=null; $independentMessageId=null; $faultMessageId=null; $fieldFixtureId=null;
 $categoryIds=[];
+$authorizationCategoryIds=[];
 $schemaProjects=[]; $schemaTriggers=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
 $importProject='qa_copy_'.$tag; $importFixtureId=null;
@@ -284,6 +285,46 @@ try {
         request('GET','/admin/index.php?controller=account',$superCookies)['status']===200,
         'new super administrator can log in and manage accounts');
     $superToken=token($superCookies,true);
+    $db->query("INSERT INTO f_classify (name,enname,type,project,classid,nav) VALUES
+        ('auth_allowed_$tag','auth-allowed-$tag','module','article',0,0)");
+    $authAllowedCategory=(int)$db->insert_id; $authorizationCategoryIds[]=$authAllowedCategory;
+    $db->query("INSERT INTO f_classify (name,enname,type,project,classid,nav) VALUES
+        ('auth_restricted_child_$tag','auth-restricted-child-$tag','module','tags',$authAllowedCategory,0)");
+    $authRestrictedChild=(int)$db->insert_id; $authorizationCategoryIds[]=$authRestrictedChild;
+    $db->query("INSERT INTO f_classify (name,enname,type,project,classid,nav) VALUES
+        ('auth_restricted_parent_$tag','auth-restricted-parent-$tag','module','tags',0,0)");
+    $authRestrictedParent=(int)$db->insert_id; $authorizationCategoryIds[]=$authRestrictedParent;
+    $db->query("INSERT INTO f_classify (name,enname,type,project,classid,nav) VALUES
+        ('auth_restricted_nested_$tag','auth-restricted-nested-$tag','module','tags',$authRestrictedParent,0)");
+    $authRestrictedNested=(int)$db->insert_id; $authorizationCategoryIds[]=$authRestrictedNested;
+    $editorRootCategories=request('GET','/admin/index.php?controller=classify',$editorCookies);
+    $editorRootSorts=request('GET','/admin/index.php?controller=classify&operate=sorts&classid=0',$editorCookies);
+    expect_check($editorRootCategories['status']===200 && str_contains($editorRootCategories['body'],'auth_allowed_'.$tag) &&
+        !str_contains($editorRootCategories['body'],'auth_restricted_') && $editorRootSorts['status']===200 &&
+        str_contains($editorRootSorts['body'],'auth_allowed_'.$tag) && !str_contains($editorRootSorts['body'],'auth_restricted_'),
+        'editor root category and sorting lists hide categories from system models');
+    $editorAllowedChildren=request('GET','/admin/index.php?controller=classify&id='.$authAllowedCategory,$editorCookies);
+    $editorAllowedSorts=request('GET','/admin/index.php?controller=classify&operate=sorts&classid='.$authAllowedCategory,$editorCookies);
+    expect_check($editorAllowedChildren['status']===200 && !str_contains($editorAllowedChildren['body'],'auth_restricted_child_'.$tag) &&
+        $editorAllowedSorts['status']===200 && !str_contains($editorAllowedSorts['body'],'auth_restricted_child_'.$tag),
+        'editor category and sorting child lists filter an inaccessible nested model');
+    expect_check(request('GET','/admin/index.php?controller=classify&id='.$authRestrictedParent,$editorCookies)['status']===403 &&
+        request('GET','/admin/index.php?controller=classify&operate=sorts&classid='.$authRestrictedParent,$editorCookies)['status']===403,
+        'editor cannot enumerate descendants by selecting an inaccessible parent');
+    $editorClassifyDefault=request('GET','/admin/index.php?controller=classify&operate=classify',$editorCookies);
+    $editorClassifyArticle=request('GET','/admin/index.php?controller=classify&operate=classify&p=article',$editorCookies);
+    expect_check($editorClassifyDefault['status']===200 && !str_contains($editorClassifyDefault['body'],'auth_restricted_') &&
+        $editorClassifyArticle['status']===200 && str_contains($editorClassifyArticle['body'],'auth_allowed_'.$tag) &&
+        !str_contains($editorClassifyArticle['body'],'auth_restricted_') &&
+        request('GET','/admin/index.php?controller=classify&operate=classify&p=tags',$editorCookies)['status']===403,
+        'editor category selector filters default scope and rejects unauthorized model selection');
+    $superRootCategories=request('GET','/admin/index.php?controller=classify',$superCookies);
+    $superRestrictedChildren=request('GET','/admin/index.php?controller=classify&id='.$authRestrictedParent,$superCookies);
+    $superClassify=request('GET','/admin/index.php?controller=classify&operate=classify',$superCookies);
+    expect_check($superRootCategories['status']===200 && str_contains($superRootCategories['body'],'auth_restricted_parent_'.$tag) &&
+        $superRestrictedChildren['status']===200 && str_contains($superRestrictedChildren['body'],'auth_restricted_nested_'.$tag) &&
+        $superClassify['status']===200 && str_contains($superClassify['body'],'auth_restricted_parent_'.$tag),
+        'super administrator category reads retain their original unrestricted results');
     expect_check(request('POST','/admin/index.php?controller=account&operate=delete',$cookies,
         ['_csrf'=>$newToken,'id'=>(string)$extraSuperId])['status']===403 &&
         request('POST','/admin/index.php?controller=account&operate=toggle',$cookies,
@@ -2490,6 +2531,7 @@ try {
         }
     }
     foreach ($categoryIds as $categoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$categoryId); }
+    foreach ($authorizationCategoryIds as $categoryId) { $db->query('DELETE FROM f_classify WHERE id='.(int)$categoryId); }
     if ($moduleFixtureId) {
         $db->query('DELETE FROM f_module_field WHERE module_id='.(int)$moduleFixtureId);
         $db->query('DELETE FROM f_module WHERE id='.(int)$moduleFixtureId);

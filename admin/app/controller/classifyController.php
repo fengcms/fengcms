@@ -22,7 +22,9 @@ class classifyController extends Controller{
      */
 	public function index(){
 		$where=['classid'=>(int)($_GET['id']??0)];
-		return $this->display('classify/index.html',array("classify"	=>	M($this->model)->findall($where)));
+		$classify=M($this->model)->findall($where);
+		$classify=cms_editor_visible_category_rows($classify);
+		return $this->display('classify/index.html',array("classify"=>$classify));
 	}
 
     /**
@@ -50,7 +52,9 @@ class classifyController extends Controller{
      */
     public function sorts(){
 		$where=['classid'=>(int)($_GET['classid']??0)];
-        return $this->display("classify/sorts.html",array("classify" => M($this->model)->findall($where)));
+		$classify=M($this->model)->findall($where);
+		$classify=cms_editor_visible_category_rows($classify);
+        return $this->display("classify/sorts.html",array("classify"=>$classify));
     }
     /**
      * 栏目排序执行
@@ -84,8 +88,10 @@ class classifyController extends Controller{
 			$params[]=$_GET['p'];
 		}
 
+			$classify=D('classify')->where($where,$params)->sort('sort,id')->getall();
+			$classify=cms_editor_visible_category_rows($classify);
 			return $this->display('classify/classify.html',[
-				'classifyselect'=>M($this->model)->procoption(M($this->model)->classifytree(D('classify')->where($where,$params)->sort('sort,id')->getall()),0,false),
+				'classifyselect'=>M($this->model)->procoption(M($this->model)->classifytree($classify),0,false),
 			]);
 	}
 
