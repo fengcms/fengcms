@@ -4,7 +4,7 @@
 
 | 组件 | 当前版本、位置与用途 | 来源、许可与核验 | 后续动作 |
 | --- | --- | --- | --- |
-| PHP | 安装器允许 8.3、8.4；本地容器实测 8.4.27。 | [PHP 官方支持周期](https://www.php.net/supported-versions.php)：8.3 安全支持至 2027-12-31；8.4 常规支持至 2026-12-31，安全支持至 2028-12-31。 | 维持两个安装版本的兼容验证；升级小版本前跑完整回归。8.5 尚未完成本 CMS 的安装和业务验收。 |
+| PHP | 安装器允许 8.3、8.4、8.5；默认本地容器为 8.4.27，隔离验证容器为 8.5.12。 | [PHP 官方支持周期](https://www.php.net/supported-versions.php)：8.3 安全支持至 2027-12-31；8.4 常规支持至 2026-12-31、安全支持至 2028-12-31；8.5 常规支持至 2027-12-31、安全支持至 2029-12-31。 | CI 对 PHP 8.4、8.5 执行完整回归；本轮在 PHP 8.5.12 跑过完整业务回归及隔离网页安装和后台登录，PHP 诊断为 0。首轮发现的 `imagedestroy()` 弃用调用已移除。 |
 | jQuery | 本地 4.0.0：`js/jquery.js`、`js/jquery.min.js`、`admin/public/jquery/jquery-4.0.0.min.js`，用于前后台模板。 | [jQuery 官方下载页](https://jquery.com/download/)；三个副本与官方发布文件的 SHA-256 核对方式见 `tools/verify-dependencies.py`。版权和许可证标头随文件保留。 | 运行核验脚本；检查定制模板的旧 API。`js/jquery-compat.js` 仅补旧插件需要的 `trim` 与浏览器标记，不能视为完整的 jQuery 旧版兼容层。 |
 | wangEditor | 5.1.23，`admin/public/wangeditor/` 本地托管；业务适配在 `admin/js/editor.js`。 | [项目源码](https://github.com/wangeditor-team/wangEditor)、目录内 `package.json`、`PROVENANCE.json`、`LICENSE`，MIT。 | 检查上游安全公告与发布记录；升级时单独验证图片上传、网络图片、全屏、表单回填。服务端仍须清洗提交内容。 |
 | HTML Purifier | 4.19.1，`system/vendor/htmlpurifier/`；服务端富文本清洗。 | [上游发布页](https://github.com/ezyang/htmlpurifier/releases)、目录内 `VERSION`、`composer.json`、`LICENSE`，LGPL-2.1-or-later。 | 留意安全及兼容更新；改版本时验证清洗白名单和现有正文保存回归。 |

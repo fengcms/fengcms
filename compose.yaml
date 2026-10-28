@@ -4,8 +4,9 @@ x-php: &php
   build:
     context: ./docker/php
     args:
+      PHP_VERSION: ${PHP_VERSION:-8.4}
       LOCAL_UID: ${LOCAL_UID:-1000}
-  image: fengcms-dev-php:8.4
+  image: fengcms-dev-php:${PHP_VERSION:-8.4}
   working_dir: /var/www/html
   environment: &app-env
     DB_HOST: db

@@ -1,4 +1,5 @@
-FROM php:8.4-fpm-bookworm
+ARG PHP_VERSION=8.4
+FROM php:${PHP_VERSION}-fpm-bookworm
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libonig-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev \

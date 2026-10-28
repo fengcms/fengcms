@@ -29,6 +29,12 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.4', '8.5']
+    env:
+      PHP_VERSION: ${{ matrix.php-version }}
     steps:
       - uses: actions/checkout@v4
       - name: 启动隔离数据库和 PHP

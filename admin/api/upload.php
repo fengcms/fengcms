@@ -70,10 +70,9 @@ if ($dir === 'image') {
     $decoded=$bytes===false?false:@imagecreatefromstring($bytes);
     unset($bytes);
     if(!$decoded || imagesx($decoded)!==$size[0] || imagesy($decoded)!==$size[1]){
-        if($decoded){imagedestroy($decoded);}
         cms_fail(400,'图片无法解码，请检查文件是否损坏。');
     }
-    imagedestroy($decoded);
+    unset($decoded);
 }
 // Binary images/documents may legitimately contain PHP/ASP-looking byte sequences.
 // Security relies on the allowlists and non-executable upload directory.

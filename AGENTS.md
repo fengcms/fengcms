@@ -4,7 +4,7 @@
 
 ## 项目与目录
 
-这是从旧 PHP/MySQL CMS 迁移到 PHP 8.4 的项目，保留原路由、HTML 内容存储和模板调用方式。当前本地环境是 Docker / Colima 中的 PHP 8.4、MySQL 8.4、Nginx；存量站点的运行环境和定制代码可能不同，不能直接覆盖部署。
+这是从旧 PHP/MySQL CMS 迁移到 PHP 8.4 的项目，当前兼容 PHP 8.3、8.4、8.5；保留原路由、HTML 内容存储和模板调用方式。当前本地默认环境是 Docker / Colima 中的 PHP 8.4、MySQL 8.4、Nginx，PHP 8.5 回归也需保持通过；存量站点的运行环境和定制代码可能不同，不能直接覆盖部署。
 
 - `app/`：前台控制器、模型；`admin/app/`：后台控制器、模型。
 - `system/`：框架、数据库驱动、模板编译、安全函数；`system/common/security.php` 负责认证、CSRF、路径等公共防护；`richtext.php` 负责服务端富文本清洗。

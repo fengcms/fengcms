@@ -657,7 +657,7 @@ try {
         $editorCookies,['_csrf'=>$editorToken])['status']===200 &&
         (int)$db->query('SELECT status FROM f_article WHERE id='.(int)$editorArticleId)->fetch_row()[0]===1,
         'editor restores article from recycle bin');
-    $picture=imagecreatetruecolor(2,2); ob_start(); imagepng($picture); $imageBytes=ob_get_clean(); imagedestroy($picture);
+    $picture=imagecreatetruecolor(2,2); ob_start(); imagepng($picture); $imageBytes=ob_get_clean(); unset($picture);
     $editorUpload=upload($editorCookies,$editorToken,'editor.png',$imageBytes);
     expect_check($editorUpload['status']===200 && ($editorUpload['json']['error']??null)===0 &&
         str_starts_with($editorUpload['json']['url']??'','/upload/image/'),
@@ -2021,7 +2021,7 @@ try {
     expect_check(upload($cookies,$newToken,'test.png','<?php echo 1;')['status']===400,'spoofed image rejected');
     $pixel=imagecreatetruecolor(1,1);
     imagefill($pixel,0,0,imagecolorallocate($pixel,28,88,148));
-    ob_start();imagepng($pixel);$png=ob_get_clean();imagedestroy($pixel);
+    ob_start();imagepng($pixel);$png=ob_get_clean();unset($pixel);
     expect_check(upload($cookies,$newToken,'shell.php.png',$png)['status']===400,
         'script double extension is rejected even when image bytes are valid');
     expect_check(upload($cookies,$newToken,'pixel.png',$png,'../image')['status']===400,
@@ -2153,7 +2153,7 @@ try {
     foreach (['alpha.png','beta.png','gamma.png','quote"name.png'] as $imageName) {
         imagepng($canvas,$resourceDir.'/'.$imageName);$files[]=$resourceDir.'/'.$imageName;
     }
-    imagedestroy($canvas);
+    unset($canvas);
     $baseQuery=$manager.'?dir=image&path=qa_'.$tag.'/&order=name&direction=asc&limit=2';
     $first=request('GET',$baseQuery,$cookies)['json'];$second=request('GET',$baseQuery.'&page=2',$cookies)['json'];
     expect_check($first['total_count']===4 && $first['page_count']===2 && count($first['file_list'])===2 && $second['page']===2,'resource listing paginates on the server');

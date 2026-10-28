@@ -607,8 +607,6 @@ function thumb($src, $width = null, $height = null, $filename = null) {
         header('Content-Type: ' . $src_mime);  
         $imagefunc($dest_img);
     }  
-    imagedestroy($src_img);  
-    imagedestroy($dest_img);  
     return true;  
 }
 

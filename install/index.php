@@ -2,6 +2,7 @@
 // One-time, shared-host web installer. Development containers disable this endpoint.
 $root = dirname(__DIR__);
 require_once $root.'/system/common/config_loader.php';
+require_once $root.'/system/common/runtime_requirements.php';
 $installedConfig=is_file($root.'/config.local.php') || is_link($root.'/config.local.php') ||
     cms_config_is_private_file($root.'/config.php');
 if (getenv('FENGCMS_DISABLE_INSTALL') === '1' || $installedConfig) {
@@ -41,8 +42,8 @@ function installer_requirements($root, $https)
 {
     $problems = [];
     if (!$https) { $problems[] = '请先为站点启用 HTTPS，再提交任何密码。'; }
-    if (PHP_VERSION_ID < 80300 || PHP_VERSION_ID >= 80500) {
-        $problems[] = '当前 PHP 版本为 '.PHP_VERSION.'；本版安装器要求 PHP 8.3 或 8.4。';
+    if (!cms_php_version_supported(PHP_VERSION_ID)) {
+        $problems[] = '当前 PHP 版本为 '.PHP_VERSION.'；本版安装器要求 '.cms_php_version_requirement_label().'。';
     }
     foreach (['mysqli', 'mbstring', 'gd', 'fileinfo', 'json'] as $extension) {
         if (!extension_loaded($extension)) { $problems[] = '缺少 PHP 扩展：'.$extension; }

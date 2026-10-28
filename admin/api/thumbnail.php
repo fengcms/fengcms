@@ -20,4 +20,4 @@ imagecopyresampled($thumb,$source,0,0,0,0,$width,$height,$size[0],$size[1]);
 header('Content-Type: image/png');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: private, max-age=3600');
-imagepng($thumb);imagedestroy($source);imagedestroy($thumb);
+imagepng($thumb);

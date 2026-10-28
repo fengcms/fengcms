@@ -25,7 +25,7 @@ FengCMS 是一套使用 PHP 和 MySQL 的开源内容管理系统，适合搭建
 
 ## 环境要求
 
-当前安装指南面向 PHP 8.3 或 8.4，并需要 `mysqli`、`mbstring`、`gd`、`fileinfo` 和 `json` 扩展。数据库使用 MySQL 或 MariaDB。请查看[安装指南](../docs/安装指南.md)了解数据库、目录权限和 Web 服务器要求。
+当前安装指南面向 PHP 8.3、8.4 或 8.5，并需要 `mysqli`、`mbstring`、`gd`、`fileinfo` 和 `json` 扩展。数据库使用 MySQL 或 MariaDB。请查看[安装指南](../docs/安装指南.md)了解数据库、目录权限和 Web 服务器要求。
 
 ## 安全与许可
 
