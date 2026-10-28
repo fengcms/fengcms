@@ -48,6 +48,19 @@ final class CmsDatabaseGate
 
     public static function held(): bool {return self::$depth>0;}
 
+    public static function backupRoot(): string
+    {
+        return rtrim(getenv('FENGCMS_BACKUP_PATH') ?: dirname(__DIR__,2).'/admin/app/dbbackup','/');
+    }
+
+    private static function assertNoPendingImport(): void
+    {
+        $journal=self::backupRoot().'/.import-operation.json';
+        if(is_file($journal) || is_link($journal)){
+            throw new CmsDatabaseGateBusy('数据库导入尚待恢复，暂不能写入；请由超级管理员在数据库导入页面处理。');
+        }
+    }
+
     public static function write(callable $work): mixed
     {
         if(self::$depth>0){self::$depth++;try{return $work();}finally{self::$depth--;}}
@@ -55,6 +68,9 @@ final class CmsDatabaseGate
         self::$depth=1;
         try{
             self::acquire(self::$connection,random_int(0,self::SLOTS-1),5.0);
+            // Check under the slot: a queued writer may wake after an import has
+            // failed and released its barrier while leaving a recovery journal.
+            self::assertNoPendingImport();
             return $work();
         }finally{self::$depth=0;self::release();}
     }

@@ -120,7 +120,8 @@ final class app {
         };
         try {
             if(($_SERVER['REQUEST_METHOD']??'GET')==='POST' &&
-                !($admin && (($controller==='dbmanage' && in_array($action,['create','runimport','recoverimport'],true)) ||
+                !($admin && (($controller==='admin' && $action==='index') ||
+                    ($controller==='dbmanage' && in_array($action,['create','runimport','recoverimport'],true)) ||
                     ($controller==='modulemanage' && $action==='loading')))){
                 return CmsDatabaseGate::write($dispatch);
             }

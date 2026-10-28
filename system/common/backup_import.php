@@ -11,7 +11,7 @@ final class CmsBackupImport
 
     private static function root(): string
     {
-        $root=rtrim(getenv('FENGCMS_BACKUP_PATH') ?: DBBACKUP_PATH, '/');
+        $root=CmsDatabaseGate::backupRoot();
         if (!is_dir($root) && !mkdir($root, 0700, true) || is_link($root) || !is_writable($root)) {
             throw new RuntimeException('私有备份目录不可写。');
         }
@@ -67,7 +67,9 @@ final class CmsBackupImport
             if(!is_int($index) || !is_array($entry) || !is_string($entry['live']??null) ||
                 !preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,63}$/D',$entry['live']) ||
                 ($entry['stage']??null)!=='cmsimp_'.$state['id'].'_'.$index ||
-                ($entry['old']??null)!=='cmsold_'.$state['id'].'_'.$index){
+                ($entry['old']??null)!=='cmsold_'.$state['id'].'_'.$index ||
+                (isset($entry['fingerprint']) && (!is_string($entry['fingerprint']) ||
+                    !preg_match('/^[a-f0-9]{64}$/D',$entry['fingerprint'])))){
                 throw new RuntimeException('导入恢复表映射不正确，停止自动清理。');
             }
         }
@@ -80,6 +82,28 @@ final class CmsBackupImport
             [DB_NAME,$name])->fetch_row();
         if($row && $row[0]!=='BASE TABLE'){throw new RuntimeException('导入恢复对象类型不正确，停止自动清理。');}
         return $row!==null;
+    }
+
+    /** Order-independent digest of column metadata and rows before the atomic rename. */
+    private static function tableFingerprint(mysqli $db,string $name): string
+    {
+        $result=$db->query('SELECT * FROM '.self::name($name),MYSQLI_USE_RESULT);
+        try{
+            $columns=[];
+            foreach($result->fetch_fields() as $field){
+                $columns[]=[$field->name,$field->type,$field->flags,$field->length,
+                    $field->decimals,$field->charsetnr];
+            }
+            $rows=[];
+            while(($row=$result->fetch_row())!==null){
+                if(count($rows)>=self::MAX_ROWS){
+                    throw new RuntimeException('正式表数据超过导入限制，停止自动回退；请人工保全并核对。');
+                }
+                $rows[]=hash('sha256',serialize($row));
+            }
+            sort($rows,SORT_STRING);
+            return hash('sha256',serialize([$columns,$rows]));
+        }finally{$result->free();}
     }
 
     /** Explicit recovery never guesses ownership from a table-name prefix. */
@@ -118,12 +142,23 @@ final class CmsBackupImport
             return '已核对正式表并清理完成导入留下的旧表。';
         }
         if($oldCount===$total && $state['phase']==='pre_swap' && $stageCount===0){
+            // A former version could acknowledge writes after the import connection
+            // died. Refuse destructive rollback unless the live tables still match
+            // the exact staged rows recorded before the swap.
+            foreach($state['tables'] as $entry){
+                if(!isset($entry['fingerprint']) ||
+                    !hash_equals($entry['fingerprint'],self::tableFingerprint($db,$entry['live']))){
+                    throw new RuntimeException('导入中断后正式数据已变化或缺少核对记录，停止自动回退；请先保全数据库并人工核对。');
+                }
+            }
             $rename=[];
             foreach($state['tables'] as $entry){
                 $rename[]=self::name($entry['live']).' TO '.self::name($entry['stage']);
                 $rename[]=self::name($entry['old']).' TO '.self::name($entry['live']);
             }
             $db->query('RENAME TABLE '.implode(',',$rename));
+        }elseif($state['phase']==='pre_swap' && ($oldCount!==0 || $stageCount!==$total)){
+            throw new RuntimeException('中断导入的交换状态不完整，停止自动清理。');
         }elseif($oldCount!==0){
             throw new RuntimeException('中断导入的旧表状态不完整，停止自动清理。');
         }
@@ -416,6 +451,11 @@ final class CmsBackupImport
                     throw new RuntimeException('导入记录数核对失败。');
                 }
             }
+            foreach($state['tables'] as &$entry){
+                if(microtime(true)-$started>self::MAX_SECONDS){throw new RuntimeException('后台导入超时，请使用主机数据库工具。');}
+                $entry['fingerprint']=self::tableFingerprint($db,$entry['stage']);
+            }
+            unset($entry);
             $rename=[];
             foreach ($stage as $name=>$stageName) {
                 $rename[]=self::name($name).' TO '.self::name($old[$name]);

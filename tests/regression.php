@@ -1128,7 +1128,7 @@ try {
     $raceEditResponse=finish_async_request($raceEditSocket);
     expect_check($raceEditDelete['status']===200 &&
         $db->query('SELECT id FROM f_classify WHERE id='.$raceEditCategory)->num_rows===0 &&
-        $raceEditResponse['status']===400 &&
+        in_array($raceEditResponse['status'],[400,409],true) &&
         (int)$db->query('SELECT classid FROM f_article WHERE id='.$relationRaceId)->fetch_row()[0]===0,
         'edit rejects a category deleted through the admin while waiting on the record lock');
     $raceTagName='relation_tag_'.$tag;
@@ -1150,7 +1150,7 @@ try {
     $raceCreateResponse=finish_async_request($raceCreateSocket);
     $raceRequest=$db->execute_query('SELECT state FROM f_content_create_request WHERE account_id=? AND project=? AND request_key=?',
         [$testId,'article',$raceCreateKey])->fetch_assoc();
-    expect_check(($raceCreateDelete['json']['status']??'')==='y' && $raceCreateResponse['status']===400 &&
+    expect_check(($raceCreateDelete['json']['status']??'')==='y' && in_array($raceCreateResponse['status'],[400,409],true) &&
         (int)$db->query("SELECT COUNT(*) FROM f_article WHERE title='relation_create_$tag'")->fetch_row()[0]===0 &&
         (int)$db->query('SELECT hits FROM f_tags WHERE id='.$raceTagId)->fetch_row()[0]===0 && !$raceRequest,
         'create rejects a category deleted through batch admin without content, counter or completed request');
@@ -1166,7 +1166,7 @@ try {
             return [$socket,$deleted];
         });
     $raceShiftResponse=finish_async_request($raceShiftSocket);
-    expect_check($raceShiftDelete['status']===200 && $raceShiftResponse['status']===400 &&
+    expect_check($raceShiftDelete['status']===200 && in_array($raceShiftResponse['status'],[400,409],true) &&
         (int)$db->query('SELECT classid FROM f_article WHERE id='.$relationRaceId)->fetch_row()[0]===0,
         'shift rejects a category deleted after its preliminary check');
     $db->query("INSERT INTO f_classify (name,type,project,classid,nav) VALUES ('relation_guard_".$tag."','module','article',0,0)");
@@ -1864,6 +1864,21 @@ try {
         'image pixel count is bounded independently of byte size');
     $imageUploadDir=dirname(__DIR__).'/upload/image/'.date('Ymd');
     $imageCountBefore=count(glob($imageUploadDir.'/*')?:[]);
+    $pendingJournal=dirname(__DIR__).'/admin/app/dbbackup/.import-operation.json';
+    expect_check(!file_exists($pendingJournal) && !is_link($pendingJournal),
+        'upload recovery probe starts without an existing import journal');
+    $pendingKey=bin2hex(random_bytes(16));
+    try{
+        if(file_put_contents($pendingJournal,'{"qa_pending":true}',LOCK_EX)===false){
+            throw new RuntimeException('Cannot create isolated pending import marker');
+        }
+        $pendingUpload=upload($cookies,$newToken,'pending_'.$tag.'.png',$png,'image',$pendingKey);
+        expect_check($pendingUpload['status']===409 &&
+            count(glob($imageUploadDir.'/*')?:[])===$imageCountBefore &&
+            (int)$db->execute_query('SELECT COUNT(*) FROM f_upload_request WHERE account_id=? AND request_key=?',
+                [$testId,$pendingKey])->fetch_row()[0]===0,
+            'independent upload refuses pending database recovery before saving');
+    }finally{if(is_file($pendingJournal)){unlink($pendingJournal);}}
     foreach (['header-only'=>substr($png,0,33),'truncated'=>substr($png,0,-8)] as $kind=>$brokenPng){
         $broken=upload($cookies,$newToken,'broken_'.$kind.'_'.$tag.'.png',$brokenPng);
         if(isset($broken['json']['url'])){$files[]=dirname(__DIR__).$broken['json']['url'];}

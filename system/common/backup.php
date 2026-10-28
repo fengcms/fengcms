@@ -8,7 +8,7 @@ final class CmsBackup
 
     private static function root(): string
     {
-        $root = rtrim(getenv('FENGCMS_BACKUP_PATH') ?: DBBACKUP_PATH, '/');
+        $root = CmsDatabaseGate::backupRoot();
         if (!is_dir($root) && !mkdir($root, 0700, true)) {
             throw new RuntimeException('备份目录不可写。');
         }

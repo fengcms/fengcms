@@ -119,6 +119,103 @@ try{
     CmsBackupImport::restore($db,$import);
     check_backup($db->query('SELECT value FROM f_b WHERE id=1')->fetch_row()[0]==='original',
         'original backup can be retried after recovery');
+
+    // Make the post-swap verification long enough to kill the real import
+    // connection between RENAME TABLE and the committed journal checkpoint.
+    $pads=[];
+    for($i=0;$i<80;$i++){
+        $pad=sprintf('f_pad_%02d',$i);
+        $db->query('CREATE TABLE `'.$pad.'` (id int PRIMARY KEY) ENGINE=InnoDB');
+        $pads[]=$pad;
+    }
+    try{
+        $postSource=CmsBackup::create();
+        [$postPath]=CmsBackup::file($postSource['id']);
+        $postImport=CmsBackupImport::parse($postPath);
+        $caught=false;$queuedResult=null;
+        for($attempt=0;$attempt<5 && !$caught;$attempt++){
+            $db->query("UPDATE f_a SET value='current' WHERE id=1");
+            $db->query("UPDATE f_b SET value='current' WHERE id=1");
+            $job=start_backup('restore',$postSource['id']);
+            $ready=wait_backup(fn()=>is_file($job['file'].'.ready')?json_decode(file_get_contents($job['file'].'.ready'),true):null);
+            $queued=start_backup('write');
+            wait_backup(fn()=>waiting_backup($db,'SELECT GET_LOCK'),4000);
+            file_put_contents($job['file'].'.go','1');
+            $deadline=microtime(true)+12;$observed='';
+            while(microtime(true)<$deadline && proc_get_status($job['proc'])['running']){
+                foreach($db->query('SHOW FULL PROCESSLIST')->fetch_all(MYSQLI_ASSOC) as $process){
+                    $statement=$process['Info']??'';
+                    if((int)$process['Id']===(int)$ready['connection'] &&
+                        (str_starts_with($statement,'SELECT COUNT(*) FROM `f_') ||
+                            str_starts_with($statement,'SELECT * FROM `f_v` LIMIT 0'))){
+                        $observed=$statement;
+                        $db->query('KILL CONNECTION '.(int)$ready['connection']);
+                        break 2;
+                    }
+                }
+                usleep(100);
+            }
+            $failed=finish_backup($job,15000);
+            $queuedResult=finish_backup($queued,9000);
+            $state=CmsBackupImport::pending()
+                ? json_decode(file_get_contents(DBBACKUP_PATH.'.import-operation.json'),true):null;
+            $oldCount=0;
+            if($state){foreach($state['tables'] as $entry){
+                $oldCount+=(int)$db->execute_query('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME=?',
+                    [DB_NAME,$entry['old']])->fetch_row()[0];
+            }}
+            $caught=!$failed['ok'] && ($state['phase']??'')==='pre_swap' &&
+                $oldCount===count($state['tables']??[]) &&
+                $db->query('SELECT value FROM f_a WHERE id=1')->fetch_row()[0]==='original';
+            if(!$caught){fwrite(STDERR,'Post-swap attempt '.($attempt+1).': '.json_encode([
+                'failed'=>$failed,'queued'=>$queuedResult,'phase'=>$state['phase']??null,
+                'old'=>$oldCount,'tables'=>count($state['tables']??[]),
+                'live'=>$db->query('SELECT value FROM f_a WHERE id=1')->fetch_row()[0],
+                'statement'=>$observed,
+            ],JSON_UNESCAPED_UNICODE)."\n");}
+            if(!$caught && CmsBackupImport::pending()){CmsBackupImport::recover();}
+        }
+        check_backup($caught && !($queuedResult['ok']??true),
+            'queued writer rejects pending recovery after actual post-swap connection loss');
+        $postWriter=start_backup('write');$postWrite=finish_backup($postWriter,9000);
+        $postWriterB=start_backup('write_b');$postWriteB=finish_backup($postWriterB,9000);
+        $postSchema=start_backup('schema');$postDdl=finish_backup($postSchema,9000);
+        check_backup(!$postWrite['ok'] && !$postWriteB['ok'] && !$postDdl['ok'] &&
+            $db->query('SELECT value FROM f_a WHERE id=1')->fetch_row()[0]==='original' &&
+            $db->query('SELECT value FROM f_b WHERE id=1')->fetch_row()[0]==='original',
+            'pending recovery rejects MyISAM, InnoDB and schema writes');
+        // Simulate a write acknowledged by the previous release, outside its
+        // former gate. Recovery must preserve that live value for manual review.
+        $db->query("UPDATE f_a SET value='acknowledged' WHERE id=1");
+        $refused=false;
+        try{CmsBackupImport::recover();}catch(RuntimeException $e){$refused=str_contains($e->getMessage(),'停止自动回退');}
+        check_backup($refused && CmsBackupImport::pending() &&
+            $db->query('SELECT value FROM f_a WHERE id=1')->fetch_row()[0]==='acknowledged',
+            'recovery refuses to discard a previously acknowledged MyISAM edit');
+        $db->query("UPDATE f_a SET value='original' WHERE id=1");
+        $db->query("UPDATE f_b SET value='acknowledged' WHERE id=1");
+        $refused=false;
+        try{CmsBackupImport::recover();}catch(RuntimeException $e){$refused=str_contains($e->getMessage(),'停止自动回退');}
+        check_backup($refused && CmsBackupImport::pending() &&
+            $db->query('SELECT value FROM f_b WHERE id=1')->fetch_row()[0]==='acknowledged',
+            'recovery refuses to discard a previously acknowledged InnoDB edit');
+        $db->query("UPDATE f_b SET value='original' WHERE id=1");
+        CmsBackupImport::recover();
+        check_backup(!CmsBackupImport::pending() &&
+            $db->query('SELECT value FROM f_a WHERE id=1')->fetch_row()[0]==='current' &&
+            CmsBackupImport::verify($db,$postImport)['table_count']===83,
+            'unchanged staged data recovers and original backup can be previewed');
+        CmsBackupImport::restore($db,$postImport);
+        $afterWriter=start_backup('write');$afterWrite=finish_backup($afterWriter,9000);
+        check_backup($afterWrite['ok'] &&
+            $db->query('SELECT value FROM f_a WHERE id=1')->fetch_row()[0]==='late-write',
+            'normal write resumes after explicit recovery and import retry');
+    }finally{
+        if(CmsBackupImport::pending()){
+            try{CmsBackupImport::recover();}catch(Throwable){}
+        }
+        foreach($pads as $pad){$db->query('DROP TABLE IF EXISTS `'.$pad.'`');}
+    }
     echo "Backup consistency regressions passed.\n";
 }finally{
     try{$hold->rollback();}catch(Throwable){}
