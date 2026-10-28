@@ -1,5 +1,6 @@
 <?php
 /** Coordinates the database settings row with the runtime URL-mode file. */
+require_once __DIR__.'/database_gate.php';
 final class CmsSiteSettings
 {
     private static function root(): string
@@ -113,18 +114,24 @@ final class CmsSiteSettings
     {
         $path=self::root().'/.site-settings-pending.json';
         if(!file_exists($path) && !is_link($path)){return;}
-        self::locked(function(): void {
-            $db=self::connection();
-            try{self::recoverLocked($db);}finally{$db->close();}
+        CmsDatabaseGate::write(function(): void {
+            self::locked(function(): void {
+                $db=self::connection();
+                try{self::recoverLocked($db);}finally{$db->close();}
+            });
         });
     }
 
     public static function snapshot(): array
     {
+        self::recoverPending();
         return self::locked(function(): array {
             $db=self::connection();
             try{
-                self::recoverLocked($db);
+                if(is_file(self::root().'/.site-settings-pending.json') ||
+                    is_link(self::root().'/.site-settings-pending.json')){
+                    throw new RuntimeException('站点设置发布尚未恢复，请刷新页面。');
+                }
                 $row=self::row($db);
                 $row['_settings_version']=self::version($row,self::siteBytes());
                 return $row;
