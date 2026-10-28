@@ -1,0 +1,41 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>历史图片编辑回填回归</title>
+<link rel="stylesheet" href="/admin/public/wangeditor/style.css"><link rel="stylesheet" href="/admin/css/editor.css">
+<style>body{font:16px system-ui;margin:24px}.cms-editor{margin:12px 0;max-width:900px}h2{font-size:18px}#results{white-space:pre-wrap}</style>
+<h1>历史图片编辑回填回归</h1><pre id="results">等待验证</pre><div id="cases"></div>
+<script src="/admin/public/wangeditor/index.js"></script>
+<script>
+const samples=[
+ ['span 包裹图片','<p><span><img src="/image/logo.png" alt="历史图片" width="180" height="50"></span></p>'],
+ ['根节点 span','<span><img src="/image/logo.png" alt="根图片"></span>'],
+ ['多层 span 和混合文字','<p><span style="color:red">之前<span style="font-weight:bold">中间<img src="/image/logo.png" alt="嵌套图片">之后</span>末尾</span></p>'],
+ ['多图与格式','<p><span style="font-size:18px">甲<img src="/image/logo.png" alt="第一张">乙<strong>加粗</strong><img src="/image/go_top.png" alt="第二张">丙</span></p>'],
+ ['已有标准内容','<p>标准<img src="/image/logo.png" alt="标准图片">文字</p>']
+];
+samples.forEach(([name,html])=>{const h=document.createElement('h2');h.textContent=name;const t=document.createElement('textarea');t.dataset.cmsEditor='';t.value=html;document.querySelector('#cases').append(h,t)});
+</script><script src="/admin/js/editor.js"></script>
+<script>
+window.addEventListener('load',()=>{
+ const results=[];
+ function tokens(html){const t=document.createElement('template');t.innerHTML=html;const out=[];function walk(n){if(n.nodeType===3){if(n.textContent)out.push(n.textContent)}else if(n.nodeType===1&&n.tagName==='IMG'){out.push('[IMG:'+n.getAttribute('src')+':'+n.getAttribute('alt')+']')}else n.childNodes.forEach(walk)}walk(t.content);return out.join('')}
+ try{
+  const rawHost=document.createElement('div');document.body.append(rawHost);
+  const raw=wangEditor.createEditor({selector:rawHost,html:samples[0][1]});
+  results.push('INFO 原始 span 图片未经兼容处理的结果：'+raw.getHtml());
+  raw.destroy();rawHost.remove();
+  FengEditor.sync();
+  document.querySelectorAll('textarea').forEach((field,i)=>{
+   const expected=tokens(samples[i][1]);
+   if(tokens(field.value)!==expected)throw Error(samples[i][0]+'：文字或图片顺序丢失 '+field.value);
+   const host=document.createElement('div');document.body.append(host);
+   const round=wangEditor.createEditor({selector:host,html:field.value});
+   if(tokens(round.getHtml())!==expected)throw Error(samples[i][0]+'：保存后再次解析丢失');
+   round.destroy();host.remove();results.push('PASS '+samples[i][0]);
+  });
+  const first=document.createElement('template');first.innerHTML=document.querySelector('textarea').value;
+  const image=first.content.querySelector('img');
+  if(image.style.width!=='180px'||image.style.height!=='50px')throw Error('图片尺寸丢失');
+  results.push('PASS 图片尺寸保留');
+ }catch(error){results.push('FAIL '+error.message)}
+ document.querySelector('#results').textContent=results.join('\n');
+});
+</script></html>

@@ -47,3 +47,11 @@ HTML Purifier 4.19.1（LGPL-2.1-or-later，无需商业授权）以未修改源�
 ## 全屏修复（2026-10-26）
 
 修复本地 .cms-editor 的 position:relative 覆盖全屏定位的问题，并让全屏时正文区域自适应剩余高度。在后台 iframe 中同步扩大 iframe 覆盖后台视口；退出、页面离开时恢复框架原布局。新增 Esc 退出。浏览器实测：进入全屏、全屏输入、Esc 退出、再次进入及按钮退出，内容保留、框架恢复。JavaScript 语法检查通过；本次不修改资源选择器界面。
+
+## 2026-10-28：历史 span 内图片回填
+
+wangEditor 5.1.23 会把 `<p><span><img …></span></p>` 解析为空段落，导致打开旧文章时图片消失。适配层在首次回填前用惰性的 HTML template 解析输入，从内到外拆分直接包含图片的 span：图片移到同级，图片前后的文字仍留在克隆的 span 中，保留顺序与原有属性。图片的旧式数字 width/height 属性在缺少对应 CSS 尺寸时转换成 px 样式，供编辑器读取。此处理只解决 span 包图及多层 span 的情况，不代表支持任意历史 HTML；服务端清洗规则继续生效。读取文章不会批量改写数据库，保存时仍按当前编辑与清洗流程处理。
+
+新增 `tests/editor-legacy-images.html` 浏览器夹具，使用实际本地 wangEditor 与适配层，覆盖段落内包图、根节点 span、多层 span、混合文字、多图、已有标准内容、图片尺寸以及序列化后再次解析。可将夹具临时复制到本地静态目录执行，完成后删除临时副本；`tests/` 在正式服务器规则中禁止直接访问。
+
+实测原始示例直接传给 wangEditor 输出 `<p><br></p>`；经过适配后六项断言通过，六张图片均正常加载。`node --check admin/js/editor.js`、`node tests/editor-regression.js` 通过。截图位于忽略目录 `var/verification/editor-legacy-images.png`。本轮未批量转换历史文章，也未在客户站点部署。

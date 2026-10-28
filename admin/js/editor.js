@@ -3,6 +3,35 @@
     'use strict';
     const instances = new Map();
     let pending = 0;
+    // wangEditor parses spans as text marks and can discard images inside them.
+    // Split only image-bearing spans, retaining styled text runs and image order.
+    function normalizeLegacyImages(html) {
+        if (!/<span\b/i.test(html) || !/<img\b/i.test(html)) return html;
+        const template = document.createElement('template');
+        template.innerHTML = html;
+        Array.from(template.content.querySelectorAll('span')).reverse().forEach(span => {
+            if (!Array.from(span.children).some(child => child.tagName === 'IMG')) return;
+            const fragment = document.createDocumentFragment();
+            let run = span.cloneNode(false);
+            Array.from(span.childNodes).forEach(child => {
+                if (child.nodeType === 1 && child.tagName === 'IMG') {
+                    // Legacy HTML uses width/height attributes; the editor reads CSS.
+                    ['width', 'height'].forEach(dimension => {
+                        const value = child.getAttribute(dimension);
+                        if (!child.style[dimension] && value && /^[0-9]+(?:\.[0-9]+)?$/.test(value)) {
+                            child.style[dimension] = value + 'px';
+                        }
+                    });
+                    if (run.hasChildNodes()) fragment.append(run);
+                    fragment.append(child);
+                    run = span.cloneNode(false);
+                } else run.append(child);
+            });
+            if (run.hasChildNodes()) fragment.append(run);
+            span.replaceWith(fragment);
+        });
+        return template.innerHTML;
+    }
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
     const uploadKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
         byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -80,7 +109,7 @@
         const toolbar = document.createElement('div'), body = document.createElement('div');
         wrapper.append(toolbar, body); textarea.after(wrapper);
         const editor = window.wangEditor.createEditor({
-            selector:body, html:textarea.value || '<p><br></p>', mode:'default',
+            selector:body, html:normalizeLegacyImages(textarea.value || '<p><br></p>'), mode:'default',
             config:{ placeholder:'请输入内容',
                 onChange:() => sync(),
                 MENU_CONF:{
