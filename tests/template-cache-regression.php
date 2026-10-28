@@ -1,6 +1,6 @@
 <?php
 $root=getenv('CMS_CACHE_QA_ROOT')?:'';
-if(PHP_SAPI!=='cli' || !preg_match('~^/tmp/fengcms_cache_qa_[a-f0-9]{12}$~D',$root)){
+if(PHP_SAPI!=='cli' || !preg_match('~^(?:/tmp/fengcms_cache_qa_|/var/www/html/template/\.fengcms-cache-qa-)[a-f0-9]{12}$~D',$root)){
     exit("Isolated cache QA root required.\n");
 }
 define('TPL_INCLUDE',true);define('ROOT_PATH',dirname(__DIR__));define('ABS_PATH',$root);
@@ -19,6 +19,12 @@ if(($argv[1]??'')==='hold'){
     file_put_contents($root.'/holding','1');
     usleep(800000);
     CmsTemplateCache::unlock($lock);
+    exit;
+}
+if(($argv[1]??'')==='render-hold'){
+    new template();
+    include template::tpl('page.html',true);
+    template::releaseLocks();
     exit;
 }
 cache_dir($root.'/template');
@@ -43,6 +49,37 @@ chmod(dirname($compiled),0750);
 $compiled=template::tpl('page.html');
 cache_check(str_contains(file_get_contents($compiled),'source B'),
     'compilation retries successfully after cache directory is repaired');
+touch($compiled,filemtime($root.'/template/page.html'));clearstatcache(true);
+$inode=fileinode($compiled);
+template::tpl('page.html');
+cache_check(fileinode($compiled)===$inode,
+    'equal timestamps with unchanged source do not replace compiled artifact');
+$holdMarker=$root.'/render-started';
+file_put_contents($root.'/template/page.html',
+    '<?php file_put_contents('.var_export($holdMarker,true).',"1"); usleep(800000); ?>' . '<p>render A</p>');
+touch($root.'/template/page.html',time()+10);clearstatcache(true);
+$renderCommand=[PHP_BINARY,__FILE__,'render-hold'];
+$renderProc=proc_open($renderCommand,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$renderPipes);
+if(!is_resource($renderProc)){throw new RuntimeException('Cannot start render lock worker');}
+fclose($renderPipes[0]);
+$deadline=microtime(true)+4;
+while(!is_file($holdMarker) && microtime(true)<$deadline){usleep(10000);}
+cache_check(is_file($holdMarker),'concurrent render enters compiled artifact');
+file_put_contents($root.'/template/page.html','<p>render B</p>');
+touch($root.'/template/page.html',time()+20);clearstatcache(true);
+$start=microtime(true);
+$compiled=template::tpl('page.html');
+$elapsed=microtime(true)-$start;
+$renderOutput=stream_get_contents($renderPipes[1]);
+$renderError=stream_get_contents($renderPipes[2]);
+fclose($renderPipes[1]);fclose($renderPipes[2]);
+$renderExit=proc_close($renderProc);
+cache_check($elapsed>=0.55 && $renderExit===0 && $renderError==='' &&
+    str_contains($renderOutput,'render A') && str_contains(file_get_contents($compiled),'render B'),
+    'writer waits for active include before replacing compiled artifact');
+file_put_contents($root.'/template/page.html','<p>source B</p>');
+touch($root.'/template/page.html',time()+30);clearstatcache(true);
+$compiled=template::tpl('page.html');
 touch($compiled,time()+20);clearstatcache(true,$compiled);
 $compiledTime=filemtime($compiled);
 file_put_contents($root.'/template/page.html','<p>source C</p>');

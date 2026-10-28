@@ -3,7 +3,8 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 define('TPL_INCLUDE', true);
 require dirname(__DIR__).'/system/common/security.php';
 class template {
-    public static function tpl($path): string { return $GLOBALS['probeTemplate']; }
+    public static function tpl($path, bool $holdForInclude=false): string { return $GLOBALS['probeTemplate']; }
+    public static function releaseLocks(): void {}
 }
 require dirname(__DIR__).'/system/core/controller.php';
 

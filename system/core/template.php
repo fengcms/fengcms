@@ -26,6 +26,7 @@ class template{
     private static $cpl_dir;// 编译目录
     private static $tpl_dir;// 编译目录
     private static $cpl_file_postfix;// 编译文件扩展名
+    private static $heldLocks=[];
 
     /**
      * 构造函数
@@ -39,7 +40,7 @@ class template{
     /**
      * 模板输出
      */
-    public static function tpl($tpl_path){
+    public static function tpl($tpl_path, bool $holdForInclude=false){
         $tpl_dir = self::gettpldir();
         if(!empty($tpl_dir)){
             $tpl_path = $tpl_dir.$tpl_path;//.".html";
@@ -48,7 +49,43 @@ class template{
 				throwexce(sprintf('Can not find the template file:'.$tpl_path.' Make sure the template file has been created.'));
             }
         }
-        return self::createfile($tpl_path);
+        $key=self::getcpldir().'|'.$tpl_path;
+        if (isset(self::$heldLocks[$key])) { return self::$heldLocks[$key]['path']; }
+        $root=rtrim(getenv('APP_RUNTIME_PATH') ?: dirname(__DIR__,2).'/var/runtime','/');
+        $lockDir=$root.'/.template-compile-locks';
+        if ((!is_dir($lockDir) && !@mkdir($lockDir,0750,true)) || !is_dir($lockDir)) {
+            throw new RuntimeException('模板编译锁目录不可用。');
+        }
+        $handle=@fopen($lockDir.'/'.hash('sha256',$key).'.lock','c');
+        if (!$handle) { throw new RuntimeException('模板编译锁不可用。'); }
+        $retained=false;
+        try {
+            if (!flock($handle,LOCK_SH)) { throw new RuntimeException('无法锁定模板编译文件。'); }
+            $compiled=self::createfile($tpl_path,false);
+            if ($compiled===null) {
+                if (!flock($handle,LOCK_EX)) { throw new RuntimeException('无法锁定模板编译文件。'); }
+                clearstatcache(true);
+                $compiled=self::createfile($tpl_path,true);
+                if ($holdForInclude && !flock($handle,LOCK_SH)) {
+                    throw new RuntimeException('无法锁定模板编译文件。');
+                }
+            }
+            if ($holdForInclude) {
+                self::$heldLocks[$key]=['handle'=>$handle,'path'=>$compiled];
+                $retained=true;
+            }
+            return $compiled;
+        } finally {
+            if (!$retained) { flock($handle,LOCK_UN); fclose($handle); }
+        }
+    }
+
+    public static function releaseLocks(): void{
+        foreach (self::$heldLocks as $entry) {
+            flock($entry['handle'],LOCK_UN);
+            fclose($entry['handle']);
+        }
+        self::$heldLocks=[];
     }
 
     /**
@@ -156,7 +193,7 @@ class template{
     /**
      * 生成文件
      */
-    private static function createfile($tpl_path){
+    private static function createfile($tpl_path, bool $write=true){
         $tpl_path = cms_path_within(self::gettpldir(), substr($tpl_path, strlen(self::gettpldir())));
         if (strtolower(pathinfo($tpl_path, PATHINFO_EXTENSION)) !== 'html') { cms_fail(400, '模板类型不正确。'); }
         /**/
@@ -180,9 +217,26 @@ class template{
         $cpl_file = $cpl_file_dir."/".$file_pure_name.".".$cpl_file_postfix;
 
         // 判断文件是否存在，不存在或过期就创建一个
-        if(!file_exists($cpl_file) || (max(filemtime($tpl_path), filemtime(__FILE__)) >= filemtime($cpl_file))){
+        $sourceTime=@filemtime($tpl_path);
+        $compilerTime=@filemtime(__FILE__);
+        $compiledTime=@filemtime($cpl_file);
+        if ($sourceTime===false || $compilerTime===false) { throw new RuntimeException('模板时间戳读取失败。'); }
+        // Equality is common on one-second filesystems. Check the source hash
+        // rather than replacing the same artifact on every concurrent render.
+        $sourceHash=null;
+        $needsCompile=$compiledTime===false || max($sourceTime,$compilerTime)>$compiledTime;
+        if (!$needsCompile && max($sourceTime,$compilerTime)===$compiledTime) {
+            $sourceHash=@hash_file('sha256',$tpl_path);
+            if ($sourceHash===false) { throw new RuntimeException('模板源文件读取失败。'); }
+            $head=@file_get_contents($cpl_file,false,null,0,128);
+            $needsCompile=$head===false || !str_contains($head,'/* cms-source:'.$sourceHash.' */');
+        }
+        if($needsCompile){
+            if (!$write) { return null; }
 			$parsed_str = self::parse($tpl_path);
-            self::wfile($cpl_file, $parsed_str, 'w');
+            $sourceHash=$sourceHash??@hash_file('sha256',$tpl_path);
+            if ($sourceHash===false) { throw new RuntimeException('模板源文件读取失败。'); }
+            self::wfile($cpl_file, '<?php /* cms-source:'.$sourceHash.' */ ?>' . "\n" . $parsed_str, 'w');
         }
         return $cpl_file;
     }
@@ -204,7 +258,7 @@ class template{
             return $m[0].'<input type="hidden" name="_csrf" value="<?= htmlspecialchars($_SESSION[\'csrf_token\'], ENT_QUOTES, \'UTF-8\') ?>">';
         }, $s);
         $s = @preg_replace("/\<\!\-\-\s*\{(.+?)\}\s*\-\-\>/is", "", $s);
-        $s = @preg_replace("/\{include\s+(.+?)\}/is", "<?php include Template::Tpl(\\1); ?>", $s);
+        $s = @preg_replace("/\{include\s+(.+?)\}/is", "<?php include Template::Tpl(\\1, true); ?>", $s);
         $s = @preg_replace("/\{([A-Z][A-Z0-9_]*)\}/s", "<?php if(defined('\\1')){echo \\1;}?>", $s);
         // A dynamic href needs a protocol check as well as HTML escaping. Apply
         // this before the ordinary variable rule so existing template syntax
