@@ -216,26 +216,22 @@ class template{
 
         $cpl_file = $cpl_file_dir."/".$file_pure_name.".".$cpl_file_postfix;
 
-        // 判断文件是否存在，不存在或过期就创建一个
-        $sourceTime=@filemtime($tpl_path);
+        // Source and compiled caches can live on different filesystems. Their
+        // second-resolution mtimes are not a reliable ordering of a save.
+        $source=@file_get_contents($tpl_path);
+        if ($source===false) { throw new RuntimeException('模板源文件读取失败。'); }
+        $sourceHash=hash('sha256',$source);
         $compilerTime=@filemtime(__FILE__);
         $compiledTime=@filemtime($cpl_file);
-        if ($sourceTime===false || $compilerTime===false) { throw new RuntimeException('模板时间戳读取失败。'); }
-        // Equality is common on one-second filesystems. Check the source hash
-        // rather than replacing the same artifact on every concurrent render.
-        $sourceHash=null;
-        $needsCompile=$compiledTime===false || max($sourceTime,$compilerTime)>$compiledTime;
-        if (!$needsCompile && max($sourceTime,$compilerTime)===$compiledTime) {
-            $sourceHash=@hash_file('sha256',$tpl_path);
-            if ($sourceHash===false) { throw new RuntimeException('模板源文件读取失败。'); }
+        if ($compilerTime===false) { throw new RuntimeException('模板编译器时间戳读取失败。'); }
+        $needsCompile=$compiledTime===false || $compilerTime>$compiledTime;
+        if (!$needsCompile) {
             $head=@file_get_contents($cpl_file,false,null,0,128);
             $needsCompile=$head===false || !str_contains($head,'/* cms-source:'.$sourceHash.' */');
         }
         if($needsCompile){
             if (!$write) { return null; }
-			$parsed_str = self::parse($tpl_path);
-            $sourceHash=$sourceHash??@hash_file('sha256',$tpl_path);
-            if ($sourceHash===false) { throw new RuntimeException('模板源文件读取失败。'); }
+			$parsed_str = self::parse($tpl_path,$source);
             self::wfile($cpl_file, '<?php /* cms-source:'.$sourceHash.' */ ?>' . "\n" . $parsed_str, 'w');
         }
         return $cpl_file;
@@ -244,11 +240,11 @@ class template{
 	/**
      * 解析文件
      */
-    private static function parse($tpl_file){
+    private static function parse($tpl_file, ?string $source=null){
         if(!defined("TPL_INCLUDE")){
 				throwexce(sprintf('For your security, please call before the procedure to define a template called TPL_INCLUDE constant'),'Template');
         }
-        $source=file_get_contents($tpl_file);
+        $source=$source??file_get_contents($tpl_file);
         if($source===false){throw new RuntimeException('模板源文件读取失败。');}
         $d = "<?php defined('TPL_INCLUDE') OR exit('Access Denied'); ?>\r\n";
         $s = $d.$source;

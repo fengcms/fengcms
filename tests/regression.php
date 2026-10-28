@@ -1858,6 +1858,25 @@ try {
     $db->query('UPDATE f_article SET template="/'.$templateName.'.html" WHERE id='.(int)$articleId);
     $renderedTemplate=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
     expect_check($renderedTemplate['status']===200 && str_contains($renderedTemplate['body'],'模板回归 '.$tag) && !str_contains($renderedTemplate['body'],'{$title}'),'new template can render a frontend article');
+    $currentTemplateEdit=request('GET',$templateRoute.'&operate=update&project=tpl&name='.$templateName,$cookies);
+    preg_match('/name="_file_version" value="([a-f0-9]{64})"/',$currentTemplateEdit['body'],$currentTemplateVersion);
+    $updatedTemplateSource=str_replace('模板回归 ','模板更新 ',$templateSource);
+    $updatedTemplate=request('POST',$templateRoute.'&operate=save',$cookies,
+        ['_csrf'=>$newToken,'project'=>'tpl','name'=>$templateName,'type'=>'1',
+            '_file_version'=>$currentTemplateVersion[1]??'','content'=>$updatedTemplateSource]);
+    $templateFile=dirname(__DIR__).'/template/'.$templateName.'.html';
+    $olderTimestampSet=false;
+    if(($updatedTemplate['json']['status']??'')==='y'){
+        $olderTimestampSet=touch($templateFile,time()-120);
+        clearstatcache(true,$templateFile);
+        $olderTimestampSet=$olderTimestampSet && filemtime($templateFile)<time()-60;
+    }
+    $refreshedTemplate=request('GET','/?controller=content&project=article&id='.$articleId,$cookies);
+    expect_check($olderTimestampSet &&
+        $refreshedTemplate['status']===200 &&
+        str_contains($refreshedTemplate['body'],'模板更新 '.$tag) &&
+        !str_contains($refreshedTemplate['body'],'模板回归 '.$tag),
+        'admin save refreshes rendered template even when source mtime precedes compiled cache');
     $db->query('UPDATE f_article SET template="/article_content.html" WHERE id='.(int)$articleId);
     $cacheRaceOk=true;
     for($cacheAttempt=0;$cacheAttempt<12;$cacheAttempt++){

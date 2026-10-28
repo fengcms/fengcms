@@ -66,7 +66,8 @@ $deadline=microtime(true)+4;
 while(!is_file($holdMarker) && microtime(true)<$deadline){usleep(10000);}
 cache_check(is_file($holdMarker),'concurrent render enters compiled artifact');
 file_put_contents($root.'/template/page.html','<p>render B</p>');
-touch($root.'/template/page.html',time()+20);clearstatcache(true);
+clearstatcache(true,$compiled);
+touch($root.'/template/page.html',filemtime($compiled)-1);clearstatcache(true);
 $start=microtime(true);
 $compiled=template::tpl('page.html');
 $elapsed=microtime(true)-$start;
@@ -76,7 +77,7 @@ fclose($renderPipes[1]);fclose($renderPipes[2]);
 $renderExit=proc_close($renderProc);
 cache_check($elapsed>=0.55 && $renderExit===0 && $renderError==='' &&
     str_contains($renderOutput,'render A') && str_contains(file_get_contents($compiled),'render B'),
-    'writer waits for active include before replacing compiled artifact');
+    'writer waits for active include and publishes source with an older mtime');
 file_put_contents($root.'/template/page.html','<p>source B</p>');
 touch($root.'/template/page.html',time()+30);clearstatcache(true);
 $compiled=template::tpl('page.html');
@@ -84,11 +85,23 @@ touch($compiled,time()+20);clearstatcache(true,$compiled);
 $compiledTime=filemtime($compiled);
 file_put_contents($root.'/template/page.html','<p>source C</p>');
 touch($root.'/template/page.html',$compiledTime-10);clearstatcache(true);
-cache_check(str_contains(file_get_contents(template::tpl('page.html')),'source B'),
-    'preserved source timestamp keeps the old artifact until explicit clear');
+cache_check(str_contains(file_get_contents(template::tpl('page.html')),'source C'),
+    'older source timestamp still publishes changed content without a clear');
+file_put_contents($root.'/template/parent.html','before{include "child.html"}after');
+file_put_contents($root.'/template/child.html','child A');
+ob_start();include template::tpl('parent.html',true);template::releaseLocks();
+$firstRender=ob_get_clean();
+$childCompiled=$root.'/app/cache/compile/child.php';
+touch($childCompiled,time()+30);clearstatcache(true,$childCompiled);
+file_put_contents($root.'/template/child.html','child B');
+touch($root.'/template/child.html',filemtime($childCompiled)-1);clearstatcache(true);
+ob_start();include template::tpl('parent.html',true);template::releaseLocks();
+$secondRender=ob_get_clean();
+cache_check($firstRender==='beforechild Aafter' && $secondRender==='beforechild Bafter',
+    'nested include refreshes child content despite an older source timestamp');
 cache_check(CmsTemplateCache::clear($root)===1 &&
     str_contains(file_get_contents(template::tpl('page.html')),'source C'),
-    'explicit clear publishes source with a preserved old timestamp');
+    'explicit clear remains available after automatic freshness checks');
 $site=$root.'/site';
 foreach(['app/cache/compile','admin/app/cache/compile','app/cache/compile_mobile'] as $relative){
     cache_dir($site.'/'.$relative);file_put_contents($site.'/'.$relative.'/page.php','cached');
