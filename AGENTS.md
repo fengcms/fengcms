@@ -15,7 +15,8 @@
 - `docker/`、`compose.yaml`、`bin/dev`：本地容器；`tools/`：初始化、迁移、检查；`tests/regression.php`：HTTP/数据库回归。
 - `install/index.php`、`system/common/install_schema.php`：共享主机的一次性网页安装与开发初始化共用数据导入；用户安装步骤见 `docs/安装指南.md`。本地 Docker 显式关闭网页入口。
 - `config.php`：部署生成并被 Git 忽略的私有设置数组，只返回配置数据；示例为 `config.example.php`。`system/common/config_loader.php` 负责读取、验证和初始化常量；本地 Docker 从 Compose 环境变量读取，旧站点 `config.local.php` 保持兼容。维护细节见 `docs/internal/CONFIGURATION.md`。
-- `docs/`：面向用户的中文安装、使用和升级说明；`docs/internal/`：开发、安全审阅、修复和历史记录，在 Git 中保留但由 `.gitattributes` 排除于发布归档；原 Windows 文档位于 `docs/internal/legacy/`。新文档使用 UTF-8。
+- `README.md`：GitHub 用户个人主页介绍；`.github/README.md`：GitHub 仓库项目介绍；发布压缩包入口为根目录 `项目说明.md`。`.gitattributes` 将个人简介、仓库元数据和维护文档排除于发布归档。
+- `docs/`：面向用户的中文安装、使用和升级说明；`docs/internal/`：开发、安全审阅、修复和历史记录，在 Git 中保留但排除于发布归档；原 Windows 文档位于 `docs/internal/legacy/`。新文档使用 UTF-8。
 - 根目录 `LICENSE` 是 FengCMS 自有代码与文档的 MIT 许可；第三方组件许可证与版权声明独立保留，用户说明见 `docs/第三方组件许可.md`。历史文档中的旧授权条款已失效，不得复制回现行界面或安装流程。
 
 按工作范围阅读 `docs/internal/LOCAL_DEVELOPMENT.md`、`docs/internal/SECURITY_UPGRADE.md`、`docs/internal/EDITOR_MIGRATION.md`、`docs/internal/RESOURCE_PICKER_UI_PLAN.md`、`docs/internal/PERFORMANCE_OPTIMIZATION_2026-10-27.md`、`docs/internal/SEARCH_REQUEST_CONTRACT.md`。安全记录中的早期测试数量和旧组件状态属于阶段记录，以后续记录和实际代码为准。

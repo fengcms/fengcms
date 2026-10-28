@@ -22,12 +22,12 @@ package="var/releases/fengcms-$tag.zip"
 checksum="var/releases/fengcms-$tag.sha256"
 git archive --format=zip --prefix="fengcms-$tag/" --output="$package" "$tag"
 archive_files=$(unzip -Z1 "$package")
-if printf '%s\n' "$archive_files" | grep -Eq "^fengcms-$tag/(docs/internal/|AGENTS\.md$)"; then
+if printf '%s\n' "$archive_files" | grep -Eq "^fengcms-$tag/(docs/internal/|AGENTS\.md$|README\.md$|\.github/)"; then
     echo 'Internal maintenance files must not be included in the release archive.' >&2
     exit 1
 fi
 for required_file in \
-    'README.md' \
+    '项目说明.md' \
     'docs/README.md' \
     'docs/快速开始.md' \
     'docs/安装指南.md' \
