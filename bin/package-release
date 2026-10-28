@@ -21,5 +21,27 @@ mkdir -p var/releases
 package="var/releases/fengcms-$tag.zip"
 checksum="var/releases/fengcms-$tag.sha256"
 git archive --format=zip --prefix="fengcms-$tag/" --output="$package" "$tag"
+archive_files=$(unzip -Z1 "$package")
+if printf '%s\n' "$archive_files" | grep -Eq "^fengcms-$tag/(docs/internal/|AGENTS\.md$)"; then
+    echo 'Internal maintenance files must not be included in the release archive.' >&2
+    exit 1
+fi
+for required_file in \
+    'README.md' \
+    'docs/README.md' \
+    'docs/快速开始.md' \
+    'docs/安装指南.md' \
+    'docs/后台使用指南.md' \
+    'docs/已有网站升级指南.md' \
+    'docs/配置与服务器设置.md' \
+    'docs/数据库备份与恢复.md' \
+    'docs/常见问题.md' \
+    'docs/第三方组件许可.md' \
+    "docs/releases/$tag-发布说明.md"; do
+    if ! printf '%s\n' "$archive_files" | grep -Fqx "fengcms-$tag/$required_file"; then
+        echo "Required user documentation is missing from the release archive: $required_file" >&2
+        exit 1
+    fi
+done
 printf '%s  %s\n' "$(shasum -a 256 "$package" | awk '{print $1}')" "fengcms-$tag.zip" > "$checksum"
 echo "Created $package and $checksum"

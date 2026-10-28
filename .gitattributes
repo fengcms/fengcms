@@ -1,0 +1,4 @@
+# Keep development, audit, and historical records in Git, but omit them from
+# git archive packages distributed to FengCMS users.
+/docs/internal/ export-ignore
+/AGENTS.md export-ignore

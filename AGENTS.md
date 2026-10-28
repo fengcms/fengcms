@@ -10,15 +10,15 @@
 - `system/`：框架、数据库驱动、模板编译、安全函数；`system/common/security.php` 负责认证、CSRF、路径等公共防护；`richtext.php` 负责服务端富文本清洗。
 - `template/`、`admin/template/`：前台及后台模板。原有 `{$变量}`、`{$record['fy']}` 语法必须保留。
 - `admin/js/editor.js`、`admin/css/editor.css`：wangEditor 适配与样式；`resource-picker.js`：资源选择器；`admin/api/`：上传、列表、缩略图接口。
-- 后台只有 `super_admin` 与 `editor` 两种固定角色；编辑可管理“内容”“相关”，不能访问“系统”“模块”和“系统账号管理”。超级管理员可创建两种账号，但不可删除或停用超级管理员账号；编辑账号可删除。路由、模型 `project`、独立 API 都要在服务端校验；权限与迁移见 `docs/ADMIN_ROLES.md`。
+- 后台只有 `super_admin` 与 `editor` 两种固定角色；编辑可管理“内容”“相关”，不能访问“系统”“模块”和“系统账号管理”。超级管理员可创建两种账号，但不可删除或停用超级管理员账号；编辑账号可删除。路由、模型 `project`、独立 API 都要在服务端校验；权限与迁移见 `docs/internal/ADMIN_ROLES.md`。
 - `admin/public/wangeditor/`：wangEditor 5.1.23（MIT）；`system/vendor/htmlpurifier/`：HTML Purifier 4.19.1（LGPL）。这些是部署所需源码，应纳入 Git。
 - `docker/`、`compose.yaml`、`bin/dev`：本地容器；`tools/`：初始化、迁移、检查；`tests/regression.php`：HTTP/数据库回归。
-- `install/index.php`、`system/common/install_schema.php`：共享主机的一次性网页安装与开发初始化共用数据导入；首次安装步骤见 `docs/INSTALLATION.md`。本地 Docker 显式关闭网页入口。
-- `config.php`：部署生成并被 Git 忽略的私有设置数组，只返回配置数据；示例为 `config.example.php`。`system/common/config_loader.php` 负责读取、验证和初始化常量；本地 Docker 从 Compose 环境变量读取，旧站点 `config.local.php` 保持兼容。细节见 `docs/CONFIGURATION.md`。
-- `docs/`：维护记录；`docs/legacy/`：原 Windows 文档的 UTF-8 归档。新文档使用 UTF-8。
-- 根目录 `LICENSE` 是 FengCMS 自有代码与文档的 MIT 许可；第三方组件许可证与版权声明独立保留，见 `docs/THIRD_PARTY_LICENSES.md`。历史文档中的旧授权条款已失效，不得复制回现行界面或安装流程。
+- `install/index.php`、`system/common/install_schema.php`：共享主机的一次性网页安装与开发初始化共用数据导入；用户安装步骤见 `docs/安装指南.md`。本地 Docker 显式关闭网页入口。
+- `config.php`：部署生成并被 Git 忽略的私有设置数组，只返回配置数据；示例为 `config.example.php`。`system/common/config_loader.php` 负责读取、验证和初始化常量；本地 Docker 从 Compose 环境变量读取，旧站点 `config.local.php` 保持兼容。维护细节见 `docs/internal/CONFIGURATION.md`。
+- `docs/`：面向用户的中文安装、使用和升级说明；`docs/internal/`：开发、安全审阅、修复和历史记录，在 Git 中保留但由 `.gitattributes` 排除于发布归档；原 Windows 文档位于 `docs/internal/legacy/`。新文档使用 UTF-8。
+- 根目录 `LICENSE` 是 FengCMS 自有代码与文档的 MIT 许可；第三方组件许可证与版权声明独立保留，用户说明见 `docs/第三方组件许可.md`。历史文档中的旧授权条款已失效，不得复制回现行界面或安装流程。
 
-按工作范围阅读 `docs/LOCAL_DEVELOPMENT.md`、`docs/SECURITY_UPGRADE.md`、`docs/EDITOR_MIGRATION.md`、`docs/RESOURCE_PICKER_UI_PLAN.md`、`docs/PERFORMANCE_OPTIMIZATION_2026-10-27.md`、`docs/SEARCH_REQUEST_CONTRACT.md`。安全记录中的早期测试数量和旧组件状态属于阶段记录，以后续记录和实际代码为准。
+按工作范围阅读 `docs/internal/LOCAL_DEVELOPMENT.md`、`docs/internal/SECURITY_UPGRADE.md`、`docs/internal/EDITOR_MIGRATION.md`、`docs/internal/RESOURCE_PICKER_UI_PLAN.md`、`docs/internal/PERFORMANCE_OPTIMIZATION_2026-10-27.md`、`docs/internal/SEARCH_REQUEST_CONTRACT.md`。安全记录中的早期测试数量和旧组件状态属于阶段记录，以后续记录和实际代码为准。
 
 ## 开发与验证
 
@@ -34,7 +34,7 @@
 
 - 管理接口必须保留认证、写操作 POST/CSRF、会话保护、参数类型校验、目录范围限制。SQL 值使用参数绑定，动态标识符必须白名单校验。
 - 后台异步保存的结果跳转统一使用 `FengAdmin.executionURL`。单条记录只有拿到有效 ID 才附加 `id`；批量操作和设置保存不附加。结果页可在没有 ID 时显示状态，但不得查询空 ID 或产生 `id=` 链接。数字参数的数组只允许明确的批量接口并逐项验证。
-- 数据库导入只接受本系统生成的受限备份格式。保持预览、会话 nonce、POST/CSRF、当前结构核对、导入前自动备份及临时表整体交换；不得恢复执行上传 SQL 的旧实现。隔离数据库副本中的真实导入演练见 `docs/DATABASE_IMPORT.md`。
+- 数据库导入只接受本系统生成的受限备份格式。保持预览、会话 nonce、POST/CSRF、当前结构核对、导入前自动备份及临时表整体交换；不得恢复执行上传 SQL 的旧实现。维护细节见 `docs/internal/DATABASE_IMPORT.md`，用户操作说明见 `docs/数据库备份与恢复.md`。
 - 上传保留大小、扩展名、实际 MIME、图片尺寸校验及随机命名。不得以扫描二进制内的 PHP 字符串替代校验，也不得移除 Web 服务器对上传目录脚本执行的禁止规则。
 - 模板普通值默认转义；由程序层返回 `CmsHtml`/`cms_html()` 的可信 HTML 保留原模板语法。`cms_html()` 是信任声明，不是清洗器；不按变量名自动放行，不把模板批量改成 `{raw ...}`。
 - 管理员提交的富文本仍需由服务端 HTML Purifier 白名单清洗，包括正文、自定义富文本、栏目介绍、版权。客户端校验仅用于体验，不替代服务端防护。
