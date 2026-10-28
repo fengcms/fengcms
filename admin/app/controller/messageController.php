@@ -65,7 +65,7 @@ class messageController extends Controller{
      * @return array
      */
 	public function save(){
-		echo json_encode(M($this->model)->save(lib_replace_end_tag_array($_POST)));
+		echo json_encode(M($this->model)->save($_POST));
 	}
 
     /**

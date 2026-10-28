@@ -232,7 +232,10 @@ CREATE TABLE `#prefix_message` (
   `time` int(11) default NULL COMMENT '时间',
   `rtime` int(11) default NULL COMMENT '回复时间',
   `status` int(1) default '0' COMMENT '状态',
-  PRIMARY KEY  (`id`)
+  `submission_key` char(32) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `edit_version` char(32) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  PRIMARY KEY  (`id`),
+  UNIQUE KEY `message_submission_unique` (`submission_key`)
 ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='留言';
 
 CREATE TABLE `#prefix_login_attempts` (

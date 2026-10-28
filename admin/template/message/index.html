@@ -50,7 +50,7 @@
 					<td>{date('Y-m-d',$v['time'])}</td>
 					<td>{if $v['rtime']}{date('Y-m-d',$v['rtime'])}{/if}</td>
 					<td>
-					{if $v['status']=="0"}未回复{else}已回复{/if}
+						{if $v['status']=="0"}待审核{else}已发布{/if}
 					</td>
 					<td>
 						<a href="?controller=message&operate=reply&id={$v['id']}" class="color00f">回复</a>&nbsp; |&nbsp;

@@ -24,7 +24,7 @@
 		<h2>在线留言</h2>
 		<span><a href="{curl('message')}">查看留言</a> <a href="{curl('message','add')}">我要留言</a></span>
 	</hgroup>
-	{$page=sqlpage("message","2")}
+	{$page=sqlpage("message","2","*","status=1","id desc")}
 	<div id="gbook_l">
 		{loop $page['list'] $k $v}
 		<div class="gbook_show">

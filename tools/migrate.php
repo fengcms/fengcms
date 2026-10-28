@@ -106,6 +106,25 @@ function migrate_upload_request(mysqli $db,string $prefix): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
+function migrate_message_workflow(mysqli $db,string $prefix): void
+{
+    if(!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D',$prefix)){
+        throw new RuntimeException('Invalid database prefix.');
+    }
+    $table=$prefix.'message';
+    $columns=array_column($db->query('SHOW COLUMNS FROM `'.$table.'`')->fetch_all(MYSQLI_ASSOC),'Field');
+    if(!in_array('submission_key',$columns,true)){
+        $db->query("ALTER TABLE `{$table}` ADD `submission_key` char(32) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL");
+    }
+    if(!in_array('edit_version',$columns,true)){
+        $db->query("ALTER TABLE `{$table}` ADD `edit_version` char(32) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL");
+    }
+    $indexes=array_column($db->query('SHOW INDEX FROM `'.$table.'`')->fetch_all(MYSQLI_ASSOC),'Key_name');
+    if(!in_array('message_submission_unique',$indexes,true)){
+        $db->query("ALTER TABLE `{$table}` ADD UNIQUE KEY `message_submission_unique` (`submission_key`)");
+    }
+}
+
 function migrate_license_notice(mysqli $db, string $prefix): int
 {
     if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
@@ -128,6 +147,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
     migrate_content_write($db, $prefix);
     migrate_model_schema($db, $prefix);
     migrate_upload_request($db, $prefix);
+    migrate_message_workflow($db, $prefix);
     $updated = migrate_license_notice($db, $prefix);
-    echo "Security and content-write schema migration complete; replaced $updated legacy sample license footer(s).\n";
+    echo "Security, content-write and message workflow schema migration complete; replaced $updated legacy sample license footer(s).\n";
 }

@@ -63,6 +63,15 @@ function start_async_request(string $method, string $path, array $cookies, array
     }
     return $socket;
 }
+function wait_for_message_update(mysqli $db): void {
+    for($attempt=0;$attempt<150;$attempt++){
+        $count=(int)$db->execute_query("SELECT COUNT(*) FROM information_schema.PROCESSLIST
+            WHERE COMMAND='Execute' AND INFO LIKE ?",['%UPDATE%f_message%edit_version%'])->fetch_row()[0];
+        if($count>0){return;}
+        usleep(20000);
+    }
+    throw new RuntimeException('Reply update did not reach its database write.');
+}
 function finish_async_request($socket,int $timeout=20): array {
     stream_set_timeout($socket,$timeout);
     $response=stream_get_contents($socket);
@@ -111,6 +120,17 @@ function visitor_token(array &$cookies): string {
     }
     return $m[1];
 }
+function message_edit_input(int $id,array &$cookies,array $changes): array {
+    global $db;
+    $form=request('GET','/admin/index.php?controller=message&operate=reply&id='.$id,$cookies);
+    if($form['status']!==200 || !preg_match('/name="_message_version" value="([a-f0-9]{64})"/',$form['body'],$version)){
+        throw new RuntimeException('No message edit version.');
+    }
+    $row=$db->query('SELECT title,name,qq,tel,mail,content,reply,status FROM f_message WHERE id='.$id)->fetch_assoc();
+    $values=[];
+    foreach(['title','name','qq','tel','mail','content','reply','status'] as $field){$values[$field]=(string)($row[$field]??'');}
+    return array_replace($values,$changes,['id'=>(string)$id,'_message_version'=>$version[1]]);
+}
 function upload(array &$cookies,string $token,string $name,string $content,string $dir="image",?string $requestKey=null): array {
     $b = 'fengcms'.bin2hex(random_bytes(8));
     $body = "--$b\r\nContent-Disposition: form-data; name=\"_csrf\"\r\n\r\n$token\r\n";
@@ -147,7 +167,7 @@ $editorTagId=$editorCategoryId=$editorArticleId=$editorMessageId=$batchMessageId
 $unsafeTagId=$unsafeCategoryId=$unsafeFriendId=$legacyUnsafeTagId=$legacyUnsafeFriendId=$legacyUnsafeCategoryId=$legacyUnsafeAuthorId=$badExternalId=null;
 $counterTagIds=[]; $counterAuthorId=$faultTagId=null;
 $signupFixtureCreated=false;
-$articleIds=[]; $singleContentId=null; $messageId=null; $fieldFixtureId=null;
+$articleIds=[]; $singleContentId=null; $messageId=null; $independentMessageId=null; $faultMessageId=null; $fieldFixtureId=null;
 $categoryIds=[];
 $schemaProjects=[]; $schemaTriggers=[];
 $moduleProject='qa_mod_'.$tag; $moduleFixtureId=null;
@@ -578,12 +598,12 @@ try {
         }
     }
     $reply=request('POST','/admin/index.php?controller=message&operate=save',$editorCookies,
-        ['_csrf'=>$editorToken,'id'=>(string)$editorMessageId,'reply'=>'编辑回复','status'=>'1']);
+        message_edit_input($editorMessageId,$editorCookies,['_csrf'=>$editorToken,'reply'=>'编辑回复','status'=>'1']));
     expect_check(($reply['json']['status']??'')==='y' &&
         $db->query('SELECT reply FROM f_message WHERE id='.(int)$editorMessageId)->fetch_row()[0]==='编辑回复',
         'editor replies to visitor message');
     $forgedReply=request('POST','/admin/index.php?controller=message&operate=save',$editorCookies,
-        ['_csrf'=>$editorToken,'id'=>(string)$editorMessageId,'reply'=>'二次回复','time'=>'1','unknown_field'=>'x']);
+        message_edit_input($editorMessageId,$editorCookies,['_csrf'=>$editorToken,'reply'=>'二次回复','time'=>'1','unknown_field'=>'x']));
     $messageAfterForge=$db->query('SELECT reply,time FROM f_message WHERE id='.(int)$editorMessageId)->fetch_assoc();
     expect_check(($forgedReply['json']['status']??'')==='y' && $messageAfterForge['reply']==='二次回复' &&
         (int)$messageAfterForge['time']!==1,
@@ -620,6 +640,30 @@ try {
         $db->query('SELECT id FROM f_message WHERE id='.(int)$batchMessageId)->num_rows===0,
         'legal message batch deletes only selected record');
     $batchMessageId=null;
+    $partialIds=[];
+    foreach(['a','b','c'] as $suffix){
+        $db->query("INSERT INTO f_message (title,content,status,time) VALUES ('batch_retry_{$tag}_{$suffix}','hello',0,UNIX_TIMESTAMP())");
+        $partialIds[]=(int)$db->insert_id;
+    }
+    $faultTrigger='qa_message_delete_'.$tag;
+    $db->query("CREATE TRIGGER `{$faultTrigger}` BEFORE DELETE ON `f_message` FOR EACH ROW
+        BEGIN IF OLD.id={$partialIds[1]} THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='message batch fault'; END IF; END");
+    try {
+        $partial=request('POST','/admin/index.php?controller=message&operate=deletebatch',$editorCookies,
+            ['_csrf'=>$editorToken,'record'=>array_map('strval',$partialIds)]);
+        expect_check(($partial['json']['status']??'')==='p' &&
+            ($partial['json']['changed']??[])===[$partialIds[0],$partialIds[2]] &&
+            ($partial['json']['failed']??[])===[$partialIds[1]] &&
+            $db->query('SELECT id FROM f_message WHERE id='.$partialIds[1])->num_rows===1,
+            'message batch reports completed and failed IDs after a middle SQL fault');
+    } finally { $db->query("DROP TRIGGER IF EXISTS `{$faultTrigger}`"); }
+    $partialRetry=request('POST','/admin/index.php?controller=message&operate=deletebatch',$editorCookies,
+        ['_csrf'=>$editorToken,'record'=>array_map('strval',$partialIds)]);
+    expect_check(($partialRetry['json']['status']??'')==='y' &&
+        ($partialRetry['json']['already']??[])===[$partialIds[0],$partialIds[2]] &&
+        ($partialRetry['json']['changed']??[])===[$partialIds[1]] &&
+        $db->query('SELECT id FROM f_message WHERE id IN ('.implode(',',$partialIds).')')->num_rows===0,
+        'message batch retry completes remaining IDs and accepts already deleted IDs');
     expect_check(request('POST','/admin/index.php?controller=module&project=tags&operate=deleteone&id='.$editorTagId,$editorCookies,
         ['_csrf'=>$editorToken])['status']===200 &&
         $db->query('SELECT id FROM f_tags WHERE id='.(int)$editorTagId)->num_rows===0,
@@ -2147,16 +2191,58 @@ try {
     }
 
     $_SESSION['authnum']='abcd'; $_SESSION['authnum_at']=time();
-    $wrongMessage=M('message')->save(['vcode'=>'zzzz']);
+    $wrongMessage=M('message')->save(['_message_key'=>M('message')->formKey(),
+        'vcode'=>'zzzz','title'=>'wrong_'.$tag,'content'=>'captcha probe']);
     expect_check(($wrongMessage['status']??'')==='c' && !isset($_SESSION['authnum']),
         'incorrect message captcha is consumed immediately');
     $_SESSION['authnum']='abcd'; $_SESSION['authnum_at']=time();
     expect_check(cms_captcha_verify('AbCd') && $_SESSION['authnum']==='abcd',
         'correct asynchronous captcha check keeps the code for message submission');
-    $message=M('message')->save(['vcode'=>'abcd','title'=>'message_'.$tag,'content'=>'<b data-probe="message">hello</b>','name'=>'visitor','status'=>'1','reply'=>'injected','time'=>'1']);
+    $messageKey=M('message')->formKey();
+    $messageInput=['_message_key'=>$messageKey,'vcode'=>'abcd','title'=>'message_'.$tag,
+        'content'=>'<b data-probe="message">hello</b>','name'=>'visitor','status'=>'1','reply'=>'injected','time'=>'1'];
+    $message=M('message')->save($messageInput);
     $messageId=$message['id']??null;
+    $recoveredMessage=M('message')->save($messageInput);
+    expect_check(($recoveredMessage['status']??'')==='y' && ($recoveredMessage['recovered']??false) &&
+        (int)$recoveredMessage['id']===(int)$messageId,
+        'same message form recovers its saved result without creating a duplicate');
+    $_SESSION['authnum']='abcd';$_SESSION['authnum_at']=time();
+    $independentInput=$messageInput;
+    $independentInput['_message_key']=M('message')->formKey();
+    $independentMessage=M('message')->save($independentInput);
+    $independentMessageId=$independentMessage['id']??null;
+    expect_check(($independentMessage['status']??'')==='y' && (int)$independentMessageId!==(int)$messageId,
+        'new message form may deliberately submit the same text');
+    $_SESSION['authnum']='abcd';$_SESSION['authnum_at']=time();
+    $faultInput=['_message_key'=>M('message')->formKey(),'vcode'=>'abcd',
+        'title'=>'message_fault_'.$tag,'content'=>'retry after insert failure'];
+    $messageTrigger='qa_message_insert_'.$tag;
+    $db->query("CREATE TRIGGER `{$messageTrigger}` BEFORE INSERT ON `f_message` FOR EACH ROW
+        BEGIN IF NEW.title='message_fault_{$tag}' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='message insert fault'; END IF; END");
+    $insertFailed=false;
+    try { M('message')->save($faultInput); }
+    catch (mysqli_sql_exception) { $insertFailed=true; }
+    finally { $db->query("DROP TRIGGER IF EXISTS `{$messageTrigger}`"); }
+    $captchaPreserved=$insertFailed && isset($_SESSION['authnum']);
+    $noPriorFaultRow=!D('message')->where(['submission_key'=>$faultInput['_message_key']])->getone();
+    $faultRetry=M('message')->save($faultInput);
+    $faultMessageId=$faultRetry['id']??null;
+    expect_check($insertFailed && $noPriorFaultRow && $captchaPreserved &&
+        ($faultRetry['status']??'')==='y' && (int)$faultMessageId>0,
+        'insert failure keeps captcha and the same form can retry');
+    $httpMessageCookies=[];
+    $httpMessageForm=request('GET','/?controller=message&operate=add',$httpMessageCookies);
+    preg_match('/name="_csrf" value="([a-f0-9]{64})"/',$httpMessageForm['body'],$httpCsrf);
+    preg_match('/name="_message_key" value="([a-f0-9]{32})"/',$httpMessageForm['body'],$httpMessageKey);
+    expect_check(isset($httpCsrf[1],$httpMessageKey[1]),
+        'public message form carries CSRF and same-submission recovery tokens');
     $savedMessage=$db->query('SELECT * FROM f_message WHERE id='.(int)$messageId)->fetch_assoc();
     expect_check(($message['status']??'')==='y' && (int)$savedMessage['status']===0 && $savedMessage['reply']===null && (int)$savedMessage['time']>1,'public message cannot set publication, reply or time');
+    $publicMessageCookies=[];
+    $pendingPublicPage=request('GET','/?controller=message',$publicMessageCookies);
+    expect_check($pendingPublicPage['status']===200 && !str_contains($pendingPublicPage['body'],'message_'.$tag),
+        'pending visitor message is absent from the public list');
     $messagePage=request('GET','/admin/index.php?controller=message',$cookies);
     expect_check(str_contains($messagePage['body'],'&lt;b data-probe=&quot;message&quot;&gt;') && !str_contains($messagePage['body'],'<b data-probe="message">'),'visitor message is escaped in admin');
     $replyProbe='<img src=x onerror=alert(1)>';
@@ -2179,13 +2265,58 @@ try {
     expect_check($smtpFixture->strip_comment('User (outer (inner)) <user@example.test>')==='User  <user@example.test>' &&
         $smtpFixture->get_address('User <user@example.test>')==='user@example.test',
         'legacy SMTP address helpers no longer call removed ereg functions');
-    $replyData=['_csrf'=>$newToken,'id'=>$messageId,'reply'=>'谢谢反馈，已处理。','status'=>'1','rtime'=>(string)time()];
+    $replyData=message_edit_input((int)$messageId,$cookies,['_csrf'=>$newToken,'reply'=>'谢谢反馈，已处理。','status'=>'1','rtime'=>(string)time()]);
     $replySave=request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData);
     expect_check(($replySave['json']['status']??'')==='y' && (int)($replySave['json']['id']??0)===(int)$messageId,'message reply returns the actual saved record ID');
     expect_check($db->query('SELECT reply FROM f_message WHERE id='.(int)$messageId)->fetch_assoc()['reply']===$replyData['reply'],'message reply is persisted');
+    $publishedPublicPage=request('GET','/?controller=message',$publicMessageCookies);
+    expect_check($publishedPublicPage['status']===200 && str_contains($publishedPublicPage['body'],'message_'.$tag),
+        'published visitor message appears in the public list');
     $replyResult=request('GET','/admin/index.php?controller=message&operate=execution&re=1&id='.$replySave['json']['id'],$cookies);
     expect_check($replyResult['status']===200 && str_contains($replyResult['body'],'操作成功'),'message reply result URL accepts its returned record ID');
-    expect_check((request('POST','/admin/index.php?controller=message&operate=save',$cookies,$replyData)['json']['status']??'')==='y','saving an unchanged message reply is successful');
+    expect_check((request('POST','/admin/index.php?controller=message&operate=save',$cookies,
+        message_edit_input((int)$messageId,$cookies,$replyData))['json']['status']??'')==='y','saving an unchanged message reply is successful');
+    $oldReplyForm=message_edit_input((int)$messageId,$cookies,['_csrf'=>$newToken,'reply'=>'FIRST_APPROVED']);
+    $firstReply=request('POST','/admin/index.php?controller=message&operate=save',$cookies,$oldReplyForm);
+    $oldReplyForm['reply']='SECOND_OLD_FORM';
+    $staleReply=request('POST','/admin/index.php?controller=message&operate=save',$cookies,$oldReplyForm);
+    expect_check(($firstReply['json']['status']??'')==='y' && $staleReply['status']===409 &&
+        $db->query('SELECT reply FROM f_message WHERE id='.(int)$messageId)->fetch_row()[0]==='FIRST_APPROVED',
+        'stale reply form cannot overwrite a newer reply');
+    $db->query("INSERT INTO f_message (title,content,status,time) VALUES ('message_delete_race_$tag','waiting',0,UNIX_TIMESTAMP())");
+    $deleteRaceId=(int)$db->insert_id;
+    $deleteRaceForm=message_edit_input($deleteRaceId,$cookies,['_csrf'=>$newToken,'reply'=>'late reply','status'=>'1']);
+    $deleteRaceDb=new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME);
+    $deleteRaceDb->set_charset('utf8mb4');
+    $deleteRaceDb->begin_transaction();
+    $deleteRaceDb->query('SELECT id FROM f_message WHERE id='.$deleteRaceId.' FOR UPDATE')->fetch_row();
+    $deleteRaceSocket=start_async_request('POST','/admin/index.php?controller=message&operate=save',$cookies,$deleteRaceForm);
+    try {
+        wait_for_message_update($deleteRaceDb);
+        $deleteRaceDb->query('DELETE FROM f_message WHERE id='.$deleteRaceId);
+        $deleteRaceDb->commit();
+        $lateReply=finish_async_request($deleteRaceSocket);
+        expect_check($lateReply['status']===404 &&
+            $deleteRaceDb->query('SELECT id FROM f_message WHERE id='.$deleteRaceId)->num_rows===0,
+            'reply waiting behind a concurrent delete reports the missing record');
+    } finally {
+        try { $deleteRaceDb->rollback(); } catch (Throwable) {}
+        $deleteRaceDb->close();
+        $db->query('DELETE FROM f_message WHERE id='.$deleteRaceId);
+    }
+    $plainReply="https://example.test/a/b \" <tag> &amp; 中文\n第二行";
+    $plainData=message_edit_input((int)$messageId,$cookies,['_csrf'=>$newToken,'reply'=>$plainReply,
+        'name'=>'','qq'=>'0','tel'=>'','mail'=>'']);
+    $plainSave=request('POST','/admin/index.php?controller=message&operate=save',$cookies,$plainData);
+    $plainRow=$db->query('SELECT reply,name,qq,tel,mail FROM f_message WHERE id='.(int)$messageId)->fetch_assoc();
+    expect_check(($plainSave['json']['status']??'')==='y' && $plainRow['reply']===$plainReply &&
+        $plainRow['name']==='' && $plainRow['qq']==='0' && $plainRow['tel']==='' && $plainRow['mail']==='',
+        'reply preserves optional empty fields, zero, URL, markup text and newlines');
+    $withdraw=request('POST','/admin/index.php?controller=message&operate=save',$cookies,
+        message_edit_input((int)$messageId,$cookies,['_csrf'=>$newToken,'reply'=>'','status'=>'0']));
+    $withdrawPage=request('GET','/?controller=message',$publicMessageCookies);
+    expect_check(($withdraw['json']['status']??'')==='y' && !str_contains($withdrawPage['body'],'message_'.$tag),
+        'cleared reply and withdrawn status hide the message again');
     $db->query("CREATE TABLE `$fixture` (id int AUTO_INCREMENT PRIMARY KEY,name varchar(255),note text,payload blob) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $invalidDropRejected=false;
     try { D(substr($fixture,2))->dropalter('name` DROP TABLE `f_module` --'); }
@@ -2391,7 +2522,10 @@ try {
     if ($counterAuthorId) { $db->query('DELETE FROM f_author WHERE id='.(int)$counterAuthorId); }
     if ($editorMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$editorMessageId); }
     if ($batchMessageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$batchMessageId); }
+    if ($partialIds??[]) { $db->query('DELETE FROM f_message WHERE id IN ('.implode(',',array_map('intval',$partialIds)).')'); }
     if ($messageId) { $db->query('DELETE FROM f_message WHERE id='.(int)$messageId); }
+    if ($independentMessageId??null) { $db->query('DELETE FROM f_message WHERE id='.(int)$independentMessageId); }
+    if ($faultMessageId??null) { $db->query('DELETE FROM f_message WHERE id='.(int)$faultMessageId); }
     if ($fieldFixtureId) { $db->query('DELETE FROM f_module_field WHERE id='.(int)$fieldFixtureId); }
     $cleanupExtra=$db->prepare('DELETE FROM f_base WHERE copyright=?');
     $cleanupExtra->bind_param('s',$extraBaseCopyright); $cleanupExtra->execute(); $cleanupExtra->close();

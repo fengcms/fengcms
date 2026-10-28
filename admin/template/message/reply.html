@@ -24,7 +24,7 @@ $(function(){
 			if(data.status=="y"){
 				location.href =	FengAdmin.executionURL('message',data,{includeId:false});
 			}else{
-				location.href =	FengAdmin.executionURL('message',data,{includeId:false});
+				alert((data.responseJSON && data.responseJSON.message) || data.message || '保存失败，请检查输入后重试。');
 			}
 		}
 	});
@@ -82,10 +82,13 @@ $(function(){
 	<th>回复:</th>
 	<td colspan="2"><textarea class="content" name="reply" style="width:500px;height:100px;">{$reply}</textarea></td>
 	</tr>
+	<tr><th>公开状态:</th><td colspan="2"><select name="status" class="inputxt">
+		<option value="0" {if $status==0}selected{/if}>待审核（不公开）</option>
+		<option value="1" {if $status==1}selected{/if}>已发布（公开）</option>
+	</select></td></tr>
 	<tr>
 	<input type="hidden" id="id" name="id" value="{$_GET['id']}">
-	<input type="hidden" id="status" name="status" value="1">
-	<input type="hidden" name="rtime" id="rtime" value="{time()}"></table>
+	<input type="hidden" name="_message_version" value="{$_message_version}"></table>
 	</form>
 </div>
 

@@ -15,30 +15,27 @@
 <script src="/js/validform/validform.js"></script>
 <script type="text/javascript">
 $(function(){
-	data=$(".form").Validform({
+	var data=$(".form").Validform({
 		tiptype:2,
 		showAllError:true,
-		callback:function(data){
-			var check=confirm("您确定要提交留言吗？");
-			if(check){
-				
-				if(data.status=="y"){
-					alert("您的留言发布成功！");
-					location.href =	"{curl('message')}";
-				}else if(data.status=="c"){
-					alert("验证码不正确！");
-				}else{
-					alert("发布失败");
-					location.href =	"{curl('message')}";
-
-				}
-			}			
+		beforeSubmit:function(){return confirm("您确定要提交留言吗？");},
+		callback:function(result){
+			if(result.status==="y"){
+				alert("留言已提交，审核通过后会公开显示。");
+				location.href="{curl('message')}";
+			}else if(result.status==="c"){
+				alert("验证码不正确，请重新输入。");
+				$("#vcode").val("");
+				$("#captcha-image").attr("src","/vccore.php?"+Math.random());
+			}else{
+				alert((result.responseJSON && result.responseJSON.message) || result.message ||
+					"提交结果未确认，请保留当前页面和内容，直接重试。");
+			}
 			return false;
 		}
 	});
 	$("#save").click(function(){
 		data.ajaxPost();
-		$.Hidemsg();
 	});
 });
 </script>
@@ -95,7 +92,7 @@ $(function(){
 			</tr>
 			<tr>
 				<th>验证码:</th>
-				<td><input type="text" name="vcode" id="vcode" value="" ajaxurl="/?controller=home&operate=vccore" datatype="*4-4" nullmsg="请输入验证码！" errormsg="验证码输入错误" style="width:100px"> <img  title="点击刷新" src="/vccore.php" align="absbottom" onclick="this.src='/vccore.php?'+Math.random();"></img></td>
+				<td><input type="text" name="vcode" id="vcode" value="" ajaxurl="/?controller=home&operate=vccore" datatype="*4-4" nullmsg="请输入验证码！" errormsg="验证码输入错误" style="width:100px"> <img id="captcha-image" title="点击刷新" src="/vccore.php" align="absbottom" onclick="this.src='/vccore.php?'+Math.random();"></img></td>
 				<td></td>
 			</tr>
 			<tr>
@@ -104,7 +101,7 @@ $(function(){
 				<td></td>
 			</tr>
 		</table>
-		<input type="hidden" name="time" value="{time()}">
+		<input type="hidden" name="_message_key" value="{$message_key}">
 		</form>
 	</div>
 </div>

@@ -19,7 +19,7 @@ class messageController extends Controller{
 	}
 
 	public function add(){
-		return $this->display("message_add.html");//,M($this->model)->page());
+		return $this->display("message_add.html",['message_key'=>M($this->model)->formKey()]);
 	}
 
 	public function save(){
