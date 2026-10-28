@@ -14,6 +14,7 @@
 
 ## 更多内容
 
-- [CSDN：《成为全栈工程师》专栏](https://blog.csdn.net/fungleo)
+- [CSDN：《成为全栈工程师》专栏](https://blog.csdn.net/fungleo/category_13204651.html)
+- [我的 CSDN 博客](https://blog.csdn.net/fungleo)
 - [GitHub 项目与代码](https://github.com/fengcms)
 - [FengCMS 项目介绍](https://github.com/fengcms/fengcms)
