@@ -103,7 +103,8 @@ CREATE TABLE `#prefix_classify` (
   `url_type` int(1) default '0' COMMENT '链接方式（0当前，1弹出）',
   `time` int(11) default NULL COMMENT '操作时间',
   `html` varchar(255) default NULL COMMENT '栏目url',
-  PRIMARY KEY  (`id`)
+  PRIMARY KEY  (`id`),
+  KEY `classify_nav_parent_sort` (`classid`(16),`nav`,`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='栏目系统';
 CREATE TABLE `#prefix_complier` (
   `id` int(11) NOT NULL auto_increment,

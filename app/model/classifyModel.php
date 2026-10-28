@@ -87,8 +87,9 @@ class classifyModel extends model{
         $classify = '`'.DB_PREFIX.'classify`';
         $module = '`'.DB_PREFIX.'module`';
         $rows=D($this->d_name)->excsql(
-            'SELECT '.$select.' FROM '.$classify.' c LEFT JOIN '.$module.' m ON m.project=c.project AND m.type=1 AND m.status=1 '.
-            'WHERE c.classid='.$parent.' AND c.nav=1 AND (c.type<>\'module\' OR m.project IS NOT NULL) '.
+            'SELECT '.$select.' FROM '.$classify.' c '.
+            'WHERE c.classid=\''.$parent.'\' AND c.nav=1 AND (c.type<>\'module\' OR EXISTS '.
+            '(SELECT 1 FROM '.$module.' m WHERE m.project=c.project AND m.type=1 AND m.status=1)) '.
             'ORDER BY c.sort ASC LIMIT '.$limit,
             [], true
         );

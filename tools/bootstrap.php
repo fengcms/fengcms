@@ -18,6 +18,7 @@ if ($tables) {
     migrate_model_schema($db, 'f_');
     migrate_upload_request($db, 'f_');
     migrate_message_workflow($db, 'f_');
+    migrate_classify_navigation($db, 'f_');
     migrate_license_notice($db, 'f_');
     echo "Existing development database retained; administrator password unchanged.\n";
     exit;
@@ -33,6 +34,7 @@ migrate_content_write($db, 'f_');
 migrate_model_schema($db, 'f_');
 migrate_upload_request($db, 'f_');
 migrate_message_workflow($db, 'f_');
+migrate_classify_navigation($db, 'f_');
 cms_install_admin($db, 'f_', 'admin', $password);
 $db->query('CREATE TABLE f_dev_meta (id int PRIMARY KEY) ENGINE=InnoDB');
 $db->query('INSERT INTO f_dev_meta VALUES (1)');

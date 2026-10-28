@@ -125,6 +125,26 @@ function migrate_message_workflow(mysqli $db,string $prefix): void
     }
 }
 
+function migrate_classify_navigation(mysqli $db,string $prefix): void
+{
+    if(!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D',$prefix)){
+        throw new RuntimeException('Invalid database prefix.');
+    }
+    $table=$prefix.'classify';
+    $indexes=$db->query('SHOW INDEX FROM `'.$table.'`')->fetch_all(MYSQLI_ASSOC);
+    $existing=array_values(array_filter($indexes,static fn($row)=>$row['Key_name']==='classify_nav_parent_sort'));
+    if($existing){
+        usort($existing,static fn($a,$b)=>(int)$a['Seq_in_index']<=>(int)$b['Seq_in_index']);
+        $columns=array_column($existing,'Column_name');
+        if($columns!==['classid','nav','sort'] || (int)($existing[0]['Sub_part']??0)!==16 ||
+            ($existing[1]['Sub_part']??null)!==null || ($existing[2]['Sub_part']??null)!==null){
+            throw new RuntimeException('The classify navigation index exists with an unexpected definition.');
+        }
+        return;
+    }
+    $db->query('ALTER TABLE `'.$table.'` ADD KEY `classify_nav_parent_sort` (`classid`(16),`nav`,`sort`)');
+}
+
 function migrate_license_notice(mysqli $db, string $prefix): int
 {
     if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/D', $prefix)) {
@@ -148,6 +168,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
     migrate_model_schema($db, $prefix);
     migrate_upload_request($db, $prefix);
     migrate_message_workflow($db, $prefix);
+    migrate_classify_navigation($db, $prefix);
     $updated = migrate_license_notice($db, $prefix);
-    echo "Security, content-write and message workflow schema migration complete; replaced $updated legacy sample license footer(s).\n";
+    echo "Security, content-write, message workflow and frontend read schema migration complete; replaced $updated legacy sample license footer(s).\n";
 }

@@ -39,6 +39,8 @@ return 'REPLACE_WITH_YOUR_OWN_RANDOM_INSTALL_SECRET';
 
 内容写入需要两张状态表，模型结构恢复需 `model_schema_operation` 表，上传重试恢复需 `upload_request` 表。旧站点应在部署新代码前执行 `php tools/migrate.php` 并在副本验证；回收还原与新增重试规则见[内容写入一致性修复记录](CONTENT_WRITE_CONSISTENCY_FIX_2026-10-27.md)，模型与字段失败续做见[模型结构修复记录](MODEL_SCHEMA_REMEDIATION_2026-10-27.md)，资源上传契约见[资源上传修复记录](RESOURCE_UPLOAD_REMEDIATION_2026-10-27.md)。
 
+前台栏目导航性能升级为栏目表增加 `classify_nav_parent_sort` 索引。新安装 SQL 已包含该索引；已有站点运行 `php tools/migrate.php` 会幂等补建。若栏目表较大，建议先在数据库副本执行迁移并查看耗时，再安排正式升级；迁移会执行 `ALTER TABLE`，不同数据库引擎/版本可能短暂锁定栏目表。模型包导入仍只创建模型主键，不要求自定义模型增加二级索引；相关文章候选查找使用模型主键上的固定行窗口。
+
 后台提供固定的超级管理员和编辑角色。超级管理员可在“系统 → 系统管理 → 系统账号管理”创建这两种账号；已有站点升级涉及管理员表迁移，步骤和回退限制见[后台角色说明](ADMIN_ROLES.md)。
 
 ## 故障排查

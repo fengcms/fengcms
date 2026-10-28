@@ -426,8 +426,8 @@ class moduleModel extends model{
         }
         if (!$tags) { return []; }
 
-        // Keep MySQL's existing substring/collation semantics, but apply LIKE
-        // only to a bounded newest-first candidate window rather than every row.
+        // Scan the primary key only, so every supported content table (including
+        // imported models without secondary indexes) has a hard candidate bound.
         $excludeId=0;
         $requestProject=$_GET['project']??null;
         $requestId=$_GET['id']??null;
@@ -436,21 +436,21 @@ class moduleModel extends model{
         $limit=max(0,min((int)$num,100));
         if ($limit===0) { return []; }
         $candidateQuery=D($table)->field('id');
-        if ($excludeId>0) { $candidateQuery->where('status=1 AND id<>?',[$excludeId]); }
-        else { $candidateQuery->where('status=1'); }
         $candidateIds=array_map('intval',array_column(
             $candidateQuery->sort('id','order','desc')->limit(self::RELATED_CANDIDATE_LIMIT)->getall(),'id'
         ));
         if (!$candidateIds) { return []; }
 
         $matches=[]; $params=$candidateIds;
+        $currentCondition=$excludeId>0 ? ' AND id<>?' : '';
+        if ($excludeId>0) { $params[]=$excludeId; }
         foreach ($tags as $tag) {
             $matches[]='(title LIKE ? OR tags LIKE ?)';
             $params[]='%'.$tag.'%'; $params[]='%'.$tag.'%';
         }
         $idPlaceholders=implode(',',array_fill(0,count($candidateIds),'?'));
         return D($table)->field($this->fieldhandle($field).'id,title,html')
-            ->where('status=1 AND id IN ('.$idPlaceholders.') AND ('.implode(' OR ',$matches).')',$params)
+            ->where('status=1 AND id IN ('.$idPlaceholders.')'.$currentCondition.' AND ('.implode(' OR ',$matches).')',$params)
             ->sort('id','order','desc')->limit($limit)->getall();
     }
 
