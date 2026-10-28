@@ -1997,7 +1997,7 @@ try {
     $missingTemplate=request('POST',$templateRoute.'&operate=save',$cookies,['_csrf'=>$newToken,'project'=>'tpl','name'=>'qa_missing_'.$tag,'type'=>'1','content'=>'missing','_file_version'=>str_repeat('0',64)]);
     expect_check($missingTemplate['status']===404,'template update cannot create a missing file');
     $symlinkName='qa_link_'.$tag;$symlinkPath=dirname(__DIR__).'/template/'.$symlinkName.'.html';
-    symlink(dirname(__DIR__).'/config.php',$symlinkPath);$files[]=$symlinkPath;
+    symlink(dirname(__DIR__).'/config.example.php',$symlinkPath);$files[]=$symlinkPath;
     $symlinkSave=request('POST',$templateRoute.'&operate=save',$cookies,['_csrf'=>$newToken,'project'=>'tpl','name'=>$symlinkName,'type'=>'1','content'=>'no']);
     expect_check($symlinkSave['status']===400,'template save refuses symbolic links');
     foreach (['add', 'update&id='.$articleId] as $operation) {

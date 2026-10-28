@@ -2,18 +2,12 @@
 // Read-only inventory by default; --apply is restricted to an explicitly named copy database.
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$localFile=dirname(__DIR__).'/config.local.php';
-$local=is_file($localFile) ? require $localFile : [];
-if (!is_array($local)) { throw new RuntimeException('私有配置格式不正确。'); }
-$setting=static function (string $environment,string $key) use ($local): string {
-    $value=getenv($environment);
-    if ($value===false) { $value=$local[$key]??null; }
-    if (!is_string($value) || $value==='') { throw new RuntimeException($environment.' 未配置。'); }
-    return $value;
-};
-$host=$setting('DB_HOST','db_host'); $user=$setting('DB_USER','db_user');
-$password=$setting('DB_PASS','db_pass'); $database=$setting('DB_NAME','db_name');
-$prefix=getenv('DB_PREFIX') ?: ($local['db_prefix']??'f_');
+$configRoot=dirname(__DIR__);
+require_once $configRoot.'/system/common/config_loader.php';
+$settings=cms_config_values($configRoot);
+$host=$settings['DB_HOST']; $user=$settings['DB_USER'];
+$password=$settings['DB_PASS']; $database=$settings['DB_NAME'];
+$prefix=$settings['DB_PREFIX'];
 if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,29}$/D',$prefix)) { throw new RuntimeException('表前缀不正确。'); }
 $options=[];
 foreach (array_slice($argv,1) as $argument) {

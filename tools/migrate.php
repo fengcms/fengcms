@@ -7,8 +7,10 @@ if (PHP_SAPI !== 'cli') {
 
 function migration_connection(): mysqli
 {
+    require_once dirname(__DIR__).'/system/common/config_loader.php';
+    $settings=cms_config_values(dirname(__DIR__));
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-    $db = new mysqli(getenv('DB_HOST') ?: 'db', getenv('DB_USER') ?: 'fengcms', getenv('DB_PASS') ?: '', getenv('DB_NAME') ?: 'fengcms');
+    $db = new mysqli($settings['DB_HOST'],$settings['DB_USER'],$settings['DB_PASS'],$settings['DB_NAME']);
     $db->set_charset('utf8mb4');
     return $db;
 }

@@ -99,7 +99,8 @@ function cms_admin_valid(): bool
             if (!defined('TPL_INCLUDE')) { define('TPL_INCLUDE', true); }
             if (!defined('ROOT_PATH')) { define('ROOT_PATH', dirname(__DIR__, 2)); }
             if (!defined('APP_PATH')) { define('APP_PATH', ROOT_PATH.'/admin/app'); }
-            require_once ROOT_PATH.'/config.php';
+            require_once ROOT_PATH.'/system/common/config_loader.php';
+            cms_config_bootstrap(ROOT_PATH);
         }
         if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/D',DB_PREFIX)) { return false; }
         $db=new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME);

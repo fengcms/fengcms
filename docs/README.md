@@ -2,6 +2,7 @@
 
 - [本地容器开发](LOCAL_DEVELOPMENT.md)：环境启动、账号配置、检查与备份。
 - [共享虚拟主机首次安装](INSTALLATION.md)：HTTPS、站长授权、浏览器安装与故障排查。
+- [配置文件与配置加载](CONFIGURATION.md)：Docker `.env`、虚拟主机私有配置、来源优先级及旧配置兼容。
 - [GitHub 发布流程](RELEASING.md)：版本标签、发布包、校验和与后台版本查询。
 - [安装程序检查](INSTALLER_AUDIT.md)：旧网页向导的历史风险及本次改造记录。
 - [共享主机网页安装方案](WEB_INSTALLER_PLAN.md)：首次安装流程、安全边界与验收标准。

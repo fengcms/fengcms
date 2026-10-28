@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 /config.local.php
+/config.php
 /.config.local.*
 /install/authorize.php
 /upload/*

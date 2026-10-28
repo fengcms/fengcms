@@ -1,7 +1,10 @@
 <?php
 // One-time, shared-host web installer. Development containers disable this endpoint.
 $root = dirname(__DIR__);
-if (getenv('FENGCMS_DISABLE_INSTALL') === '1' || is_file($root.'/config.local.php')) {
+require_once $root.'/system/common/config_loader.php';
+$installedConfig=is_file($root.'/config.local.php') || is_link($root.'/config.local.php') ||
+    cms_config_is_private_file($root.'/config.php');
+if (getenv('FENGCMS_DISABLE_INSTALL') === '1' || $installedConfig) {
     http_response_code(404);
     exit;
 }
@@ -69,8 +72,8 @@ function installer_make_directories($root)
 
 function installer_prepare_config($root, $values)
 {
-    $temporary = $root.'/.config.local.'.bin2hex(random_bytes(8)).'.tmp';
-    $contents = "<?php\n// Private FengCMS installation settings. Do not publish or commit this file.\nreturn ".var_export($values, true).";\n";
+    $temporary = $root.'/.config.php.'.bin2hex(random_bytes(8)).'.tmp';
+    $contents = "<?php\n// FengCMS private configuration data v1.\nreturn ".var_export($values, true).";\n";
     $previousUmask = umask(0077);
     $handle = fopen($temporary, 'x');
     umask($previousUmask);
@@ -216,7 +219,10 @@ if ($method === 'POST' && ($action === 'review' || $action === 'install')) {
             $lockFile = fopen($root.'/var/runtime/install.lock', 'c');
             if (!$lockFile || !flock($lockFile, LOCK_EX | LOCK_NB)) { throw new RuntimeException('Another installation is running.'); }
             if (!chmod($root.'/var/runtime/install.lock', 0600)) { throw new RuntimeException('Unable to protect installation lock.'); }
-            if (is_file($root.'/config.local.php')) { throw new RuntimeException('Site is already installed.'); }
+            if (is_file($root.'/config.local.php') || is_link($root.'/config.local.php') ||
+                cms_config_is_private_file($root.'/config.php')) {
+                throw new RuntimeException('Site is already installed.');
+            }
             mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
             $db = new mysqli($host, $user, $password, $database);
             $db->set_charset('utf8mb4');
@@ -231,7 +237,9 @@ if ($method === 'POST' && ($action === 'review' || $action === 'install')) {
             $schemaStarted = true;
             cms_install_schema($db, $prefix);
             cms_install_admin($db, $prefix, $admin, $adminPassword);
-            if (is_file($root.'/config.local.php') || !rename($temporary, $root.'/config.local.php')) {
+            if (is_file($root.'/config.local.php') || is_link($root.'/config.local.php') ||
+                cms_config_is_private_file($root.'/config.php') ||
+                is_link($root.'/config.php') || !rename($temporary, $root.'/config.php')) {
                 throw new RuntimeException('Unable to publish private configuration.');
             }
             $temporary = null;

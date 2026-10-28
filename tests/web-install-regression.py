@@ -12,7 +12,13 @@ import sys
 
 base = sys.argv[1].rstrip('/') if len(sys.argv) > 1 else 'http://127.0.0.1:18082'
 root = Path(__file__).resolve().parents[1]
-env = dict(line.split('=', 1) for line in (root / '.env').read_text().splitlines())
+env = {}
+for line in (root / '.env').read_text().splitlines():
+    line = line.strip()
+    if not line or line.startswith('#'):
+        continue
+    key, value = line.split('=', 1)
+    env[key] = value
 token = (root / 'var/test-install-token').read_text()
 admin_password = secrets.token_urlsafe(24)
 opener = build_opener(HTTPCookieProcessor(CookieJar()))
@@ -66,11 +72,12 @@ status, page = request('/install/index.php', {'action': 'install', '_csrf': csrf
 assert status == 200 and '安装完成' in page, 'web install failed'
 match = re.search(r'后台认证码：<strong>([0-9]{4})</strong>', page)
 assert match, 'admin code missing from success page'
-assert (root / 'config.local.php').is_file()
-assert (root / 'config.local.php').stat().st_mode & 0o077 == 0
+assert (root / 'config.php').is_file()
+assert (root / 'config.php').stat().st_mode & 0o077 == 0
+assert 'FengCMS private configuration data v1' in (root / 'config.php').read_text()
 assert not (root / 'install/authorize.php').exists()
 assert request('/install/index.php')[0] == 404
-for path in ('/config.local.php', '/install/install.sql', '/system/common/install_schema.php'):
+for path in ('/config.php', '/config.local.php', '/install/install.sql', '/system/common/install_schema.php'):
     assert request(path)[0] in (403, 404), path
 assert request('/')[0] == 200
 

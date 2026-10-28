@@ -70,8 +70,9 @@ ini_set("memory_limit","256M");
 
  /*------------------ 加载库 ------------------*/
 
-// 加载配置
-include_once ROOT_PATH.'/config.php'; 
+// 加载私有配置数据并初始化应用常量
+require_once __DIR__.'/common/config_loader.php';
+cms_config_bootstrap(ROOT_PATH);
 require_once __DIR__.'/common/database_gate.php';
 
 // 加载函数
