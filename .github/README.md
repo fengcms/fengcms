@@ -2,7 +2,7 @@
 
 FengCMS 是一套使用 PHP 和 MySQL 的开源内容管理系统，适合搭建文章、产品等展示型网站。它支持自定义内容模型、字段和模板，让不同类型的内容可以通过同一后台管理。
 
-**当前正式版：v1.36。** 请从 [GitHub Releases](https://github.com/fengcms/fengcms/releases) 下载正式版本和校验文件。系统不提供在线升级；已有网站应先备份，并在副本中完成升级验证。
+**当前正式版：v1.37。** 请从 [GitHub Releases](https://github.com/fengcms/fengcms/releases) 下载正式版本和校验文件。系统不提供在线升级；已有网站应先备份，并在副本中完成升级验证。
 
 ## 主要功能
 

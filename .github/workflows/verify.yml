@@ -23,6 +23,7 @@ jobs:
           node --check admin/js/session-warning.js
           node tests/editor-regression.js
           node tests/navigation-regression.js
+          node tests/version-check.js
           python3 tests/php-diagnostics-regression.py
 
   integration:

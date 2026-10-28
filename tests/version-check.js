@@ -36,30 +36,30 @@ function page(currentVersion, response, stored) {
     return {elements, requests, storage};
 }
 
-let result = page('v1.35', {status: 200, body: {tag_name: 'v1.36', draft: false, prerelease: false}});
-assert.equal(result.elements.version.textContent, 'v1.36');
+let result = page('v1.36', {status: 200, body: {tag_name: 'v1.37', draft: false, prerelease: false}});
+assert.equal(result.elements.version.textContent, 'v1.37');
 assert.match(result.elements['version-status'].textContent, /发现新版本/);
 assert.equal(result.elements['version-refresh'].disabled, false);
 assert.equal(result.requests.length, 1);
-assert.equal(JSON.parse(result.storage.get('fengcms.latestRelease.v1')).tag, 'v1.36');
+assert.equal(JSON.parse(result.storage.get('fengcms.latestRelease.v1')).tag, 'v1.37');
 
-result = page('v1.35', {status: 200, body: {tag_name: 'v1.35', draft: false, prerelease: false}});
+result = page('v1.36', {status: 200, body: {tag_name: 'v1.36', draft: false, prerelease: false}});
 assert.match(result.elements['version-status'].textContent, /最新正式版/);
 
 result = page('v1.35', {status: 404});
 assert.equal(result.elements.version.textContent, '尚无正式版本');
 
-result = page('v1.35', {status: 200, body: {tag_name: 'v1.36<script>', draft: false, prerelease: false}});
+result = page('v1.36', {status: 200, body: {tag_name: 'v1.37<script>', draft: false, prerelease: false}});
 assert.equal(result.elements.version.textContent, '查询失败');
 
-result = page('v1.35', {status: 200, body: {tag_name: 'v1.36', draft: false, prerelease: true}});
+result = page('v1.36', {status: 200, body: {tag_name: 'v1.37', draft: false, prerelease: true}});
 assert.equal(result.elements.version.textContent, '查询失败');
 
-result = page('v1.35', {status: 500});
+result = page('v1.36', {status: 500});
 assert.equal(result.elements.version.textContent, '查询失败');
 
-result = page('v1.35', {status: 500}, [['fengcms.latestRelease.v1', JSON.stringify({tag: 'v1.36', time: 999999})]]);
-assert.equal(result.elements.version.textContent, 'v1.36');
+result = page('v1.36', {status: 500}, [['fengcms.latestRelease.v1', JSON.stringify({tag: 'v1.37', time: 999999})]]);
+assert.equal(result.elements.version.textContent, 'v1.37');
 assert.equal(result.requests.length, 0);
 
 console.log('GitHub 版本查询检查通过：新版本、同版本、无发布、异常内容、预发布、网络错误及缓存。');
