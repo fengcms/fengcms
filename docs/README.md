@@ -22,6 +22,7 @@
 - [资源上传与内容引用一致性审阅](RESOURCE_UPLOAD_REFERENCE_REVIEW_2026-10-27.md)：两项 P2 与一项 P3，覆盖图片实际解码、多图已有值丢失、结果不确定重试，以及分页和缩略图资源上限实测。
 - [RA01 至 RA03 修复复审报告](RESOURCE_UPLOAD_RECHECK_2026-10-28.md)：三项原失败场景重放及关闭证据，附真实 iframe 无损保存、同次上传并发与落盘后故障恢复，以及升级依赖和验证边界。
 - [数据库备份与恢复一致性审阅](DATABASE_BACKUP_RECOVERY_REVIEW_2026-10-28.md)：四项 P2 问题，覆盖结构快照、导入与业务写入并发、连接中断残留及备份锁预算，附隔离库重放和文件配套恢复边界。
+- [DB01 至 DB04 修复复审报告](DATABASE_BACKUP_RECOVERY_RECHECK_2026-10-28.md)：DB01、DB04 关闭；原导入并发及交换前中断场景已修复，但交换后待恢复期间已确认编辑仍会丢失，DB02、DB03 保留。
 - [搜索与内容页兼容性修复结果](SEARCH_CONTENT_COMPATIBILITY_FIX_2026-10-27.md)：六项问题的处理、Nginx 与 Apache 实测及兼容边界。
 - [性能审阅落实记录](PERFORMANCE_OPTIMIZATION_2026-10-27.md)：开发方的实现说明、本地验证结果及搜索优化的测量边界。
 - [性能测量与优化判定](PERFORMANCE_MEASUREMENT_PLAN.md)：性能基线、执行计划、复测指标和优化合入门槛。
