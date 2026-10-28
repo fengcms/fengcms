@@ -1050,10 +1050,24 @@ try {
     $singleContentId=$db->insert_id;
     expect_check(request('GET','/?controller=content&project=single&id='.$singleContentId,$cookies)['status']===200,
         'content route preserves the built-in single-page model');
+    $db->query("INSERT INTO f_classify (name,enname,type,project,classid,nav,channel_template,classify_template) VALUES
+        ('disabled_category_$tag','disabled-$tag','module','$moduleProject',0,1,'/article_class.html','/article_class.html')");
+    $disabledCategoryId=(int)$db->insert_id; $categoryIds[]=$disabledCategoryId;
+    $db->query('UPDATE `f_'.$moduleProject.'` SET classid='.$disabledCategoryId.' WHERE id='.(int)$resultContentId);
     $db->query('UPDATE f_module SET status=0 WHERE id='.(int)$moduleFixtureId);
     expect_check(request('GET','/?controller=content&project='.$moduleProject.'&id='.$resultContentId,$cookies)['status']===404,
         'content route rejects a disabled custom model');
+    expect_check(request('GET','/?controller=classify&project='.$moduleProject.'&classify=disabled-'.$tag.'&classid='.$disabledCategoryId,$cookies)['status']===404 &&
+        request('GET','/'.$moduleProject.'_disabled-'.$tag.'_'.$disabledCategoryId.'.html',$cookies)['status']===404,
+        'dynamic and rewritten category routes reject categories of a disabled model');
+    $disabledNav=request('GET','/',$cookies);
+    $disabledMap=request('GET','/map.html',$cookies);
+    expect_check(!str_contains($disabledNav['body'],'disabled_category_'.$tag) &&
+        !str_contains($disabledMap['body'],'disabled_category_'.$tag),
+        'disabled model categories are absent from navigation and site map');
     $db->query('UPDATE f_module SET status=1 WHERE id='.(int)$moduleFixtureId);
+    $db->query('UPDATE `f_'.$moduleProject.'` SET classid=0 WHERE id='.(int)$resultContentId);
+    $db->query('DELETE FROM f_classify WHERE id='.$disabledCategoryId);
     $query='/index.php?controller=search&tags='.rawurlencode('<b data-probe="search">');
     $search=request('GET',$query,$cookies);
     expect_check($search['status']===200 && str_contains($search['body'],'&lt;b data-probe=&quot;search&quot;&gt;') && !str_contains($search['body'],'<b data-probe="search">'),'search reflects escaped text');

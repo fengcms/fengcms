@@ -31,6 +31,7 @@ class classifyController extends Controller{
 				if(!$this->classify){cms_fail(404,'栏目不存在。');}
 				$_GET['page']=$page;
 			}
+			$this->ensureEnabledModelCategory();
 			$_GET['project']=$this->classify['project'];
 			$_GET['classify']=$this->classify['enname'];
 			$_GET['classid']=(int)$this->classify['id'];
@@ -52,6 +53,14 @@ class classifyController extends Controller{
 			'project'	=>	$project
 			))->getone();
 		if(!$this->classify){cms_fail(404,'栏目不存在。');}
+		$this->ensureEnabledModelCategory();
+	}
+
+	private function ensureEnabledModelCategory(): void
+	{
+		if(($this->classify['type']??'')!=='module'){return;}
+		$module=D('module')->where(['project'=>$this->classify['project'],'type'=>1,'status'=>1])->getone();
+		if(!$module){cms_fail(404,'内容模型不存在。');}
 	}
 
 	private function categoryForRoute(string $route): array

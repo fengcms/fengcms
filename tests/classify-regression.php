@@ -54,10 +54,10 @@ foreach ($parents as $parent) {
     }
 }
 $after = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];
-if ($after - $before !== count($parents) + 1) {
-    throw new RuntimeException('Navigation cache still issues a query for each parent.');
+if ($after - $before !== count($parents) * 2 + 1) {
+    throw new RuntimeException('Bounded navigation verification query count changed: '.($after-$before).' for '.count($parents).' parents.');
 }
-echo "PASS navigation children reuse one request-local category snapshot\n";
+echo "PASS navigation children use one limited SQL query per requested parent\n";
 
 $first = M('classify')->children(0);
 $before = (int)$status->excsql("SHOW SESSION STATUS LIKE 'Questions'", [], true)[0]['Value'];

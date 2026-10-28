@@ -14,6 +14,9 @@ require_once dirname(__DIR__).'/searchCriteria.php';
 class moduleModel extends model{
 
 	private $d_name		 = "module";
+    private const RELATED_CANDIDATE_LIMIT = 500;
+    private const RELATED_MAX_TAGS = 8;
+    private const RELATED_MAX_TAG_BYTES = 64;
 
 	private $op			 = array();
     /** @var array<string, array{revision:int, exists:bool}> */
@@ -415,13 +418,40 @@ class moduleModel extends model{
 	相关文章
 	*/
     public function related($table, $string, $num=10, $field=""){
-        $where = []; $params = [];
-        foreach (array_filter(explode(',', $string)) as $tag) {
-            $where[] = '(title LIKE ? OR tags LIKE ?)';
-            $params[] = '%'.$tag.'%'; $params[] = '%'.$tag.'%';
+        if (!is_string($table) || !preg_match('/^[A-Za-z][A-Za-z0-9_]{0,49}$/D', $table) ||
+            !is_string($string) || strlen($string)>1024 || !$this->attrib($table,'title') || !$this->attrib($table,'tags')) { return []; }
+        $tags=[];
+        foreach (array_slice(array_filter(explode(',', $string)), 0, self::RELATED_MAX_TAGS) as $tag) {
+            if ($tag!=='' && strlen($tag)<=self::RELATED_MAX_TAG_BYTES) { $tags[]=$tag; }
         }
-        if (!$where) { return []; }
-        return D($table)->field($this->fieldhandle($field).'id,title,html')->where('status=1 AND ('.implode(' OR ', $where).')', $params)->limit($num)->getall();
+        if (!$tags) { return []; }
+
+        // Keep MySQL's existing substring/collation semantics, but apply LIKE
+        // only to a bounded newest-first candidate window rather than every row.
+        $excludeId=0;
+        $requestProject=$_GET['project']??null;
+        $requestId=$_GET['id']??null;
+        if ($requestProject===$table && is_string($requestId) && preg_match('/^[1-9][0-9]{0,9}$/D',$requestId) &&
+            (int)$requestId<=2147483647) { $excludeId=(int)$requestId; }
+        $limit=max(0,min((int)$num,100));
+        if ($limit===0) { return []; }
+        $candidateQuery=D($table)->field('id');
+        if ($excludeId>0) { $candidateQuery->where('status=1 AND id<>?',[$excludeId]); }
+        else { $candidateQuery->where('status=1'); }
+        $candidateIds=array_map('intval',array_column(
+            $candidateQuery->sort('id','order','desc')->limit(self::RELATED_CANDIDATE_LIMIT)->getall(),'id'
+        ));
+        if (!$candidateIds) { return []; }
+
+        $matches=[]; $params=$candidateIds;
+        foreach ($tags as $tag) {
+            $matches[]='(title LIKE ? OR tags LIKE ?)';
+            $params[]='%'.$tag.'%'; $params[]='%'.$tag.'%';
+        }
+        $idPlaceholders=implode(',',array_fill(0,count($candidateIds),'?'));
+        return D($table)->field($this->fieldhandle($field).'id,title,html')
+            ->where('status=1 AND id IN ('.$idPlaceholders.') AND ('.implode(' OR ',$matches).')',$params)
+            ->sort('id','order','desc')->limit($limit)->getall();
     }
 
 	/*

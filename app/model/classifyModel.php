@@ -12,7 +12,7 @@
 class classifyModel extends model{
 
 	private $d_name		 = "classify";
-    /** @var array<string, array{revision:int, children:array, navigation:array}> */
+    /** @var array<string, array{revision:int, children:array}> */
     private static array $requestTrees = [];
 
 	public function __construct(){
@@ -53,23 +53,24 @@ class classifyModel extends model{
         $key = hash('sha256', serialize([DB_HOST, DB_NAME, DB_PREFIX]));
         $revision = model::requestWriteRevision();
         if (!isset(self::$requestTrees[$key]) || self::$requestTrees[$key]['revision'] !== $revision) {
-            $rows = D($this->d_name)->field('id,classid,name,html,nav,url_type,type,sort')
+            $rows = D($this->d_name)->field('id,classid,name,html,nav,url_type,type,sort,project')
                 ->sort('sort', 'order', 'asc')->getall();
-            $children = []; $navigation = [];
+            $enabledProjects = array_fill_keys(array_column(
+                D('module')->field('project')->where(['type'=>1,'status'=>1])->getall(), 'project'
+            ), true);
+            $children = [];
             foreach ($rows as $row) {
+                if (($row['type']??'')==='module' && !isset($enabledProjects[$row['project']??''])) { continue; }
                 $parent = (int)$row['classid'];
                 $children[$parent][] = $row;
-                if ((int)$row['nav'] === 1) { $navigation[$parent][] = $row; }
             }
-            // The tree/map path previously requested sort,id. Navigation's
-            // existing SQL requested sort alone, so retain its row order.
             foreach ($children as &$group) {
                 usort($group, static fn($a, $b) => [(int)$a['sort'], (int)$a['id']] <=>
                     [(int)$b['sort'], (int)$b['id']]);
             }
             unset($group);
             self::$requestTrees[$key] = [
-                'revision' => $revision, 'children' => $children, 'navigation' => $navigation,
+                'revision' => $revision, 'children' => $children,
             ];
         }
         return self::$requestTrees[$key];
@@ -77,16 +78,24 @@ class classifyModel extends model{
 
     private function tree(): array { return $this->snapshot()['children']; }
 
-    /** The stock navigation's existing l() calls use this request-local snapshot. */
+    /** Apply the stock navigation's existing l() parameters directly in SQL. */
     public function navigationRows(int $parent, array $fields, int $limit): array {
         if ($limit <= 0) { return []; }
-        $rows = [];
-        foreach ($this->snapshot()['navigation'][$parent] ?? [] as $row) {
-            $selected = [];
-            foreach ($fields as $field) { $selected[$field] = $row[$field]; }
-            $rows[] = $selected;
-            if (count($rows) >= $limit) { break; }
+        $allowed = ['id','classid','name','html','nav','url_type','type','sort'];
+        foreach ($fields as $field) { if (!in_array($field, $allowed, true)) { return []; } }
+        $select = implode(',', array_map(static fn($field) => 'c.`'.$field.'`', $fields));
+        $classify = '`'.DB_PREFIX.'classify`';
+        $module = '`'.DB_PREFIX.'module`';
+        $rows=D($this->d_name)->excsql(
+            'SELECT '.$select.' FROM '.$classify.' c LEFT JOIN '.$module.' m ON m.project=c.project AND m.type=1 AND m.status=1 '.
+            'WHERE c.classid='.$parent.' AND c.nav=1 AND (c.type<>\'module\' OR m.project IS NOT NULL) '.
+            'ORDER BY c.sort ASC LIMIT '.$limit,
+            [], true
+        );
+        foreach ($rows as &$row) {
+            foreach ($fields as $field) { if (isset($row[$field])) { $row[$field]=(string)$row[$field]; } }
         }
+        unset($row);
         return $rows;
     }
 
