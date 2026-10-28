@@ -10,10 +10,10 @@
 
 1. 在主机面板启用 HTTPS，选择 PHP 8.3 或 8.4，并启用 `mysqli`、`mbstring`、`gd`、`fileinfo`、`json`。数据库用户需要对目标库建表、建视图、写入数据的权限。
 2. 在面板中创建 MySQL 或 MariaDB 数据库及专用用户，记下主机名、库名、用户名和密码。安装器不会替你创建数据库。
-3. 将正式发布包上传到网站根目录。Apache/LiteSpeed 需要允许 `.htaccess` 生效；Nginx 需要由主机管理员配置与 [Nginx 示例](../docker/nginx/default.conf)等效的访问限制。不能确认访问限制时，请先联系主机商配置。
+3. 将正式发布包上传到网站根目录。Apache/LiteSpeed 需要允许 `.htaccess` 生效；Nginx 需要由主机管理员配置与 [Nginx 示例](../docker/nginx/default.conf)等效的访问限制；IIS 需要安装 URL Rewrite、配置 PHP FastCGI，并使用 [IIS 配置](../web.config)。不能确认访问限制时，请先联系主机商配置。各 Web 服务器配置的维护状态和 IIS 验证清单见 [伪静态与访问限制说明](WEB_SERVER_ROUTING.md)。
 4. 让 PHP 进程能创建根目录私有 `config.php`，并能写入 `upload/`、`app/cache/`、`admin/app/cache/`、`admin/app/dbbackup/`、`var/runtime/`。优先调整文件属主和最小必要权限，**不要使用 777**。后台一致性备份需要数据库账号对当前库拥有 `SELECT` 和 `LOCK TABLES` 权限；后台[导入备份](DATABASE_IMPORT.md)还需要当前库的建表、重命名表和删除表权限。若主机不提供这些权限，请使用主机面板的数据库工具。
 
-安装前，通过浏览器确认 `/install/install.sql`、`/install/authorize.example.php`、`/config.php`、`/system/common/install_schema.php` 不能下载；上传目录中的 PHP 文件也不能执行。Nginx 示例只供配置参考，本地 Docker 环境另有安装器禁用开关，不能直接当作共享主机配置。
+安装前，通过浏览器确认 `/install/install.sql`、`/install/authorize.example.php`、`/config.php`、`/system/common/install_schema.php` 不能下载；上传目录中的 PHP 文件也不能执行。Nginx 示例只供配置参考，本地 Docker 环境另有安装器禁用开关，不能直接当作共享主机配置。IIS 的 `web.config` 需要在 Windows/IIS 副本上验证，仓库静态检查不能代替实机验证。
 
 ## 一次性站长授权
 
