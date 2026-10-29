@@ -11,7 +11,7 @@
 - `template/`、`admin/template/`：前台及后台模板。原有 `{$变量}`、`{$record['fy']}` 语法必须保留。
 - `admin/js/editor.js`、`admin/css/editor.css`：wangEditor 适配与样式；`resource-picker.js`：资源选择器；`admin/api/`：上传、列表、缩略图接口。
 - 后台只有 `super_admin` 与 `editor` 两种固定角色；编辑可管理“内容”“相关”，不能访问“系统”“模块”和“系统账号管理”。超级管理员可创建两种账号，但不可删除或停用超级管理员账号；编辑账号可删除。路由、模型 `project`、独立 API 都要在服务端校验；权限与迁移见 `docs/internal/ADMIN_ROLES.md`。
-- `admin/js/legacy-richtext.js`：主动历史正文优化、原文快照、预览和撤销；`admin/api/richtext.php` 只进行认证和 CSRF 保护下的清洗，不读写文章。转换库本地托管在 `admin/public/legacy-richtext/`，构建源码和锁文件在 `tools/vendor/`。禁止恢复默认自动重排旧正文；维护说明见 `docs/internal/历史富文本优化说明.md`。
+- `admin/js/legacy-inline-images.js`：通过现有上传接口安全转存 Base64 图片；不得全局放行 `data:`，清洗前后和编辑器回填均须检查图片完整性。`admin/js/legacy-richtext.js`：主动历史正文优化、原文快照、预览和撤销；`admin/api/richtext.php` 只进行认证和 CSRF 保护下的清洗，不读写文章。转换库本地托管在 `admin/public/legacy-richtext/`，构建源码和锁文件在 `tools/vendor/`。禁止恢复默认自动重排旧正文；维护说明见 `docs/internal/历史富文本优化说明.md`。
 - `admin/public/wangeditor/`：wangEditor 5.1.23（MIT）；`system/vendor/htmlpurifier/`：HTML Purifier 4.19.1（LGPL）。这些是部署所需源码，应纳入 Git。
 - `docker/`、`compose.yaml`、`bin/dev`：本地容器；`tools/`：初始化、迁移、检查；`tests/regression.php`：HTTP/数据库回归。
 - `install/index.php`、`system/common/install_schema.php`：共享主机的一次性网页安装与开发初始化共用数据导入；用户安装步骤见 `docs/安装指南.md`。本地 Docker 显式关闭网页入口。
