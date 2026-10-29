@@ -39,3 +39,27 @@ if (cms_date('2026-10-27')!==date('m/d',strtotime('2026-10-27')) ||
     throw new RuntimeException('Date helper changed the expected format for a valid date.');
 }
 echo "PASS $mode links preserve model, category and keyword boundaries; date helper keeps empty and formatted output\n";
+
+// Render the actual admin anchors, since an extra template slash changes a valid
+// helper result into a browser-blocked protocol-relative URL.
+define('ROOT_PATH',dirname(__DIR__));
+define('ABS_PATH',ROOT_PATH);
+define('CACHE_PATH',sys_get_temp_dir());
+require dirname(__DIR__).'/system/core/template.php';
+foreach (['admin/template/system/list/title.html','admin/template/classify/index.html'] as $file) {
+    $source=file_get_contents(dirname(__DIR__).'/'.$file);
+    if (!preg_match('~<a href="[^"\n]*\{url\(\$v\[\'html\'\]\)\}[^"\n]*"[^>]*>.*?</a>~s',$source,$anchor)) {
+        throw new RuntimeException('Admin preview anchor missing: '.$file);
+    }
+    foreach (['/content_products_7.html','/article_news_7.html','https://example.com/news'] as $path) {
+        $v=['html'=>$path,'title'=>'预览标题'];
+        $compiled=(new ReflectionMethod(template::class,'parse'))->invoke(null,dirname(__DIR__).'/'.$file,$anchor[0]);
+        ob_start();eval('?>'.$compiled);$rendered=ob_get_clean();
+        preg_match('/href="([^"<>]*)"/',$rendered,$href);
+        $actual=html_entity_decode($href[1]??'',ENT_QUOTES,'UTF-8');
+        if ($actual!==url($path) || str_starts_with($actual,'//')) {
+            throw new RuntimeException('Admin preview URL corrupted: '.$file);
+        }
+    }
+}
+echo "PASS $mode actual admin content and category anchors preserve root-relative and external URLs\n";

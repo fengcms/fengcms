@@ -58,7 +58,7 @@
 					<td><a {if D("classify")->where("classid=".$v['id'])->getcount()>0}href="?controller=classify&id={$v['id']}" class="class_jia"{else}href="#" class="class_jian"{/if}>{$v['name']}</a></td>
 					<td style="text-align:left">
 					{if $v['type']=="module"}
-					<a href="{if URL_TYPE==0}/{/if}{url($v['html'])}" class="color333" target="_blank">预览</a> | 
+					<a href="{url($v['html'])}" class="color333" target="_blank">预览</a> |
 					<a href="?controller=classify&operate=update&id={$v['id']}" class="color333">编辑栏目</a> | 
 					<a href="?controller=classify&operate=delete&id={$v['id']}&type={$v['type']}" class="color333" onclick="javascript:return confirm('您确定要删除“{$v['name']}”，并会清空所属的所有记录吗？')">删除栏目</a> | 
 					<a href="?controller=classify&operate=emptys&id={$v['id']}" class="color333" onclick="javascript:return confirm('您确定要清空所属“{$v['name']}”的所有记录吗？')">清空内容</a>
