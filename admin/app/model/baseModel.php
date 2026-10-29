@@ -50,7 +50,7 @@ class baseModel extends model{
         $allowed=['name','title','domran','key','description','copyright','template'];
         $values=array_intersect_key($array,array_fill_keys($allowed,true));
         foreach($values as $value){if(!is_string($value)){cms_fail(400,'网站设置内容不正确。');}}
-        if(array_key_exists('copyright',$values)){$values['copyright']=cms_clean_html($values['copyright']);}
+        if(array_key_exists('copyright',$values)){$values['copyright']=cms_clean_html_for_save($values['copyright']);}
         CmsSiteSettings::save($values,$urlType,$baseline);
         return ['status'=>'y'];
     }

@@ -8,6 +8,8 @@ if(!location.search){document.querySelector('#root').innerHTML='<h1>后台 ifram
  const info=document.createElement('pre');info.id='results';info.textContent='正在加载…';root.append(info);
  const cases=[['历史正文','<p>前文<span><img src="/image/logo.png" alt="历史图片"></span>后文 <a href="/map.html">链接</a></p>'],['复杂表格','<table><tr><th>标题</th></tr><tr><td colspan="2">合并单元格</td></tr></table>']];
  cases.push(['段落外图片与中文格式','<img src="/image/logo.png" alt="段落外图片"><p><strong>中文、</strong><strong>相邻、</strong><strong>加粗。</strong></p>'+('<p><a href="/map.html"></a><a href="/map.html"><img src="/image/logo.png" alt="链接图片"></a></p>').repeat(20)]);
+ const inlinePng='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAFklEQVQImWPUSNnCwMDAxMDAwMDAAAAOngFEhJ6GOgAAAABJRU5ErkJggg==';
+ cases.push(['Base64 图片（同图重复）','<p>前文<img src="'+inlinePng+'">后文<img src="'+inlinePng+'"></p>'],['伪造 JPEG 声明','<p><img src="'+inlinePng.replace('image/png','image/jpeg')+'"></p>']);
  cases.forEach(([title,html],i)=>{const head=document.createElement('h2');head.textContent=title;const t=document.createElement('textarea');t.name='content'+i;t.dataset.cmsEditor='';t.value=html;root.append(head,t)});
  window.addEventListener('load',async()=>{
   try{
@@ -22,4 +24,4 @@ if(!location.search){document.querySelector('#root').innerHTML='<h1>后台 ifram
  });
 
 }
-</script><script src="/admin/public/wangeditor/index.js"></script><script src="/admin/public/legacy-richtext/index.js"></script><script src="/admin/js/legacy-richtext.js"></script><script src="/admin/js/editor.js"></script></html>
+</script><script src="/admin/public/wangeditor/index.js"></script><script src="/admin/public/legacy-richtext/index.js"></script><script src="/admin/js/legacy-inline-images.js"></script><script src="/admin/js/legacy-richtext.js"></script><script src="/admin/js/editor.js"></script></html>

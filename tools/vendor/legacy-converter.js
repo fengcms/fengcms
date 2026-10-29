@@ -19,8 +19,8 @@ function inspect(html){
 }
 function resources(html,selector,attr){return Array.from(parse(html).querySelectorAll(selector),n=>n.getAttribute(attr));}
 function hasInlineImages(html){return resources(html,'img','src').some(src=>/^data:/i.test((src||'').trim()));}
-function checkImages(before,after){
- if(JSON.stringify(resources(before,'img','src'))!==JSON.stringify(resources(after,'img','src')))throw Error('图片在转换中发生变化，已停止处理，请人工检查原始 HTML。');
+function checkImages(before,after,replacements=new Map()){
+ if(JSON.stringify(resources(before,'img','src').map(src=>replacements.has(src)?replacements.get(src):src))!==JSON.stringify(resources(after,'img','src')))throw Error('图片在转换中发生变化，已停止处理，请人工检查原始 HTML。');
 }
 function checkResources(before,after){
  checkImages(before,after);

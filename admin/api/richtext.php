@@ -8,7 +8,7 @@ require_once dirname(__DIR__, 2).'/system/common/richtext.php';
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store');
 try {
-    $html=cms_clean_html($_POST['html'] ?? null);
+    $html=cms_clean_html_for_save($_POST['html'] ?? null);
     echo json_encode(['error'=>0,'html'=>$html], JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
 } catch (Throwable $error) {
     error_log('Richtext preview cleaning failed: '.$error);

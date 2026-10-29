@@ -20,6 +20,8 @@ jobs:
         run: |
           node --check admin/js/editor.js
           node --check admin/js/legacy-richtext.js
+          node --check admin/js/legacy-inline-images.js
+          node tests/legacy-inline-images-regression.js
           node --check admin/public/legacy-richtext/index.js
           node --check js/common.js
           node --check js/jquery-compat.js

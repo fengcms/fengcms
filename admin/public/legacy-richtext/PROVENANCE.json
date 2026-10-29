@@ -42,7 +42,7 @@
       "license": "MIT"
     }
   ],
-  "bundle_sha256": "7237429c65fc9625f8b3f04f45dd49e7219e31c6755271e8c10acfaa7daa7448",
+  "bundle_sha256": "9201d87aacdb1e3978697e688513ae11a5dc9d4ff7a1772078043ec70ac87c72",
   "source": "tools/vendor/legacy-converter.js",
   "build": "npm ci --prefix tools/vendor && node tools/vendor/build-legacy-richtext.cjs"
 }

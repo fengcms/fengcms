@@ -22,6 +22,24 @@ function cms_clean_html($html): string
     return $purifier->purify($html);
 }
 
+// Writes must fail before purification can discard an unresolved inline image.
+// Public rendering keeps its existing sanitization policy.
+function cms_clean_html_for_save($html): string
+{
+    if (!is_string($html)) { cms_fail(400, '富文本内容必须是字符串。'); }
+    if (strlen($html) > 2 * 1024 * 1024) { cms_fail(413, '正文不能超过 2MB。'); }
+    require_once dirname(__DIR__).'/vendor/htmlpurifier/library/HTMLPurifier.auto.php';
+    $config = HTMLPurifier_Config::createDefault();
+    $lexer = HTMLPurifier_Lexer::create($config);
+    $tokens = $lexer->tokenizeHTML($html, $config, new HTMLPurifier_Context());
+    foreach ($tokens as $token) {
+        if (($token->name ?? null) === 'img' && preg_match('/^data:/i', trim($token->attr['src'] ?? ''))) {
+            cms_fail(400, '正文包含尚未转存的内嵌图片，请先使用“优化历史富文本”完成图片转存后再保存。');
+        }
+    }
+    return cms_clean_html($html);
+}
+
 // Legacy/imported copyright is untrusted until it has passed the current
 // HTML policy. The content hash invalidates the optional cache on every edit.
 function cms_clean_copyright($value): string
@@ -57,7 +75,7 @@ function cms_richtext_fields(string $project): array
 function cms_clean_record(array $record, string $project): array
 {
     foreach (cms_richtext_fields($project) as $name) {
-        if (array_key_exists($name, $record)) { $record[$name] = cms_clean_html($record[$name]); }
+        if (array_key_exists($name, $record)) { $record[$name] = cms_clean_html_for_save($record[$name]); }
     }
     return $record;
 }

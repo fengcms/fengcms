@@ -165,7 +165,7 @@ class classifyModel extends model{
 		}
 		$array=array_intersect_key($array,array_fill_keys($allowed,true));
 		foreach($array as $value){if(!is_string($value) && !is_int($value)){cms_fail(400,'栏目内容不正确。');}}
-		if(array_key_exists('intro',$array)){$array['intro']=cms_clean_html($array['intro']);}
+		if(array_key_exists('intro',$array)){$array['intro']=cms_clean_html_for_save($array['intro']);}
 		if($id===null && ($array['type']??null)!=='url' &&
 			(!isset($array['enname']) || !preg_match('/^[A-Za-z0-9_-]{1,50}$/D',$array['enname']))){
 			cms_fail(400,'栏目英文名称只能包含字母、数字、下划线和连字符，且不能超过 50 字符。');
@@ -241,7 +241,7 @@ class classifyModel extends model{
 		}
 		$names=$classify['name']??null;
 		if(!is_string($names) || $names===''){cms_fail(400,'栏目内容不正确。');}
-		$intro=cms_clean_html($classify['intro']??'');
+		$intro=cms_clean_html_for_save($classify['intro']??'');
 		$topid=$this->topid($classify['classid']??0);
 		$rows=[];
 		foreach(explode("\n",$names) as $v){

@@ -30,6 +30,7 @@
    const {d,area,footer}=dialog('优化历史富文本');
    const warning=document.createElement('p');warning.className='legacy-warning';warning.textContent='警告：使用该功能可能破坏文档的页面布局，请确认历史富文本确实需要处理再使用该功能！';
    const help=document.createElement('p');help.textContent='从本次打开时的原始 HTML 重新排版，将替换当前编辑区未保存的内容。字体、颜色、图片尺寸等可能丢失，保存文章后才会写入数据库。';
+   if(window.FengLegacyConverter?.hasInlineImages(originalHtml))help.textContent+=' 确认后会将内嵌图片加入站内资源库；取消不保存正文，已转存图片会保留，未使用的图片可在资源管理中清理。';
    const status=document.createElement('p');status.setAttribute('role','status');area.append(warning,help,status);
    const controller=new AbortController();
    d.addEventListener('close',()=>controller.abort());
@@ -41,8 +42,12 @@
      if(new TextEncoder().encode(originalHtml).length>2*1024*1024)throw Error('原始正文超过 2MB，暂不支持在线优化。');
      if(!window.FengLegacyConverter)throw Error('转换组件未加载，请刷新页面后重试。');
      FengLegacyConverter.inspect(originalHtml);
-     const safe=await clean(originalHtml,controller.signal);
-     FengLegacyConverter.checkImages(originalHtml,safe);
+     if(!window.FengInlineImages)throw Error('内嵌图片处理组件未加载，请刷新页面后重试。');
+     const prepared=await FengInlineImages.transfer(originalHtml,{upload:window.FengEditor?.upload,signal:controller.signal,
+      onProgress:(done,total)=>{status.textContent='正在转存内嵌图片（'+done+'/'+total+'）…';}});
+     FengLegacyConverter.checkImages(originalHtml,prepared.html,prepared.replacements);
+     const safe=await clean(prepared.html,controller.signal);
+     FengLegacyConverter.checkImages(prepared.html,safe);
      const html=await clean(FengLegacyConverter.convert(safe),controller.signal);
      if(!d.open)return;
      FengLegacyConverter.checkContent(safe,html);

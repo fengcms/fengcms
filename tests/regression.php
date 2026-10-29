@@ -242,6 +242,12 @@ try {
     expect_check(request('POST','/admin/api/richtext.php',$cookies,['html'=>'x'])['status']===403,'richtext cleaning requires CSRF');
     expect_check(request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>['x']])['status']===400,'richtext cleaning rejects arrays');
     expect_check(request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>str_repeat('x',2*1024*1024+1)])['status']===413,'richtext cleaning bounds input size');
+    foreach (['<img src="data:image/png;base64,AQIDBA==">','<IMG SRC="d&#97;ta:image/jpeg;base64,AQIDBA==">','<span><img src="data:image/svg+xml;base64,AQIDBA=="></span>'] as $inlineHtml) {
+        $inlineResponse=request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>$inlineHtml]);
+        expect_check($inlineResponse['status']===400 && str_contains($inlineResponse['body'],'内嵌图片'),'richtext cleaning rejects unresolved inline images before stripping');
+    }
+    $inlineText=request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>'<p>示例 &lt;img src="data:image/png;base64,AQIDBA=="&gt;</p>']);
+    expect_check($inlineText['status']===200,'richtext guard allows inline image markup displayed as text');
     $cleanPreview=request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>'<p>正文<span><img src="/image/logo.png" onerror="alert(1)"></span><a href="javascript:alert(1)">链接</a></p>']);
     expect_check($cleanPreview['status']===200 && str_contains($cleanPreview['json']['html']??'','/image/logo.png') && !str_contains($cleanPreview['json']['html'],'onerror') && !str_contains($cleanPreview['json']['html'],'javascript:'),'richtext preview preserves images and removes unsafe attributes and protocols');
 
@@ -1155,6 +1161,11 @@ try {
     $edit=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,['_csrf'=>$newToken,'id'=>$articleId,'title'=>'updated_'.$tag,'info'=>'updated','content'=>$rich]);
     expect_check(($edit['json']['status']??'')==='y','article edit succeeds with CSRF');
     expect_check($db->query('SELECT title FROM f_article WHERE id='.(int)$articleId)->fetch_assoc()['title']==='updated_'.$tag,'article edit persists');
+    $inlineSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>$articleId,'title'=>'must_not_change_'.$tag,'content'=>'<p><img src="data:image/png;base64,AQIDBA=="></p>']);
+    $inlineUnchanged=$db->query('SELECT title,content FROM f_article WHERE id='.(int)$articleId)->fetch_assoc();
+    expect_check($inlineSave['status']===400 && $inlineUnchanged['title']==='updated_'.$tag && $inlineUnchanged['content']===$rich,
+        'article rejects unresolved inline images without changing title or content');
     $attack='<p onclick="alert(1)">安全<strong>加粗</strong><script>alert(1)</script><iframe src="https://example.com"></iframe><a href="javascript:alert(1)">链接</a><img src="/upload/safe.png" onerror="alert(1)"></p>';
     $cleanSave=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,['_csrf'=>$newToken,'id'=>$articleId,'title'=>'updated_'.$tag,'content'=>$attack]);
     $cleaned=$db->query('SELECT content FROM f_article WHERE id='.(int)$articleId)->fetch_assoc()['content'];
@@ -2038,6 +2049,8 @@ try {
         'upload directory traversal is rejected');
     expect_check(upload($cookies,$newToken,'fake.pdf','plain text','file')['status']===400,
         'attachment extension must match detected MIME');
+    expect_check(upload($cookies,$newToken,'legacy-base64.jpg',$png)['status']===400,
+        'inline image transfer cannot disguise PNG bytes as a declared JPEG');
     $hugePng=substr_replace($png,pack('NN',50000,50000),16,8);
     $hugePng=substr_replace($hugePng,hash('crc32b',substr($hugePng,12,17),true),29,4);
     expect_check(upload($cookies,$newToken,'huge.png',$hugePng)['status']===400,

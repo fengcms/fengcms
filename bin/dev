@@ -37,6 +37,7 @@ case "${1:-up}" in
     test)
         docker compose exec -T php php tests/runtime-version-regression.php
         docker compose exec -T php php tests/config-loader-regression.php
+        node tests/legacy-inline-images-regression.js
         node tests/message-form-regression.js
         sh tests/message-workflow-regression.sh
         docker compose exec -T php php tests/template-compiler-regression.php

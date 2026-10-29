@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>内嵌图片转存回归</title><pre id="result">正在验证</pre>
+<script src="/admin/public/legacy-richtext/index.js"></script><script src="/admin/js/legacy-inline-images.js"></script><script>
+(async()=>{
+ const results=[],controller=new AbortController();
+ const check=(ok,message)=>{if(!ok)throw Error(message);results.push('PASS '+message);};
+ const expectFailure=async(fn,message)=>{let failed=false;try{await fn()}catch(_){failed=true}check(failed,message);};
+ const uri='data:image/png;base64,AQIDBA==',html='<p>文字<img src="'+uri+'"><span><img src="'+uri+'"></span></p>';
+ const url='/upload/image/20261029/'+ 'a'.repeat(32)+'.png';let calls=0;
+ const upload=async(file,dir,progress,signal,key)=>{calls++;check(file.name==='legacy-base64.png'&&dir==='image'&&key.length===32,'上传参数沿用安全接口');return url;};
+ const first=await FengInlineImages.transfer(html,{upload,signal:controller.signal});
+ FengLegacyConverter.checkImages(html,first.html,first.replacements);check(first.count===2&&calls===1,'重复图片只转存一次并按映射替换');
+ await FengInlineImages.transfer(html,{upload,signal:controller.signal});check(calls===1,'同页重复预览复用成功路径');
+ await expectFailure(()=>FengLegacyConverter.checkImages(html,'<p>文字</p>'),'清洗丢图必须报错');
+ let early=0;
+ await expectFailure(()=>FengInlineImages.transfer('<img src="data:image/gif;base64,AQIDBAUG"><img src="data:image/png;base64,broken">',{upload:async()=>{early++;return url;}}),'预检失败停止整个流程');check(early===0,'所有图片预检通过前不上传');
+ const failedHtml='<img src="data:image/jpeg;base64,AQIDBAUG">';let previousKey,attempt=0;
+ await expectFailure(()=>FengInlineImages.transfer(failedHtml,{upload:async(f,d,p,s,key)=>{attempt++;previousKey=key;throw Error('模拟响应丢失');}}),'上传失败不发布转换结果');
+ const retry=await FengInlineImages.transfer(failedHtml,{upload:async(f,d,p,s,key)=>{attempt++;check(previousKey===key,'响应丢失重试使用相同幂等键');return url.replace('.png','.jpg');}});check(attempt===2&&retry.count===1,'失败后可以继续重试');
+ const abort=new AbortController();let abortedKey;
+ await expectFailure(()=>FengInlineImages.transfer('<img src="data:image/bmp;base64,AQIDBAUGBw==">',{signal:abort.signal,upload:async(f,d,p,s,key)=>{abortedKey=key;abort.abort();return url.replace('.png','.bmp');}}),'取消不发布转换结果');
+ let secondUpload=0;await FengInlineImages.transfer('<img src="data:image/bmp;base64,AQIDBAUGBw==">',{upload:async()=>{secondUpload++;return url;}});check(secondUpload===0,'取消后保留已成功返回的路径供重试');
+ await expectFailure(()=>FengInlineImages.transfer('<img src="data:image/png;base64,AQIDBAU=">',{upload:async()=> 'https://example.com/a.png'}),'拒绝上传接口返回非站内路径');
+ await expectFailure(()=>FengInlineImages.transfer('x'.repeat(2*1024*1024+1),{upload}),'正文大小受限');
+ document.querySelector('#result').textContent=results.join('\n');
+})().catch(error=>document.querySelector('#result').textContent+='\nFAIL '+error.stack);
+</script></html>
