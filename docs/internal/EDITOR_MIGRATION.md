@@ -55,3 +55,7 @@ wangEditor 5.1.23 会把 `<p><span><img …></span></p>` 解析为空段落，�
 新增 `tests/editor-legacy-images.html` 浏览器夹具，使用实际本地 wangEditor 与适配层，覆盖段落内包图、根节点 span、多层 span、混合文字、多图、已有标准内容、图片尺寸以及序列化后再次解析。可将夹具临时复制到本地静态目录执行，完成后删除临时副本；`tests/` 在正式服务器规则中禁止直接访问。
 
 实测原始示例直接传给 wangEditor 输出 `<p><br></p>`；经过适配后六项断言通过，六张图片均正常加载。`node --check admin/js/editor.js`、`node tests/editor-regression.js` 通过。截图位于忽略目录 `var/verification/editor-legacy-images.png`。本轮未批量转换历史文章，也未在客户站点部署。
+
+## 2026-10-29：改为主动优化
+
+上一节 span 自动兼容逻辑已撤掉。改为用户确认后执行 HTML → Markdown → HTML 转换，并提供原始 HTML 查看、预览、应用和撤销，见[历史富文本优化说明](历史富文本优化说明.md)。历史说明保留作为变更记录，不能据此恢复默认自动处理。
