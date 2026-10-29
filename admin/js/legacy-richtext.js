@@ -42,6 +42,7 @@
      if(!window.FengLegacyConverter)throw Error('转换组件未加载，请刷新页面后重试。');
      FengLegacyConverter.inspect(originalHtml);
      const safe=await clean(originalHtml,controller.signal);
+     FengLegacyConverter.checkImages(originalHtml,safe);
      const html=await clean(FengLegacyConverter.convert(safe),controller.signal);
      if(!d.open)return;
      FengLegacyConverter.checkContent(safe,html);

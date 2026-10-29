@@ -18,8 +18,12 @@ function inspect(html){
  if(tables.some(t=>!t.querySelector('tr') || !t.querySelector('tr').querySelector('th')))throw Error('正文包含没有表头的表格，暂不支持自动优化，请先补充表头。');
 }
 function resources(html,selector,attr){return Array.from(parse(html).querySelectorAll(selector),n=>n.getAttribute(attr));}
-function checkResources(before,after){
+function hasInlineImages(html){return resources(html,'img','src').some(src=>/^data:/i.test((src||'').trim()));}
+function checkImages(before,after){
  if(JSON.stringify(resources(before,'img','src'))!==JSON.stringify(resources(after,'img','src')))throw Error('图片在转换中发生变化，已停止处理，请人工检查原始 HTML。');
+}
+function checkResources(before,after){
+ checkImages(before,after);
  // wangEditor serializes linked images as img[data-href], rather than a > img.
  const links=html=>Array.from(parse(html).querySelectorAll('a[href],img[data-href]')).filter(node=>
   node.tagName==='A' ? node.textContent.trim() || node.querySelector('img') : !node.closest('a[href]')
@@ -37,4 +41,4 @@ function forStorage(html){const root=parse(html);root.querySelectorAll('img[data
  const href=image.getAttribute('data-href');image.removeAttribute('data-href');
  if(href&&!image.closest('a[href]')){const link=document.createElement('a');link.setAttribute('href',href);image.replaceWith(link);link.append(image);}
 });const t=document.createElement('template');t.content.append(root);return t.innerHTML;}
-window.FengLegacyConverter={inspect,convert,checkResources,checkContent,forEditor,forStorage};
+window.FengLegacyConverter={inspect,convert,checkImages,hasInlineImages,checkResources,checkContent,forEditor,forStorage};

@@ -63,3 +63,17 @@ restore();
 assert.equal(disabled,true);
 assert.equal(textarea.value,'<p>无法直接解析的历史原文</p>','undo of recovery restores the protected original');
 console.log('编辑器初始化失败保护通过：原文、优化入口及撤销恢复均保留。');
+// Base64 source must be protected even when an editor silently drops the image.
+textarea.value='<p><img src="data:image/png;base64,AAAA"></p>';
+const inlineOriginal=textarea.value;
+context.window.FengLegacyConverter={hasInlineImages:html=>html.includes('data:image/'),forEditor:html=>html,forStorage:html=>html};
+context.window.wangEditor.createEditor=options=>({...editor,enable(){},disable(){}});
+vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/editor.js'),'utf8'),context);
+context.window.FengEditor.sync();assert.equal(textarea.value,inlineOriginal);
+blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});
+assert.equal(blocked,true,'ordinary save must not silently strip an untransferred Base64 image');
+const restoreInline=legacyOptions.onApplied();
+blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,false);
+restoreInline();context.window.FengEditor.sync();assert.equal(textarea.value,inlineOriginal);
+blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,true);
+console.log('Base64 保存保护通过：原文保持、转存前阻止保存、撤销恢复保护。');

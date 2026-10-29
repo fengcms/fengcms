@@ -3,6 +3,7 @@
     'use strict';
     const instances = new Map();
     const failedEditors = new Set();
+    const inlineEditors = new Set();
     let pending = 0;
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
     const uploadKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
@@ -49,7 +50,7 @@
             });
         } finally { pending--; }
     }
-    function sync() { instances.forEach((editor, textarea) => { if (!failedEditors.has(editor)) {const html=editor.isEmpty()?'':editor.getHtml();textarea.value=window.FengLegacyConverter?.forStorage(html)??html;} }); }
+    function sync() { instances.forEach((editor, textarea) => { if (!failedEditors.has(editor) && !inlineEditors.has(editor)) {const html=editor.isEmpty()?'':editor.getHtml();textarea.value=window.FengLegacyConverter?.forStorage(html)??html;} }); }
     // The administration shell embeds forms in an iframe. Expand that frame
     // while an editor is fullscreen; removing the class restores its layout.
     function updateFullscreenFrame() {
@@ -94,6 +95,10 @@
             }
         });
         const recovery = document.createElement('p');
+        const inlineNotice = document.createElement('p');inlineNotice.className='legacy-warning';inlineNotice.hidden=true;
+        inlineNotice.textContent='原文包含 Base64 内嵌图片，请先使用“优化历史富文本”安全转存图片，再保存文章。';wrapper.before(inlineNotice);
+        function protectInlineImages(){inlineEditors.add(editor);inlineNotice.hidden=false;textarea.value=originalHtml;}
+        if(window.FengLegacyConverter?.hasInlineImages(originalHtml))protectInlineImages();
         recovery.className = 'legacy-warning'; recovery.hidden = true;
         recovery.textContent = '历史正文无法直接载入编辑器，原始 HTML 已保留。请先优化历史富文本并检查结果；处理完成前不能保存。';
         wrapper.before(recovery);
@@ -132,9 +137,10 @@
         window.FengLegacyRichtext?.mount({textarea, editor, wrapper, originalHtml, canOptimize:()=>pending===0,
             onApplied:()=>{
                 const wasFailed=failedEditors.has(editor);
+                const hadInline=inlineEditors.has(editor);inlineEditors.delete(editor);inlineNotice.hidden=true;
                 failedEditors.delete(editor); editor.enable(); textarea.hidden=true; textarea.readOnly=false;
                 wrapper.style.display=''; recovery.hidden=true;
-                return ()=>{if(wasFailed)showRecovery();};
+                return ()=>{if(wasFailed)showRecovery();if(hadInline)protectInlineImages();};
             }});
     }
     function setField(id, urls, multiple) {
@@ -150,11 +156,12 @@
     document.addEventListener('click',function(event){
         const pick=event.target.closest('[data-cms-target]');if(pick){event.preventDefault();picker(pick);return;}
         if(event.target.closest('#save, [type="submit"]')){
+            if(inlineEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('正文含 Base64 图片，请先使用“优化历史富文本”转存图片，避免保存时丢失。');return;}
             if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('存在无法载入的历史正文，请先优化并检查，避免保存时丢失内容。');return;}
             if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成，请稍后保存。');return;}sync();
         }
     },true);
-    document.addEventListener('submit',function(event){if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先处理无法载入的历史正文。');}else if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
+    document.addEventListener('submit',function(event){if(inlineEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先转存正文中的 Base64 图片。');}else if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先处理无法载入的历史正文。');}else if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
     function start(){document.querySelectorAll('textarea[data-cms-editor]').forEach(mount);}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
     window.addEventListener('pageshow', updateFullscreenFrame);
