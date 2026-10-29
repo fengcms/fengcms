@@ -14,6 +14,8 @@ jobs:
           node-version: '22'
       - name: 核验本地依赖来源
         run: python3 tools/verify-dependencies.py
+      - name: 增补发布包回归
+        run: python3 tests/package-upgrade-regression.py
       - name: 旧模型导入码转换回归
         run: python3 tests/legacy-model-converter.py
       - name: 前端语法与无数据库回归

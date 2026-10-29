@@ -63,6 +63,7 @@ chore(git): 配置中文提交规范校验
 - 冒号后一个半角空格，描述包含中文且简洁准确；正文也使用中文，可保留技术名称。破坏性变更在正文以 `BREAKING CHANGE:` 说明。
 - 合并和回退提交也必须使用上述标题；合并时自行指定规范消息，回退默认消息应编辑后再提交。不要使用 `--no-verify` 绕过检查。
 - 首次克隆运行 `./bin/setup-git-hooks`，启用仓库内 `.githooks/commit-msg`（需要 Python 3，只用于开发工具）。此配置不随 clone 自动生效；新环境必须执行。钩子属于本地防错，不能替代托管平台的分支规则或 CI。
+- 发布前确认最终提交的 GitHub static 与 PHP 8.4/8.5 integration 全部通过，失败时不得发布。完整包和增补包使用 `bin/package-release` / `bin/package-upgrade`，维护说明见 `docs/internal/增补发布包维护说明.md`。
 - 每个关键节点提交，避免混入无关改动。维护 `.gitignore`：`.env`/密钥、私有 `config.php`、上传、缓存、备份、日志、运行时、截图、下载缓存及本地 Git 历史备份不提交；`.env.example` 与 `config.example.php` 保留安全占位。
 - 不输出 `.env` 或生产凭证。提交前检查 `git diff --cached`，不要盲目提交测试数据。
 - 未经要求不 push，不重写或强制推送共享历史。维护者已授权的历史改写先生成忽略目录中的 Git bundle，并核对每个提交文件树、作者和时间保持不变。远端跟踪引用反映远端已知状态，不为美化日志伪造更新。

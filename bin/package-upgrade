@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""Generate and verify an overlay from two immutable release file trees."""
+import hashlib
+import io
+import json
+from pathlib import Path, PurePosixPath
+import re
+import subprocess
+import sys
+import zipfile
+
+ROOT = Path(__file__).resolve().parent.parent
+MANUAL = {'.htaccess', 'web.config', 'nginx.conf', 'httpd.ini', 'docker/nginx/default.conf'}
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+def safe_path(name):
+    path = PurePosixPath(name)
+    if not name or path.is_absolute() or '..' in path.parts or '\\' in name or str(path) != name:
+        raise ValueError('不安全的发布文件路径：' + name)
+    return name
+
+def tree(ref):
+    data = subprocess.check_output(['git', 'archive', '--format=zip', ref], cwd=ROOT)
+    result = {}
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for item in archive.infolist():
+            if item.is_dir():
+                continue
+            name = safe_path(item.filename)
+            mode = item.external_attr >> 16
+            if mode & 0o170000 not in (0, 0o100000):
+                raise ValueError('增补包不支持链接或特殊文件：' + name)
+            if name in result:
+                raise ValueError('重复发布路径：' + name)
+            result[name] = (archive.read(item), mode)
+    return result
+
+def build(base, target, output, base_tag, target_tag, base_commit, target_commit):
+    migration_note = (f'从本包对应的正式 {base_tag} 到 {target_tag} 无新增数据库结构迁移，不运行安装器；若从更早版本升级，请使用完整包和对应迁移指南。'
+                      if (base_tag, target_tag) == ('v1.37', 'v1.38') else
+                      '数据库迁移要求以目标版本发布说明为准；增补文件包不表示无需迁移。不运行首次安装器。')
+    changes = []
+    for name in sorted(base.keys() | target.keys()):
+        safe_path(name)
+        if base.get(name) == target.get(name):
+            continue
+        old, new = base.get(name), target.get(name)
+        changes.append({'path': name, 'action': 'delete' if new is None else 'add' if old is None else 'modify',
+                        'manual': name in MANUAL, 'before_sha256': digest(old[0]) if old else None,
+                        'after_sha256': digest(new[0]) if new else None,
+                        'before_mode': old[1] if old else None, 'after_mode': new[1] if new else None})
+    manifest = {'format': 1, 'from': base_tag, 'to': target_tag, 'base_commit': base_commit,
+                'target_commit': target_commit, 'files': changes}
+    deleted = [row['path'] for row in changes if row['action'] == 'delete']
+    manual = [row['path'] for row in changes if row['manual'] and row['action'] != 'delete']
+    automatic = [row['path'] for row in changes if not row['manual'] and row['action'] != 'delete']
+    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        def write(name, data, mode=0o100644):
+            entry = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))
+            entry.create_system = 3
+            entry.external_attr = mode << 16
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(entry, data)
+        for row in changes:
+            if row['action'] != 'delete':
+                prefix = '服务器配置参考/' if row['manual'] else '网站文件/'
+                data, mode = target[row['path']]
+                write(prefix + row['path'], data, mode)
+        write('文件校验清单.json', json.dumps(manifest, ensure_ascii=False, indent=2).encode())
+        write('覆盖文件清单.md', ('# 新增与覆盖文件\n\n以下文件位于“网站文件”目录，按相对路径上传。定制过同名文件时先合并。\n\n' + '\n'.join('- `' + name + '`' for name in automatic) + '\n').encode())
+        write('需要删除的文件清单.md', ('# 需要删除的文件\n\n' + ('仅删除已确认属于原版本的以下文件；先备份，不删除用户自己的文件。\n\n' + '\n'.join('- `' + name + '`' for name in deleted) if deleted else '本次没有需要删除的文件。') + '\n').encode())
+        write('服务器配置说明.md', ('''# 服务器配置说明
+
+“服务器配置参考”目录不用于直接覆盖。请按实际服务器选择配置，保留自己的域名、证书、PHP-FPM、目录及定制规则。
+
+v1.37 → v1.38 新增 `/admin/api/richtext.php`。适用于此版本组合时，若使用本项目的 PHP 入口白名单，在原 upload|files|thumbnail 后增加 |richtext，其余禁止规则保持不变。其他版本组合以目标版本发布说明为准。
+
+- Apache：比较 .htaccess；保留隐藏文件可见，确认新接口允许访问。
+- IIS：比较 web.config 中的 PHP 白名单，目标 Windows/IIS 环境仍需实际验证。
+- Nginx：修改站点实际生效的 PHP 入口白名单；根目录 nginx.conf 只是伪静态片段，复制片段不能更新主机上的入口白名单。Docker 用户参考 docker/nginx/default.conf。
+
+Nginx/IIS 等配置变更须由有权限的维护人员检查并按主机方式加载；不要移除全局 PHP 执行限制。登录后台试用历史富文本优化，确认接口不返回 403/404，并清除前后台模板缓存、强制刷新浏览器静态资源。
+
+本包配置参考文件：
+
+''' + '\n'.join('- `' + name + '`' for name in manual) + '\n').encode())
+        write('升级说明.md', f'''# FengCMS {base_tag} → {target_tag} 增补升级
+
+此包只适用于已完整运行正式 {base_tag} 的网站，不是安装包，也不能直接从更早版本升级。GitHub 的 Source code 下载不是本增补包。
+
+1. 完整备份代码、数据库、上传文件、私有配置及运行配置，在独立副本先验证可恢复。
+2. 核对当前版本与文件。相同版本号也可能有不同构建；本站修改过的文件、摘要与“文件校验清单.json”中 before_sha256 不一致的文件，应先人工比较和合并。仅版本号一致不能保证可直接覆盖。
+3. 暂停后台写入；将“网站文件”目录里面的内容按原目录结构上传到网站根目录，不要把“网站文件”本身作为子目录上传。与目标版本摘要一致的文件可跳过。
+4. 按“服务器配置说明.md”处理生效配置，再检查“需要删除的文件清单.md”。不要直接覆盖服务器配置。
+5. 清除前后台模板缓存，强制刷新浏览器。检查后台版本、登录、上传、单图/多图字段、历史富文本优化及本站前台定制功能。
+6. 副本通过后按同样步骤正式升级。失败时停写并恢复同一备份点的代码、数据、上传及运行配置。
+
+{migration_note}
+
+本包不携带私有配置、用户上传和数据库。原有前台模板写法不变；本轮改变了后台模板，如有后台定制必须合并。
+
+文件清单记录新增、修改、删除及前后 SHA-256；摘要用于检测差异，不能自动合并定制。当前包本身的 SHA-256 以 Release 附带的校验文件为准。
+
+基准提交：{base_commit}
+目标提交：{target_commit}
+'''.encode())
+    verify(base, target, output)
+    return manifest
+
+def verify(base, target, output):
+    reconstructed = dict(base)
+    with zipfile.ZipFile(output) as archive:
+        manifest = json.loads(archive.read('文件校验清单.json'))
+        names = archive.namelist()
+        if len(names) != len(set(names)):
+            raise ValueError('增补包含重复 ZIP 路径。')
+        for name in names:
+            safe_path(name)
+        expected = set()
+        for row in manifest['files']:
+            name = safe_path(row['path'])
+            old = base.get(name)
+            if row['before_sha256'] != (digest(old[0]) if old else None) or row['before_mode'] != (old[1] if old else None):
+                raise ValueError('升级前摘要不匹配：' + name)
+            if row['action'] == 'delete':
+                del reconstructed[name]
+                continue
+            member = ('服务器配置参考/' if row['manual'] else '网站文件/') + name
+            expected.add(member)
+            data = archive.read(member)
+            mode = archive.getinfo(member).external_attr >> 16
+            if digest(data) != row['after_sha256'] or mode != row['after_mode']:
+                raise ValueError('增补文件摘要或权限不匹配：' + name)
+            reconstructed[name] = (data, mode)
+        payload = {name for name in archive.namelist() if name.startswith(('网站文件/', '服务器配置参考/'))}
+        if expected != payload or reconstructed != target:
+            raise ValueError('增补叠加结果与完整目标发布树不同。')
+
+def main():
+    if len(sys.argv) != 3:
+        raise SystemExit('用法：./bin/package-upgrade v1.37 v1.38')
+    base_tag, target_tag = sys.argv[1:]
+    commits = []
+    for tag in (base_tag, target_tag):
+        if not re.fullmatch(r'v[0-9]+\.[0-9]+(?:\.[0-9]+)?', tag):
+            raise SystemExit('版本标签格式不正确。')
+        commits.append(subprocess.check_output(['git', 'rev-parse', '--verify', f'refs/tags/{tag}^{{commit}}'], cwd=ROOT, text=True).strip())
+        if subprocess.check_output(['git', 'show', f'refs/tags/{tag}:admin/version.php'], cwd=ROOT, text=True).strip() != tag:
+            raise SystemExit('版本文件与标签不一致：' + tag)
+    subprocess.run(['git', 'merge-base', '--is-ancestor', *commits], cwd=ROOT, check=True)
+    if commits[0] == commits[1]:
+        raise SystemExit('升级起点和终点不能相同。')
+    base, target = (tree(f'refs/tags/{tag}') for tag in (base_tag, target_tag))
+    directory = ROOT/'var/releases'
+    directory.mkdir(parents=True, exist_ok=True)
+    output = directory/f'fengcms-{base_tag}-to-{target_tag}.zip'
+    manifest = build(base, target, output, base_tag, target_tag, *commits)
+    (directory/f'fengcms-{base_tag}-to-{target_tag}.sha256').write_text(f'{digest(output.read_bytes())}  {output.name}\n')
+    print(f'已生成并验证 {output.name}：{len(manifest["files"])} 个变更，与完整目标发布树一致。')
+
+if __name__ == '__main__':
+    main()

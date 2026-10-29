@@ -2,7 +2,7 @@
 set -eu
 
 cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-tag=${1:?Usage: ./bin/package-release vX.Y[.Z]}
+tag=${1:?Usage: ./bin/package-release vX.Y[.Z] [base-tag]}
 if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
     echo 'Release tag must be vX.Y or vX.Y.Z.' >&2
     exit 2
@@ -62,3 +62,9 @@ with zipfile.ZipFile(package) as archive:
 PY
 printf '%s  %s\n' "$(shasum -a 256 "$package" | awk '{print $1}')" "fengcms-$tag.zip" > "$checksum"
 echo "Created $package and $checksum"
+
+if [ -n "${2:-}" ]; then
+    ./bin/package-upgrade "$2" "$tag"
+    cat "$checksum" "var/releases/fengcms-$2-to-$tag.sha256" > var/releases/SHA256SUMS.txt
+    echo 'Created var/releases/SHA256SUMS.txt'
+fi
