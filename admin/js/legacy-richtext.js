@@ -1,6 +1,22 @@
 /* Explicit, reversible legacy conversion. Original HTML never comes from getHtml(). */
 (function(){
  'use strict';
+ const actions=new WeakMap();
+ const menuDefinitions=[
+  ['cmsLegacyOptimize','优化历史富文本','optimize','<path d="M3 3h10v2H5v14h14v-8h2v10H3zM16 2l1.5 3.5L21 7l-3.5 1.5L16 12l-1.5-3.5L11 7l3.5-1.5z"/>'],
+  ['cmsLegacySource','查看原始 HTML','source','<path d="m8 5-7 7 7 7 1.5-1.5L4 12l5.5-5.5zm8 0-1.5 1.5L20 12l-5.5 5.5L16 19l7-7zM13 3l-4 18h2l4-18z"/>'],
+  ['cmsLegacyUndo','撤销本次优化','undo','<path d="M7 4 1 10l6 6v-5h7a5 5 0 0 1 0 10h-2v2h2a7 7 0 0 0 0-14H7z"/>']
+ ];
+ if(window.wangEditor?.Boot)for(const [key,title,action,path] of menuDefinitions){
+  window.wangEditor.Boot.registerMenu({key,factory:()=>({title,tag:'button',iconSvg:'<svg viewBox="0 0 24 24">'+path+'</svg>',
+   getValue:()=>'',isActive:()=>false,
+   isDisabled(editor){const control=actions.get(editor)?.[action];const disabled=!control||control.disabled||(action==='undo'&&control.hidden);
+    // These document actions do not need a text selection. Preserve their own availability.
+    this.alwaysEnable=!disabled;return disabled;},
+   exec:editor=>actions.get(editor)?.[action].click()
+  })});
+ }
+
  function button(text,fn){const b=document.createElement('button');b.type='button';b.textContent=text;b.addEventListener('click',fn);return b;}
  async function clean(html,signal){
   const response=await fetch('/admin/api/richtext.php',{method:'POST',credentials:'same-origin',signal,
@@ -10,11 +26,12 @@
   return result.html;
  }
  function replaceHtml(editor,html){editor.deselect();editor.blur();editor.setHtml(window.FengLegacyConverter?.forEditor(html)??html);}
- function mount({textarea,editor,wrapper,originalHtml,canOptimize=()=>true,onApplied=()=>()=>{}}){
-  const row=document.createElement('div');row.className='legacy-actions';wrapper.before(row);
+ function mount({textarea,editor,wrapper,originalHtml,canOptimize=()=>true,onApplied=()=>()=>{},recovery=false}){
+  const row=document.createElement('div');row.className='legacy-actions legacy-recovery-actions';row.hidden=!recovery;wrapper.before(row);
+  const statusRow=document.createElement('div');statusRow.className='legacy-editor-status';wrapper.append(statusRow);
   let previous=null,applied=null,restoreState=()=>{};
   const note=document.createElement('span');note.setAttribute('role','status');
-  const undo=button('撤销本次优化',()=>{if(previous!==null){if(editor.getHtml()!==applied&&!window.confirm('撤销优化将放弃优化后新增的编辑内容，是否继续？'))return;replaceHtml(editor,previous);textarea.value=window.FengLegacyConverter?.forStorage(previous)??previous;restoreState();previous=null;undo.hidden=true;note.textContent='已恢复优化前的编辑内容。';}});undo.hidden=true;
+  const undo=button('撤销本次优化',()=>{if(previous!==null){if(editor.getHtml()!==applied&&!window.confirm('撤销优化将放弃优化后新增的编辑内容，是否继续？'))return;replaceHtml(editor,previous);textarea.value=window.FengLegacyConverter?.forStorage(previous)??previous;restoreState();previous=null;undo.hidden=true;note.textContent='已恢复优化前的编辑内容。';editor.emit('change');}});undo.hidden=true;
   function dialog(title){
    const d=document.createElement('dialog');d.className='legacy-dialog';
    const h=document.createElement('h2');h.textContent=title;const area=document.createElement('div');area.className='legacy-dialog-body';
@@ -59,7 +76,7 @@
       try{
        replaceHtml(editor,html);const rendered=editor.isEmpty()?'':editor.getHtml();
        FengLegacyConverter.checkContent(html,rendered);
-       previous=before;applied=rendered;textarea.value=FengLegacyConverter.forStorage(rendered);restoreState=onApplied();undo.hidden=false;note.textContent='已优化，请检查内容并保存文章。';d.close();
+       previous=before;applied=rendered;textarea.value=FengLegacyConverter.forStorage(rendered);restoreState=onApplied();undo.hidden=false;note.textContent='已优化，请检查内容并保存文章。';editor.emit('change');d.close();
       }catch(error){replaceHtml(editor,before);status.textContent='编辑器无法完整接收转换结果，已恢复原内容。'+error.message;}
 
      }));
@@ -67,7 +84,10 @@
    });footer.append(cancel,confirm);
   });
   optimize.disabled=!originalHtml.trim();if(optimize.disabled)optimize.title='本次打开时没有历史正文。';
-  row.append(optimize,source,undo,note);
+  row.append(optimize,source,undo);statusRow.append(note);
+  actions.set(editor,{optimize,source,undo});
+  editor.on('destroyed',()=>{actions.delete(editor);row.remove();});
+  return {setRecovery:active=>{row.hidden=!active;}};
  }
  window.FengLegacyRichtext={mount};
 }());

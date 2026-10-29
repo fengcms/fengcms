@@ -37,6 +37,7 @@ for (const link of ['javascript:alert(1)','data:text/html,evil','//evil.example/
 }
 const group = toolbarOptions.config.toolbarKeys.find(item=>item.key==='group-image');
 assert.equal(Array.from(group.menuKeys).join(','),'uploadImage,insertImage');
+for(const key of ['cmsLegacyOptimize','cmsLegacySource','cmsLegacyUndo'])assert.ok(toolbarOptions.config.toolbarKeys.includes(key),'historical tools belong to the editor toolbar');
 editorOptions.config.onChange();
 assert.equal(textarea.value,'<p>同步正文</p>');
 assert.equal(legacyOptions.originalHtml,'<p>已有正文</p>','original HTML snapshot survives editor synchronization');
@@ -49,6 +50,7 @@ context.window.wangEditor.createEditor=options=>{editorOptions=options;return br
 vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/editor.js'),'utf8'),context);
 assert.equal(editorOptions.html,'<p><br></p>','create a stable editor before loading legacy HTML');
 assert.equal(disabled,true);
+assert.equal(legacyOptions.recovery,true,'failed parsing retains external recovery buttons');
 assert.equal(textarea.readOnly,true);
 assert.equal(textarea.hidden,false);
 context.window.FengEditor.sync();
@@ -77,3 +79,27 @@ blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePr
 restoreInline();context.window.FengEditor.sync();assert.equal(textarea.value,inlineOriginal);
 blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,true);
 console.log('Base64 保存保护通过：原文保持、转存前阻止保存、撤销恢复保护。');
+// Real custom menus remain available without a selection and bind to each field's source.
+const menus=new Map(),elements=[];
+function menuNode(tag){const events={};const element={tag,hidden:false,disabled:false,children:[],
+ append(...children){this.children.push(...children);},before(){},setAttribute(){},remove(){},
+ addEventListener(name,fn){events[name]=fn;},click(){if(!this.disabled)events.click?.();},showModal(){this.open=true;}};
+ elements.push(element);return element;}
+const menuContext={window:{wangEditor:{Boot:{registerMenu:menu=>menus.set(menu.key,menu.factory())}}},
+ document:{createElement:menuNode,body:menuNode('body')},AbortController,TextEncoder};
+vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/legacy-richtext.js'),'utf8'),menuContext);
+const sourceMenu=menus.get('cmsLegacySource'),optimizeMenu=menus.get('cmsLegacyOptimize'),undoMenu=menus.get('cmsLegacyUndo');
+const fieldA={on(){}},fieldB={on(){}};
+assert.equal(sourceMenu.isDisabled(fieldA),true,'unmounted fields have no actions');
+for(const [field,original] of [[fieldA,'<p>字段甲原文</p>'],[fieldB,'']])menuContext.window.FengLegacyRichtext.mount({
+ editor:field,textarea:{},wrapper:menuNode('wrapper'),originalHtml:original});
+assert.equal(sourceMenu.isDisabled(fieldA),false);assert.equal(sourceMenu.alwaysEnable,true,'source view needs no text selection');
+assert.equal(optimizeMenu.isDisabled(fieldA),false);assert.equal(optimizeMenu.alwaysEnable,true);
+assert.equal(optimizeMenu.isDisabled(fieldB),true,'empty original cannot optimize');
+assert.equal(optimizeMenu.alwaysEnable,false,'selection bypass must not override an unavailable action');
+assert.equal(undoMenu.isDisabled(fieldA),true,'undo is unavailable before applying');
+sourceMenu.exec(fieldA);
+assert.equal(elements.filter(el=>el.tag==='textarea').at(-1).value,'<p>字段甲原文</p>','toolbar reads the selected field original snapshot');
+sourceMenu.exec(fieldB);
+assert.equal(elements.filter(el=>el.tag==='textarea').at(-1).value,'','different fields keep independent sources');
+console.log('历史正文工具栏通过：无选区可操作、空原文及撤销禁用、多字段原文独立。');

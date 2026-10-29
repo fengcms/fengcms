@@ -94,6 +94,7 @@
                 }}
             }
         });
+        let legacyControls;
         const recovery = document.createElement('p');
         const inlineNotice = document.createElement('p');inlineNotice.className='legacy-warning';inlineNotice.hidden=true;
         inlineNotice.textContent='原文包含 Base64 内嵌图片，请先使用“优化历史富文本”安全转存图片，再保存文章。';wrapper.before(inlineNotice);
@@ -105,10 +106,18 @@
         function showRecovery() {
             failedEditors.add(editor); editor.disable();
             textarea.value = originalHtml; textarea.hidden = false; textarea.readOnly = true;
-            wrapper.style.display = 'none'; recovery.hidden = false;
+            wrapper.style.display = 'none'; recovery.hidden = false;legacyControls?.setRecovery(true);
         }
         try { const html=originalHtml || '<p><br></p>';editor.setHtml(window.FengLegacyConverter?.forEditor(html)??html); }
         catch (_) { editor.clear(); showRecovery(); }
+        legacyControls=window.FengLegacyRichtext?.mount({textarea, editor, wrapper, originalHtml, canOptimize:()=>pending===0,recovery:failedEditors.has(editor),
+            onApplied:()=>{
+                const wasFailed=failedEditors.has(editor);
+                const hadInline=inlineEditors.has(editor);inlineEditors.delete(editor);inlineNotice.hidden=true;
+                failedEditors.delete(editor); editor.enable(); textarea.hidden=true; textarea.readOnly=false;
+                wrapper.style.display=''; recovery.hidden=true;legacyControls?.setRecovery(false);
+                return ()=>{if(wasFailed)showRecovery();if(hadInline)protectInlineImages();};
+            }});
         window.wangEditor.createToolbar({editor, selector:toolbar, config:{toolbarKeys:[
             'headerSelect','bold','italic','underline','through','color','bgColor','fontSize',
             'bulletedList','numberedList','blockquote','justifyLeft','justifyCenter','justifyRight',
@@ -116,7 +125,7 @@
                 key:'group-image', title:'图片',
                 iconSvg:'<svg viewBox="0 0 1024 1024"><path d="M896 128H128v768h768V128zM192 192h640v448L640 448 448 640 320 512 192 640V192zm64 128a64 64 0 1 0 128 0 64 64 0 0 0-128 0z"/></svg>',
                 menuKeys:['uploadImage','insertImage']
-            },'insertTable','undo','redo','fullScreen'
+            },'insertTable','undo','redo',...(window.FengLegacyRichtext?['|','cmsLegacyOptimize','cmsLegacySource','cmsLegacyUndo']:[]),'fullScreen'
         ]}});
         // Toolbar and group buttons are inserted asynchronously by wangEditor.
         const labelToolbar = () => {
@@ -134,14 +143,7 @@
         fullscreenObserver.observe(wrapper, {attributes:true, attributeFilter:['class']});
         editor.on('destroyed', () => { toolbarObserver.disconnect(); fullscreenObserver.disconnect(); updateFullscreenFrame(); });
         instances.set(textarea, editor); textarea.hidden = !failedEditors.has(editor);
-        window.FengLegacyRichtext?.mount({textarea, editor, wrapper, originalHtml, canOptimize:()=>pending===0,
-            onApplied:()=>{
-                const wasFailed=failedEditors.has(editor);
-                const hadInline=inlineEditors.has(editor);inlineEditors.delete(editor);inlineNotice.hidden=true;
-                failedEditors.delete(editor); editor.enable(); textarea.hidden=true; textarea.readOnly=false;
-                wrapper.style.display=''; recovery.hidden=true;
-                return ()=>{if(wasFailed)showRecovery();if(hadInline)protectInlineImages();};
-            }});
+
     }
     function setField(id, urls, multiple) {
         const field = document.getElementById(id); if (!field) return;
