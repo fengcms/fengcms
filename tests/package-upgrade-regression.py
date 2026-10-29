@@ -35,3 +35,11 @@ for path in ('../secret','/root','a/../b','a\\b','a//b'):
     else:
         raise AssertionError(path)
 print('增补包回归通过：新增、删除、重命名、权限变更、配置分离、叠加一致性及异常载荷拒绝。')
+
+# Exercise git archive's real default attributes, not only explicit Unix modes.
+actual = module.tree('HEAD')
+assert actual['.gitignore'][1] == 0o100644
+assert actual['bin/dev'][1] == 0o100755
+with tempfile.TemporaryDirectory() as directory:
+    module.build({}, actual, Path(directory)/'actual.zip', 'v0.0', 'v1.38', 'empty', 'HEAD')
+print('真实 Git 发布树回归通过：普通文件默认权限、可执行脚本权限及完整叠加。')

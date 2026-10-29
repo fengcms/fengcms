@@ -29,7 +29,10 @@ def tree(ref):
             if item.is_dir():
                 continue
             name = safe_path(item.filename)
-            mode = item.external_attr >> 16
+            # git archive uses DOS/default attributes for ordinary files and
+            # Unix attributes for executable files. Materialize the default
+            # as a regular 0644 file before comparing/writing ZIP permissions.
+            mode = (item.external_attr >> 16) or 0o100644
             if mode & 0o170000 not in (0, 0o100000):
                 raise ValueError('增补包不支持链接或特殊文件：' + name)
             if name in result:
