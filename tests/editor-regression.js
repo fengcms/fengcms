@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-let editorOptions, toolbarOptions;
+let editorOptions, toolbarOptions, legacyOptions;
 const textarea = {name:'content', value:'<p>已有正文</p>', after() {}};
 const node = () => ({append() {}, setAttribute() {}, querySelectorAll() {return [];}});
 const editor = {getHtml:()=>'<p>同步正文</p>', isEmpty:()=>false, on() {}};
@@ -12,7 +12,7 @@ const context = {
     MutationObserver:class {observe() {}},
     document:{readyState:'complete', createElement:node, addEventListener() {},
         querySelectorAll:()=>[textarea]},
-    window:{addEventListener() {}, wangEditor:{
+    window:{FengLegacyRichtext:{mount(options){legacyOptions=options;}},addEventListener() {}, wangEditor:{
         createEditor(options) {editorOptions=options;return editor;},
         createToolbar(options) {toolbarOptions=options;}
     }}
@@ -38,4 +38,5 @@ const group = toolbarOptions.config.toolbarKeys.find(item=>item.key==='group-ima
 assert.equal(Array.from(group.menuKeys).join(','),'uploadImage,insertImage');
 editorOptions.config.onChange();
 assert.equal(textarea.value,'<p>同步正文</p>');
+assert.equal(legacyOptions.originalHtml,'<p>已有正文</p>','original HTML snapshot survives editor synchronization');
 console.log('编辑器校验通过：网络图片地址、危险协议、跳转链接、已有图片兼容、菜单入口与正文同步。');

@@ -1,0 +1,23 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="csrf-token" content=""><title>历史富文本主动优化回归</title>
+<link rel="stylesheet" href="/admin/public/wangeditor/style.css"><link rel="stylesheet" href="/admin/css/editor.css">
+<style>body{font:14px system-ui;margin:18px;color:#243549}iframe{width:100%;height:850px;border:1px solid #ccd7e5}.cms-editor{max-width:900px}pre{white-space:pre-wrap}</style>
+<div id="root"></div>
+<script>
+if(!location.search){document.querySelector('#root').innerHTML='<h1>后台 iframe 验证</h1><button type="button" id="narrow">切换窄屏</button><iframe title="历史正文编辑" src="'+location.pathname+'?frame=1"></iframe>';document.querySelector('#narrow').onclick=()=>{const frame=document.querySelector('iframe');frame.style.width=frame.style.width?'':'390px';};}else{
+ const root=document.querySelector('#root');const h=document.createElement('h1');h.textContent='历史富文本主动优化回归';root.append(h);
+ const info=document.createElement('pre');info.id='results';info.textContent='正在加载…';root.append(info);
+ const cases=[['历史正文','<p>前文<span><img src="/image/logo.png" alt="历史图片"></span>后文 <a href="/map.html">链接</a></p>'],['复杂表格','<table><tr><th>标题</th></tr><tr><td colspan="2">合并单元格</td></tr></table>']];
+ cases.forEach(([title,html],i)=>{const head=document.createElement('h2');head.textContent=title;const t=document.createElement('textarea');t.name='content'+i;t.dataset.cmsEditor='';t.value=html;root.append(head,t)});
+ window.addEventListener('load',async()=>{
+  try{
+   const response=await fetch('/admin/index.php?controller=module&project=article&operate=add');const page=document.createElement('template');page.innerHTML=await response.text();const token=page.content.querySelector('meta[name="csrf-token"]')?.content;
+   if(!token)throw Error('请先登录本地后台');document.querySelector('meta[name="csrf-token"]').content=token;
+   const samples=['<p><span><img src="/image/logo.png" alt="嵌套"></span></p>','<p><span>甲<span>乙<img src="/image/logo.png">丙</span>丁</span></p>','<h2>标题</h2><p><strong>粗体</strong><em>斜体</em><a href="/map.html?a=1&amp;b=2">链接</a></p><ul><li>列表</li></ul>','<table><thead><tr><th>名称</th><th>数量</th></tr></thead><tbody><tr><td>项目</td><td>1</td></tr></tbody></table>'];
+   for(const html of samples){const result=FengLegacyConverter.convert(html);FengLegacyConverter.checkContent(html,result);if(!result.trim())throw Error('转换为空');}
+   for(const html of ['<table><tr><td>无表头</td></tr></table>','<table><tr><th colspan="2">合并</th></tr></table>','<iframe src="/index.php"></iframe>']){let blocked=false;try{FengLegacyConverter.inspect(html)}catch(_){blocked=true}if(!blocked)throw Error('复杂内容没有被拦截');}
+   info.textContent='PASS 转换库：嵌套图片、混合文字、链接、列表、简单表格及复杂内容拦截。\n可继续检查取消、原始 HTML、确认预览、应用、撤销和多个字段。';
+  }catch(error){info.textContent='FAIL '+error.message}
+ });
+
+}
+</script><script src="/admin/public/wangeditor/index.js"></script><script src="/admin/public/legacy-richtext/index.js"></script><script src="/admin/js/legacy-richtext.js"></script><script src="/admin/js/editor.js"></script></html>
