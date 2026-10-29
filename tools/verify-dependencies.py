@@ -11,3 +11,10 @@ for name in ("js/jquery.js", "js/jquery.min.js", "admin/public/jquery/jquery-4.0
     actual = sha256(data).hexdigest()
     assert actual == jquery_digest, f"jQuery digest mismatch: {name}"
     print(f"OK {name}")
+
+# Locally built legacy conversion libraries are pinned by the build lockfile.
+import json
+legacy = root / 'admin/public/legacy-richtext'
+provenance = json.loads((legacy / 'PROVENANCE.json').read_text())
+assert sha256((legacy / 'index.js').read_bytes()).hexdigest() == provenance['bundle_sha256'], 'Legacy converter bundle digest mismatch'
+print('OK admin/public/legacy-richtext/index.js')

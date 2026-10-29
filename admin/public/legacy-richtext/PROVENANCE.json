@@ -1,0 +1,48 @@
+{
+  "registry": "https://registry.npmjs.org",
+  "packages": [
+    {
+      "name": "entities",
+      "version": "8.1.0",
+      "license": "BSD-2-Clause"
+    },
+    {
+      "name": "linkify-it",
+      "version": "6.1.0",
+      "license": "MIT"
+    },
+    {
+      "name": "markdown-it",
+      "version": "15.0.3",
+      "license": "MIT"
+    },
+    {
+      "name": "mdurl",
+      "version": "2.1.0",
+      "license": "MIT"
+    },
+    {
+      "name": "punycode.js",
+      "version": "2.3.1",
+      "license": "MIT"
+    },
+    {
+      "name": "turndown",
+      "version": "7.2.4",
+      "license": "MIT"
+    },
+    {
+      "name": "turndown-plugin-gfm",
+      "version": "1.0.2",
+      "license": "MIT"
+    },
+    {
+      "name": "uc.micro",
+      "version": "3.0.0",
+      "license": "MIT"
+    }
+  ],
+  "bundle_sha256": "d9a23ed76dd0833b889ba62c47fa674cfeb69d9e808034fa86c1d4d1ee59230c",
+  "source": "tools/vendor/legacy-converter.js",
+  "build": "npm ci --prefix tools/vendor && node tools/vendor/build-legacy-richtext.cjs"
+}

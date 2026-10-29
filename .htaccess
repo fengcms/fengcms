@@ -11,7 +11,7 @@ RewriteRule ^(?:config(?:\.local)?(?:\..*)?|compose.*|LICENSE)$ - [F,L,NC]
 RewriteRule ^upload/.*\.(?:php[0-9]*|phtml|phar|html?|svg|shtml|js)(?:/|$) - [F,L,NC]
 RewriteRule \.(?:sql|log|ini|ya?ml|env|bak|md|conf)$ - [F,L,NC]
 # Only the front controllers, captcha, installer and authenticated editor APIs run PHP.
-RewriteCond %{REQUEST_URI} !^/(?:index|vccore|admin/index|admin/login|admin/api/(?:upload|files|thumbnail)|install/index)\.php$
+RewriteCond %{REQUEST_URI} !^/(?:index|vccore|admin/index|admin/login|admin/api/(?:upload|files|thumbnail|richtext)|install/index)\.php$
 RewriteRule \.php(?:/|$) - [F,L,NC]
 
 RewriteRule ^index.html index.php?controller=home&operate=index

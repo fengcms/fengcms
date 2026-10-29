@@ -25,3 +25,5 @@
 *~
 __pycache__/
 *.pyc
+
+/tools/vendor/node_modules/

@@ -235,7 +235,16 @@ try {
     $sid=$cookies['fengcms_session'];
     expect_check((request('POST','/admin/index.php?controller=admin',$cookies,$login)['json']['status']??'')==='y','modern login succeeds');
     expect_check($sid!==$cookies['fengcms_session'],'session ID rotates');
+    $previewAnonymous=[];
+    expect_check(request('POST','/admin/api/richtext.php',$previewAnonymous,['html'=>'<p>x</p>'])['status']===401,'richtext preview requires authentication');
     $newToken=token($cookies,true); expect_check($newToken!==$csrf,'CSRF rotates');
+    expect_check(request('GET','/admin/api/richtext.php',$cookies)['status']===405,'richtext cleaning requires POST');
+    expect_check(request('POST','/admin/api/richtext.php',$cookies,['html'=>'x'])['status']===403,'richtext cleaning requires CSRF');
+    expect_check(request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>['x']])['status']===400,'richtext cleaning rejects arrays');
+    expect_check(request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>str_repeat('x',2*1024*1024+1)])['status']===413,'richtext cleaning bounds input size');
+    $cleanPreview=request('POST','/admin/api/richtext.php',$cookies,['_csrf'=>$newToken,'html'=>'<p>正文<span><img src="/image/logo.png" onerror="alert(1)"></span><a href="javascript:alert(1)">链接</a></p>']);
+    expect_check($cleanPreview['status']===200 && str_contains($cleanPreview['json']['html']??'','/image/logo.png') && !str_contains($cleanPreview['json']['html'],'onerror') && !str_contains($cleanPreview['json']['html'],'javascript:'),'richtext preview preserves images and removes unsafe attributes and protocols');
+
     $accountPage=request('GET','/admin/index.php?controller=account',$cookies);
     expect_check($accountPage['status']===200 && str_contains($accountPage['body'],'系统账号管理') &&
         str_contains($accountPage['body'],'operate=add') && !str_contains($accountPage['body'],'id="account-create"'),
@@ -347,6 +356,7 @@ try {
     expect_check((request('POST','/admin/index.php?controller=admin',$superCookies,$superLogin)['json']['status']??'')==='y',
         'reset super administrator logs in with new four-character code');
     $editorToken=token($editorCookies,true);
+    expect_check(request('POST','/admin/api/richtext.php',$editorCookies,['_csrf'=>$editorToken,'html'=>'<p>编辑预览</p>'])['status']===200,'editor role can clean its richtext preview');
     $editorHome=request('GET','/admin/index.php',$editorCookies);
     expect_check($editorHome['status']===200 && str_contains($editorHome['body'],'<span>相关</span>') &&
         !str_contains($editorHome['body'],'<span>系统</span>') && !str_contains($editorHome['body'],'<span>模块</span>') &&
