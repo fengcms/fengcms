@@ -30,6 +30,8 @@ function cms_clean_html_for_save($html): string
     if (strlen($html) > 2 * 1024 * 1024) { cms_fail(413, '正文不能超过 2MB。'); }
     require_once dirname(__DIR__).'/vendor/htmlpurifier/library/HTMLPurifier.auto.php';
     $config = HTMLPurifier_Config::createDefault();
+    // DOMLex requests HTML definitions too; keep its vendor tree read-only.
+    $config->set('Cache.DefinitionImpl', null);
     $lexer = HTMLPurifier_Lexer::create($config);
     $tokens = $lexer->tokenizeHTML($html, $config, new HTMLPurifier_Context());
     foreach ($tokens as $token) {
