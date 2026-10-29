@@ -1,0 +1,23 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>图片字段浏览器回归</title><link rel="stylesheet" href="/admin/css/editor.css">
+<form><table><tr><th>单图</th><td><input name="single" id="single" value="/image/logo.png"><button type="button" data-cms-target="single" data-cms-kind="image">旧选择按钮</button></td></tr>
+<tr><th>多图</th><td><input name="multi" id="multi" value="/image/a.png,/image/b.png,,"><button type="button" data-cms-target="multi" data-cms-kind="image" data-cms-multiple>旧选择按钮</button></td></tr></table></form>
+<pre id="result">正在验证</pre><script src="/admin/js/image-fields.js"></script><script>
+(async()=>{
+ const result=document.querySelector('#result'),checks=[],check=(ok,text)=>{if(!ok)throw Error(text);checks.push('PASS '+text);};
+ async function closePreview(){const dialog=document.querySelector('dialog');const closed=new Promise(resolve=>dialog.addEventListener('close',resolve,{once:true}));dialog.querySelector('[aria-label="关闭图片预览"]').click();await closed;}
+ let picked;FengImageFields.mount({open:(trigger,restore)=>{picked={trigger,restore};}});
+ const single=document.querySelector('#single'),multi=document.querySelector('#multi'),root=multi.parentNode.querySelector('.cms-image-field'),singleRoot=single.parentNode.querySelector('.cms-image-field');
+ check(multi.value==='/image/a.png,/image/b.png,,','挂载保留原始多图值与分隔符');check(root.querySelectorAll('.if-card').length===2,'多图缩略图回显');
+ singleRoot.querySelector('.if-preview-button').click();check(document.querySelector('dialog').open,'单图点击可预览');await closePreview();
+ check(document.activeElement===singleRoot.querySelector('.if-preview-button'),'预览关闭恢复焦点');
+ root.querySelector('[aria-label="右移第 1 张图片"]').click();check(multi.value==='/image/b.png,/image/a.png,','按钮调整顺序并保留存储格式');
+ const cards=root.querySelectorAll('.if-card'),data=new DataTransfer();cards[0].dispatchEvent(new DragEvent('dragstart',{dataTransfer:data}));cards[1].dispatchEvent(new DragEvent('drop',{dataTransfer:data,cancelable:true}));check(multi.value==='/image/a.png,/image/b.png,','拖动调整顺序');
+ root.querySelector('.if-add').click();check(picked.trigger.dataset.cmsTarget==='multi','添加入口正确绑定原字段');const before=multi.value;picked.restore();check(multi.value===before,'取消选择不改字段值');check(document.activeElement===root.querySelector('.if-add'),'取消恢复可见入口焦点');
+ multi.value='/image/a.png,/image/b.png,/image/c.png,';multi.dispatchEvent(new Event('change'));check(root.querySelectorAll('.if-card').length===3,'选择回填后刷新缩略图');
+ root.querySelector('.if-preview-button').click();document.querySelector('[aria-label="下一张图片"]').click();check(document.querySelector('.if-preview-heading').textContent.includes('2 / 3'),'多图预览支持切换');document.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));check(document.querySelector('.if-preview-heading').textContent.includes('3 / 3'),'键盘切换预览');await closePreview();
+ root.querySelector('[aria-label="移除第 2 张图片"]').click();check(multi.value==='/image/a.png,/image/c.png,','移除只更新引用');
+ singleRoot.querySelector('[aria-label="移除第 1 张图片"]').click();check(single.value===''&&singleRoot.querySelector('.if-add'),'单图移除恢复选择入口');
+ single.value='javascript:alert(1)';single.dispatchEvent(new Event('change'));check(!singleRoot.querySelector('img').getAttribute('src')&&single.value==='javascript:alert(1)','危险历史地址不加载也不静默改写');
+ result.textContent=checks.join('\n');
+})().catch(error=>document.querySelector('#result').textContent+='\nFAIL '+error.stack);
+</script></html>

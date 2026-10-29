@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const context={window:{},URL,location:{href:'https://cms.example/admin/index.php',origin:'https://cms.example'}};
+vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/image-fields.js'),'utf8'),context);
+const {imageURL,thumbnail}=context.window.FengImageFields;
+for(const value of ['javascript:alert(1)','data:image/png;base64,abc','file:///tmp/a.png','//evil.example/a.png','https://a:b@example.com/a.png','https://example.com/\nx.png','https:\\example.com/a.png','',null])assert.equal(imageURL(value),'',String(value));
+assert.equal(imageURL('/upload/image/20261029/a.png'),'https://cms.example/upload/image/20261029/a.png');
+assert.equal(imageURL('https://images.example/photo.png'),'https://images.example/photo.png');
+assert.equal(thumbnail('/upload/image/20261029/a%20b.png'),'/admin/api/thumbnail.php?path=20261029%2Fa%20b.png');
+assert.equal(thumbnail('https://images.example/upload/image/a.png'),'https://images.example/upload/image/a.png');
+assert.equal(thumbnail('/image/logo.png'),'https://cms.example/image/logo.png');
+console.log('图片字段地址回归通过：危险协议、跨站凭据、控制字符、站内缩略图与历史外链。');
