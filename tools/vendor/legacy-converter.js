@@ -3,6 +3,11 @@ import {gfm} from 'turndown-plugin-gfm';
 import MarkdownIt from 'markdown-it';
 const turndown=new TurndownService({headingStyle:'atx',codeBlockStyle:'fenced',bulletListMarker:'-'});
 turndown.use(gfm);
+// Explicit whitespace boundaries keep adjacent CJK emphasis runs valid CommonMark.
+turndown.addRule('emphasisBoundaries',{filter:['strong','b','em','i'],replacement:(content,node)=>{
+ const marker=['STRONG','B'].includes(node.nodeName)?'**':'*';
+ return content.trim()?' '+marker+content.trim()+marker+' ':'';
+}});
 const markdown=new MarkdownIt({html:false,linkify:false,typographer:false});
 function parse(html){const t=document.createElement('template');t.innerHTML=html;return t.content;}
 function inspect(html){
@@ -14,10 +19,22 @@ function inspect(html){
 }
 function resources(html,selector,attr){return Array.from(parse(html).querySelectorAll(selector),n=>n.getAttribute(attr));}
 function checkResources(before,after){
- for(const [selector,attr,name] of [['img','src','图片'],['a[href]','href','链接']]){
-  if(JSON.stringify(resources(before,selector,attr))!==JSON.stringify(resources(after,selector,attr)))throw Error(name+'在转换中发生变化，已停止处理，请人工检查原始 HTML。');
- }
+ if(JSON.stringify(resources(before,'img','src'))!==JSON.stringify(resources(after,'img','src')))throw Error('图片在转换中发生变化，已停止处理，请人工检查原始 HTML。');
+ // wangEditor serializes linked images as img[data-href], rather than a > img.
+ const links=html=>Array.from(parse(html).querySelectorAll('a[href],img[data-href]')).filter(node=>
+  node.tagName==='A' ? node.textContent.trim() || node.querySelector('img') : !node.closest('a[href]')
+ ).map(node=>node.getAttribute(node.tagName==='A'?'href':'data-href')).filter(value=>value&&value.trim());
+ if(JSON.stringify(links(before))!==JSON.stringify(links(after)))throw Error('链接在转换中发生变化，已停止处理，请人工检查原始 HTML。');
 }
 function checkContent(before,after){checkResources(before,after);const text=html=>(parse(html).textContent||'').replace(/\s/g,'');if(text(before)!==text(after))throw Error('正文文字在转换中发生变化，已停止处理，请人工检查。');}
 function convert(html){inspect(html);const result=markdown.render(turndown.turndown(html));checkContent(html,result);return result;}
-window.FengLegacyConverter={inspect,convert,checkResources,checkContent};
+// Map generated, sanitized image hyperlinks to/from wangEditor's documented HTML shape.
+function forEditor(html){const root=parse(html);root.querySelectorAll('img[data-href]').forEach(image=>image.setAttribute('data-href',encodeURIComponent(image.getAttribute('data-href')||'')));root.querySelectorAll('a[href]').forEach(link=>{
+ const children=Array.from(link.childNodes),image=link.querySelector('img');
+ if(image&&children.every(n=>n===image||(n.nodeType===3&&!n.textContent.trim()))){image.setAttribute('data-href',encodeURIComponent(link.getAttribute('href')));link.replaceWith(image);}
+});const t=document.createElement('template');t.content.append(root);return t.innerHTML;}
+function forStorage(html){const root=parse(html);root.querySelectorAll('img[data-href]').forEach(image=>{
+ const href=image.getAttribute('data-href');image.removeAttribute('data-href');
+ if(href&&!image.closest('a[href]')){const link=document.createElement('a');link.setAttribute('href',href);image.replaceWith(link);link.append(image);}
+});const t=document.createElement('template');t.content.append(root);return t.innerHTML;}
+window.FengLegacyConverter={inspect,convert,checkResources,checkContent,forEditor,forStorage};

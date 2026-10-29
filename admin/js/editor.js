@@ -49,7 +49,7 @@
             });
         } finally { pending--; }
     }
-    function sync() { instances.forEach((editor, textarea) => { if (!failedEditors.has(editor)) textarea.value = editor.isEmpty() ? '' : editor.getHtml(); }); }
+    function sync() { instances.forEach((editor, textarea) => { if (!failedEditors.has(editor)) {const html=editor.isEmpty()?'':editor.getHtml();textarea.value=window.FengLegacyConverter?.forStorage(html)??html;} }); }
     // The administration shell embeds forms in an iframe. Expand that frame
     // while an editor is fullscreen; removing the class restores its layout.
     function updateFullscreenFrame() {
@@ -102,7 +102,7 @@
             textarea.value = originalHtml; textarea.hidden = false; textarea.readOnly = true;
             wrapper.style.display = 'none'; recovery.hidden = false;
         }
-        try { editor.setHtml(originalHtml || '<p><br></p>'); }
+        try { const html=originalHtml || '<p><br></p>';editor.setHtml(window.FengLegacyConverter?.forEditor(html)??html); }
         catch (_) { editor.clear(); showRecovery(); }
         window.wangEditor.createToolbar({editor, selector:toolbar, config:{toolbarKeys:[
             'headerSelect','bold','italic','underline','through','color','bgColor','fontSize',

@@ -4,13 +4,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 let editorOptions, toolbarOptions, legacyOptions;
+const registered={};
 const textarea = {name:'content', value:'<p>已有正文</p>', after() {}};
 const node = () => ({style:{}, before() {}, append() {}, setAttribute() {}, querySelectorAll() {return [];}});
 const editor = {setHtml() {},getHtml:()=>'<p>同步正文</p>', isEmpty:()=>false, on() {}};
 const context = {
-    URL, console,
+    URL, console, alert() {},
     MutationObserver:class {observe() {}},
-    document:{readyState:'complete', createElement:node, addEventListener() {},
+    document:{readyState:'complete', createElement:node, addEventListener(name,callback) {registered[name]=callback;},
         querySelectorAll:()=>[textarea]},
     window:{FengLegacyRichtext:{mount(options){legacyOptions=options;}},addEventListener() {}, wangEditor:{
         createEditor(options) {editorOptions=options;return editor;},
@@ -52,8 +53,11 @@ assert.equal(textarea.readOnly,true);
 assert.equal(textarea.hidden,false);
 context.window.FengEditor.sync();
 assert.equal(textarea.value,'<p>无法直接解析的历史原文</p>','failed parser cannot synchronize an empty editor over the source');
+let blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});
+assert.equal(blocked,true,'failed legacy parsing blocks form submission');
 const restore=legacyOptions.onApplied();
 assert.equal(disabled,false);
+blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,false,'successful recovery permits normal save');
 assert.equal(textarea.hidden,true);
 restore();
 assert.equal(disabled,true);
