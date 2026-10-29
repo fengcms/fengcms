@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 let editorOptions, toolbarOptions, legacyOptions;
 const textarea = {name:'content', value:'<p>已有正文</p>', after() {}};
-const node = () => ({append() {}, setAttribute() {}, querySelectorAll() {return [];}});
-const editor = {getHtml:()=>'<p>同步正文</p>', isEmpty:()=>false, on() {}};
+const node = () => ({style:{}, before() {}, append() {}, setAttribute() {}, querySelectorAll() {return [];}});
+const editor = {setHtml() {},getHtml:()=>'<p>同步正文</p>', isEmpty:()=>false, on() {}};
 const context = {
     URL, console,
     MutationObserver:class {observe() {}},
@@ -40,3 +40,22 @@ editorOptions.config.onChange();
 assert.equal(textarea.value,'<p>同步正文</p>');
 assert.equal(legacyOptions.originalHtml,'<p>已有正文</p>','original HTML snapshot survives editor synchronization');
 console.log('编辑器校验通过：网络图片地址、危险协议、跳转链接、已有图片兼容、菜单入口与正文同步。');
+// Parser failures must retain the immutable source and leave recovery controls mounted.
+textarea.value='<p>无法直接解析的历史原文</p>';
+let disabled=false;
+const brokenEditor={...editor,setHtml(html){if(html===textarea.value)throw Error('synthetic parser failure');},clear(){},disable(){disabled=true;},enable(){disabled=false;}};
+context.window.wangEditor.createEditor=options=>{editorOptions=options;return brokenEditor;};
+vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/editor.js'),'utf8'),context);
+assert.equal(editorOptions.html,'<p><br></p>','create a stable editor before loading legacy HTML');
+assert.equal(disabled,true);
+assert.equal(textarea.readOnly,true);
+assert.equal(textarea.hidden,false);
+context.window.FengEditor.sync();
+assert.equal(textarea.value,'<p>无法直接解析的历史原文</p>','failed parser cannot synchronize an empty editor over the source');
+const restore=legacyOptions.onApplied();
+assert.equal(disabled,false);
+assert.equal(textarea.hidden,true);
+restore();
+assert.equal(disabled,true);
+assert.equal(textarea.value,'<p>无法直接解析的历史原文</p>','undo of recovery restores the protected original');
+console.log('编辑器初始化失败保护通过：原文、优化入口及撤销恢复均保留。');

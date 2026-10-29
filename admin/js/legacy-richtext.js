@@ -10,11 +10,11 @@
   return result.html;
  }
  function replaceHtml(editor,html){editor.deselect();editor.blur();editor.setHtml(html);}
- function mount({textarea,editor,wrapper,originalHtml,canOptimize=()=>true}){
+ function mount({textarea,editor,wrapper,originalHtml,canOptimize=()=>true,onApplied=()=>()=>{}}){
   const row=document.createElement('div');row.className='legacy-actions';wrapper.before(row);
-  let previous=null,applied=null;
+  let previous=null,applied=null,restoreState=()=>{};
   const note=document.createElement('span');note.setAttribute('role','status');
-  const undo=button('撤销本次优化',()=>{if(previous!==null){if(editor.getHtml()!==applied&&!window.confirm('撤销优化将放弃优化后新增的编辑内容，是否继续？'))return;replaceHtml(editor,previous);textarea.value=previous;previous=null;undo.hidden=true;note.textContent='已恢复优化前的编辑内容。';}});undo.hidden=true;
+  const undo=button('撤销本次优化',()=>{if(previous!==null){if(editor.getHtml()!==applied&&!window.confirm('撤销优化将放弃优化后新增的编辑内容，是否继续？'))return;replaceHtml(editor,previous);textarea.value=previous;restoreState();previous=null;undo.hidden=true;note.textContent='已恢复优化前的编辑内容。';}});undo.hidden=true;
   function dialog(title){
    const d=document.createElement('dialog');d.className='legacy-dialog';
    const h=document.createElement('h2');h.textContent=title;const area=document.createElement('div');area.className='legacy-dialog-body';
@@ -53,7 +53,7 @@
       try{
        replaceHtml(editor,html);const rendered=editor.isEmpty()?'':editor.getHtml();
        FengLegacyConverter.checkContent(html,rendered);
-       previous=before;applied=rendered;textarea.value=rendered;undo.hidden=false;note.textContent='已优化，请检查内容并保存文章。';d.close();
+       previous=before;applied=rendered;textarea.value=rendered;restoreState=onApplied();undo.hidden=false;note.textContent='已优化，请检查内容并保存文章。';d.close();
       }catch(error){replaceHtml(editor,before);status.textContent='编辑器无法完整接收转换结果，已恢复原内容。'+error.message;}
 
      }));

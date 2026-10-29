@@ -2,6 +2,7 @@
 (function () {
     'use strict';
     const instances = new Map();
+    const failedEditors = new Set();
     let pending = 0;
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
     const uploadKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
@@ -48,7 +49,7 @@
             });
         } finally { pending--; }
     }
-    function sync() { instances.forEach((editor, textarea) => { textarea.value = editor.isEmpty() ? '' : editor.getHtml(); }); }
+    function sync() { instances.forEach((editor, textarea) => { if (!failedEditors.has(editor)) textarea.value = editor.isEmpty() ? '' : editor.getHtml(); }); }
     // The administration shell embeds forms in an iframe. Expand that frame
     // while an editor is fullscreen; removing the class restores its layout.
     function updateFullscreenFrame() {
@@ -81,7 +82,7 @@
         const toolbar = document.createElement('div'), body = document.createElement('div');
         wrapper.append(toolbar, body); textarea.after(wrapper);
         const editor = window.wangEditor.createEditor({
-            selector:body, html:textarea.value || '<p><br></p>', mode:'default',
+            selector:body, html:'<p><br></p>', mode:'default',
             config:{ autoFocus:false, placeholder:'请输入内容',
                 onChange:() => sync(),
                 MENU_CONF:{
@@ -92,6 +93,17 @@
                 }}
             }
         });
+        const recovery = document.createElement('p');
+        recovery.className = 'legacy-warning'; recovery.hidden = true;
+        recovery.textContent = '历史正文无法直接载入编辑器，原始 HTML 已保留。请先优化历史富文本并检查结果；处理完成前不能保存。';
+        wrapper.before(recovery);
+        function showRecovery() {
+            failedEditors.add(editor); editor.disable();
+            textarea.value = originalHtml; textarea.hidden = false; textarea.readOnly = true;
+            wrapper.style.display = 'none'; recovery.hidden = false;
+        }
+        try { editor.setHtml(originalHtml || '<p><br></p>'); }
+        catch (_) { editor.clear(); showRecovery(); }
         window.wangEditor.createToolbar({editor, selector:toolbar, config:{toolbarKeys:[
             'headerSelect','bold','italic','underline','through','color','bgColor','fontSize',
             'bulletedList','numberedList','blockquote','justifyLeft','justifyCenter','justifyRight',
@@ -116,8 +128,14 @@
         const fullscreenObserver = new MutationObserver(updateFullscreenFrame);
         fullscreenObserver.observe(wrapper, {attributes:true, attributeFilter:['class']});
         editor.on('destroyed', () => { toolbarObserver.disconnect(); fullscreenObserver.disconnect(); updateFullscreenFrame(); });
-        instances.set(textarea, editor); textarea.hidden = true;
-        window.FengLegacyRichtext?.mount({textarea, editor, wrapper, originalHtml, canOptimize:()=>pending===0});
+        instances.set(textarea, editor); textarea.hidden = !failedEditors.has(editor);
+        window.FengLegacyRichtext?.mount({textarea, editor, wrapper, originalHtml, canOptimize:()=>pending===0,
+            onApplied:()=>{
+                const wasFailed=failedEditors.has(editor);
+                failedEditors.delete(editor); editor.enable(); textarea.hidden=true; textarea.readOnly=false;
+                wrapper.style.display=''; recovery.hidden=true;
+                return ()=>{if(wasFailed)showRecovery();};
+            }});
     }
     function setField(id, urls, multiple) {
         const field = document.getElementById(id); if (!field) return;
@@ -132,10 +150,11 @@
     document.addEventListener('click',function(event){
         const pick=event.target.closest('[data-cms-target]');if(pick){event.preventDefault();picker(pick);return;}
         if(event.target.closest('#save, [type="submit"]')){
+            if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('存在无法载入的历史正文，请先优化并检查，避免保存时丢失内容。');return;}
             if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成，请稍后保存。');return;}sync();
         }
     },true);
-    document.addEventListener('submit',function(event){if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
+    document.addEventListener('submit',function(event){if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先处理无法载入的历史正文。');}else if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
     function start(){document.querySelectorAll('textarea[data-cms-editor]').forEach(mount);}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
     window.addEventListener('pageshow', updateFullscreenFrame);
