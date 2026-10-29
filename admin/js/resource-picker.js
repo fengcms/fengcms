@@ -204,7 +204,7 @@
         }
         // Native dialog contains focus; cancel/close never writes back to the form.
         dialog.addEventListener('keydown',event=>{if(event.key==='Escape')event.stopPropagation();});
-        dialog.addEventListener('close',()=>{closed=true;clearTimeout(searchTimer);listingController?.abort();uploadController?.abort();dialog.remove();trigger.focus();});
+        dialog.addEventListener('close',()=>{closed=true;clearTimeout(searchTimer);listingController?.abort();uploadController?.abort();dialog.remove();if(options.restoreFocus)options.restoreFocus();else trigger.focus();});
         document.body.append(dialog);dialog.showModal();switchTab('library');renderSelection();
     }
     window.FengResourcePicker={open};

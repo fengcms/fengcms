@@ -152,8 +152,8 @@
         field.value = multiple ? (urls.length ? urls.join(',') + ',' : '') : (urls[0] || '');
         field.dispatchEvent(new Event('change', {bubbles:true}));
     }
-    function picker(button) {
-        window.FengResourcePicker.open(button, {upload, onSelect:urls=>setField(button.dataset.cmsTarget,urls,button.hasAttribute('data-cms-multiple'))});
+    function picker(button, restoreFocus) {
+        window.FengResourcePicker.open(button, {upload, restoreFocus, onSelect:urls=>setField(button.dataset.cmsTarget,urls,button.hasAttribute('data-cms-multiple'))});
     }
     document.addEventListener('click',function(event){
         const pick=event.target.closest('[data-cms-target]');if(pick){event.preventDefault();picker(pick);return;}
@@ -164,7 +164,7 @@
         }
     },true);
     document.addEventListener('submit',function(event){if(inlineEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先转存正文中的 Base64 图片。');}else if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先处理无法载入的历史正文。');}else if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
-    function start(){document.querySelectorAll('textarea[data-cms-editor]').forEach(mount);}
+    function start(){document.querySelectorAll('textarea[data-cms-editor]').forEach(mount);window.FengImageFields?.mount({open:picker});}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
     window.addEventListener('pageshow', updateFullscreenFrame);
     window.addEventListener('pagehide',event=>{restoreFullscreenFrame();if(!event.persisted){instances.forEach(editor=>editor.destroy());instances.clear();}});

@@ -18,6 +18,8 @@ jobs:
         run: python3 tests/legacy-model-converter.py
       - name: 前端语法与无数据库回归
         run: |
+          node --check admin/js/image-fields.js
+          node tests/image-fields-regression.js
           node --check admin/js/editor.js
           node --check admin/js/legacy-richtext.js
           node --check admin/js/legacy-inline-images.js
