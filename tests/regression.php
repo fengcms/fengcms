@@ -880,6 +880,37 @@ try {
     expect_check($badNumber['status']===400 &&
         (string)$db->query("SELECT `$zeroField` FROM `f_$moduleProject` WHERE id=$zeroRecordId")->fetch_row()[0]==='0',
         'numeric model field rejects nonnumeric input without changing data');
+    $singleImageField='qa_pic_'.$tag;$multiImageField='qa_pics_'.$tag;
+    foreach ([$singleImageField=>'28',$multiImageField=>'29'] as $imageField=>$imageType) {
+        $imageFieldResponse=request('POST',$fieldRoute.'&operate=save',$cookies,
+            ['_csrf'=>$newToken,'module_id'=>(string)$moduleFixtureId,'project'=>$moduleProject,
+                'name'=>$imageField,'aliases'=>'回归图片字段','type'=>$imageType]);
+        expect_check(($imageFieldResponse['json']['status']??'')==='y','custom image field schema can be created for storage regression');
+    }
+    $singleImage='/upload/image/20261029/'.str_repeat('a',32).'.jpg';
+    $secondImage='/upload/image/20261029/'.str_repeat('b',32).'.png';
+    $multiImages=$singleImage.','.$secondImage.',';
+    $imageSaveRoute='/admin/index.php?controller=module&project='.$moduleProject.'&operate=save';
+    $imageSave=request('POST',$imageSaveRoute,$cookies,['_csrf'=>$newToken,'id'=>(string)$zeroRecordId,
+        $singleImageField=>$singleImage,$multiImageField=>$multiImages]);
+    $savedImages=$db->query("SELECT `$singleImageField`,`$multiImageField` FROM `f_$moduleProject` WHERE id=$zeroRecordId")->fetch_assoc();
+    expect_check(($imageSave['json']['status']??'')==='y' && $savedImages[$singleImageField]===$singleImage &&
+        $savedImages[$multiImageField]===$multiImages,'custom single and multiple image fields preserve saved values and order');
+    $imageEditRoute='/admin/index.php?controller=module&project='.$moduleProject.'&operate=update&id='.$zeroRecordId;
+    $imageEdit=request('GET',$imageEditRoute,$cookies);
+    expect_check($imageEdit['status']===200 && str_contains($imageEdit['body'],'/admin/js/image-fields.js') &&
+        preg_match('/name="'.preg_quote($singleImageField,'/').'"[^>]*value="'.preg_quote($singleImage,'/').'"/',$imageEdit['body']) &&
+        preg_match('/name="'.preg_quote($multiImageField,'/').'"[^>]*value="'.preg_quote($multiImages,'/').'"/',$imageEdit['body']),
+        'reopening custom model restores original image inputs and loads thumbnail component');
+    $reorderedImages=$secondImage.','.$singleImage.',';
+    $imageReorder=request('POST',$imageSaveRoute,$cookies,['_csrf'=>$newToken,'id'=>(string)$zeroRecordId,
+        $singleImageField=>'',$multiImageField=>$reorderedImages]);
+    $imageReopen=request('GET',$imageEditRoute,$cookies);
+    $reorderedRow=$db->query("SELECT `$singleImageField`,`$multiImageField` FROM `f_$moduleProject` WHERE id=$zeroRecordId")->fetch_assoc();
+    expect_check(($imageReorder['json']['status']??'')==='y' && $reorderedRow[$singleImageField]==='' &&
+        $reorderedRow[$multiImageField]===$reorderedImages &&
+        preg_match('/name="'.preg_quote($multiImageField,'/').'"[^>]*value="'.preg_quote($reorderedImages,'/').'"/',$imageReopen['body']),
+        'image removal and reordered multi images survive saving and reopening');
     $addTagsField=request('POST',$fieldRoute.'&operate=systemsave',$cookies,
         ['_csrf'=>$newToken,'project'=>$moduleProject,'record'=>['4']]);
     expect_check(($addTagsField['json']['status']??'')==='y' &&

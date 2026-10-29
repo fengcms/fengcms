@@ -15,6 +15,7 @@
  root.querySelector('.if-add').click();check(picked.trigger.dataset.cmsTarget==='multi','添加入口正确绑定原字段');const before=multi.value;picked.restore();check(multi.value===before,'取消选择不改字段值');check(document.activeElement===root.querySelector('.if-add'),'取消恢复可见入口焦点');
  multi.value='/image/a.png,/image/b.png,/image/c.png,';multi.dispatchEvent(new Event('change'));check(root.querySelectorAll('.if-card').length===3,'选择回填后刷新缩略图');
  root.querySelector('.if-preview-button').click();document.querySelector('[aria-label="下一张图片"]').click();check(document.querySelector('.if-preview-heading').textContent.includes('2 / 3'),'多图预览支持切换');document.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));check(document.querySelector('.if-preview-heading').textContent.includes('3 / 3'),'键盘切换预览');await closePreview();
+ const submitted=new FormData(multi.form);check(submitted.get('multi')===multi.value&&submitted.get('single')===single.value,'隐藏原输入仍按原名称参与表单提交');
  root.querySelector('[aria-label="移除第 2 张图片"]').click();check(multi.value==='/image/a.png,/image/c.png,','移除只更新引用');
  singleRoot.querySelector('[aria-label="移除第 1 张图片"]').click();check(single.value===''&&singleRoot.querySelector('.if-add'),'单图移除恢复选择入口');
  single.value='javascript:alert(1)';single.dispatchEvent(new Event('change'));check(!singleRoot.querySelector('img').getAttribute('src')&&single.value==='javascript:alert(1)','危险历史地址不加载也不静默改写');

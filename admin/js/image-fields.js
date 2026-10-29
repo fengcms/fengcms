@@ -33,7 +33,7 @@
    const multiple=trigger.hasAttribute('data-cms-multiple'),root=element('div','cms-image-field');root.setAttribute('role','group');
    const label=field.closest('tr')?.querySelector('th')?.textContent.trim()||field.name;root.setAttribute('aria-label',label);
    const list=element('div','if-list'),notice=element('span','if-notice');notice.setAttribute('role','status');root.append(list,notice);
-   field.classList.add('if-value');trigger.classList.add('if-trigger');trigger.hidden=true;trigger.after(root);
+   field.classList.add('if-value');field.tabIndex=-1;field.setAttribute('aria-hidden','true');trigger.classList.add('if-trigger');trigger.hidden=true;trigger.after(root);
    const values=()=>multiple?field.value.split(',').filter(Boolean):[field.value].filter(Boolean);
    let dragged=null;
    function write(urls,focusIndex){field.value=multiple?(urls.length?urls.join(',')+',':''):(urls[0]||'');field.dispatchEvent(new Event('change',{bubbles:true}));
