@@ -163,7 +163,7 @@ class moduleModel extends model{
 	*/
 	public function pic($table,$classid,$num=3,$field=""){
 			$where=$this->whereclass($classid);
-			return D($table)->field($this->fieldhandle($field)."id,title,img,html")->where('img!=""'.$where)->sort("id","order","desc")->limit($num)->getall();
+			return D($table)->field($this->fieldhandle($field)."id,title,img,html")->where('status=1 and img!=""'.$where)->sort("id","order","desc")->limit($num)->getall();
 	}
 	/*
 	栏目最新记录
@@ -344,16 +344,17 @@ class moduleModel extends model{
 	整站幻灯属性
 	*/
 	public function wh($num=5,$field=""){
-		$arr=D($this->d_name)->field("project")->where("type=1")->getall();
-		if(count($arr)>1)$union="union";
+		$arr=D($this->d_name)->field("project")->where(['type'=>1,'status'=>1])->getall();
+		$array=[];
 		foreach($arr as $k => $v){
 			if($this->attrib($v['project'],"attrib") && $this->attrib($v['project'],"img")){
 				$array[]='select '.$this->fieldhandle($field).'id,title,img,html from `'.DB_PREFIX.$v['project'].'` where img!="" and attrib_h=1 and status=1';
 			}
 		}
-		if(is_array($array)){
+		if($array){
 			return D($this->d_name)->excsql("select * from (".implode(" union ",$array).") h order by id desc limit ".$num);
 		}
+        return [];
 	}
 
 	/*
@@ -361,18 +362,19 @@ class moduleModel extends model{
 	*/
 	public function wt($num=1,$field=""){
 
-		$arr=D($this->d_name)->field("project")->where("type=1")->getall();
+		$arr=D($this->d_name)->field("project")->where(['type'=>1,'status'=>1])->getall();
 
-		if(count($arr)>1)$union="union";
+		$array=[];
 
 		foreach($arr as $k => $v){
 			if($this->attrib($v['project'],"title") && $this->attrib($v['project'],"attrib")){
 				$array[]='select '.$this->fieldhandle($field).'id,title,info,html from `'.DB_PREFIX.$v['project'].'` where attrib_t=1 and status=1';
 			}
 		}
-		if(is_array($array)){
+		if($array){
 			return D($this->d_name)->excsql("select  * from (".implode(" union ",$array).") t order by id desc limit ".$num);
 		}
+        return [];
 	}
 
 	/*
@@ -380,18 +382,19 @@ class moduleModel extends model{
 	*/
 	public function wn($num=15,$field=""){
 
-		$arr=D($this->d_name)->field("project")->where("type=1")->getall();
+		$arr=D($this->d_name)->field("project")->where(['type'=>1,'status'=>1])->getall();
 
-		if(count($arr)>1)$union="union";
+		$array=[];
 
 		foreach($arr as $k => $v){
 			if($this->attrib($v['project'],"title") && $this->attrib($v['project'],"attrib")){
 				$array[]='select '.$this->fieldhandle($field).'id,title,html from `'.DB_PREFIX.$v['project'].'` where status=1';
 			}
 		}
-		if(is_array($array)){
+		if($array){
 			return D($this->d_name)->excsql("select  * from (".implode(" union ",$array).") n order by id desc limit ".$num);
 		}
+        return [];
 	}
 
 	/*
@@ -399,9 +402,9 @@ class moduleModel extends model{
 	*/
 	public function wpic($num=3,$field=""){
 
-		$arr=D($this->d_name)->field("project")->where("type=1")->getall();
+		$arr=D($this->d_name)->field("project")->where(['type'=>1,'status'=>1])->getall();
 
-		if(count($arr)>1)$union="union";
+		$array=[];
 
 		foreach($arr as $k => $v){
 
@@ -409,9 +412,10 @@ class moduleModel extends model{
 				$array[]='select '.$this->fieldhandle($field).'id,title,img,html from `'.DB_PREFIX.$v['project'].'` where img!="" and status=1';
 			}
 		}
-		if(is_array($array)){
+		if($array){
 			return D($this->d_name)->excsql("select  * from (".implode(" union ",$array).") n order by id desc limit ".$num);
 		}
+        return [];
 	}
 
 	/*
