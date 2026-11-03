@@ -1,5 +1,6 @@
 <?php
 require_once dirname(__DIR__).'/searchCriteria.php';
+require_once dirname(__DIR__).'/listExpression.php';
 
 /*******************************************************************
  * @authors FengCms 
@@ -9,7 +10,7 @@ require_once dirname(__DIR__).'/searchCriteria.php';
  * @version FengCms Beta 1.0
  * @copy    Copyright © 2013-2018 Powered by DiFang Web Studio  
  *******************************************************************/
-// 首页模型
+// 前台模板兼容入口：内容查询、搜索及展示数据组装。
 
 class moduleModel extends model{
 
@@ -20,12 +21,6 @@ class moduleModel extends model{
 
     /** @var array<string, array{revision:int, exists:bool}> */
     private static array $attributeAvailability = [];
-/*
-	public function __construct(){
-		unset($options);
-		parent::__construct($this->d_name);
-	}
-*/	
 	/*
 	栏目模块
 	*/
@@ -34,89 +29,10 @@ class moduleModel extends model{
 	}
 
 	/*
-	万能标签解析
-	*/
-	private function tagsresolve($string, array &$op){
-
-		$str=substr(substr($string,2),0,-1);
-
-		switch(substr($string,0,1)){
-
-
-		case "w":
-
-		$exp=explode(',',$str);
-
-			if($exp[1] ?? ''){
-
-			  return $op['where']=$exp[0].$this->whereclass($exp[1]);
-			  
-			}elseif($str){
-
-			  return $op['where']=$str;
-
-			}
-
-		  break;
-
-		case "n":
-
-			  return $op['limit']=$str;
-
-		  break;
-
-		case "f":
-			if($str){
-
-				return $op['field']=$str;
-
-			}
-
-		  break;
-
-		case "s":
-		
-		  $exp=explode(',',$str);
-		  if(($exp[1] ?? null)==1){
-
-			return $op['sort']=array(
-				'f'	=>	$exp[0],
-				's'	=>	'order',
-				'p'	=>	'desc',
-				);
-
-		  }elseif(($exp[1] ?? null)==2){
-
-			return $op['sort']=array(
-				'f'	=>	$exp[0],
-				's'	=>	'order',
-				'p'	=>	'asc',
-				);
-		  }
-
-		  break;
-
-		default:
-		  return $op['limit']=10;
-		}
-	}
-
-	/*
 	栏目模块
 	*/
 	public function l($table,$func=""){
-        // 每次调用独立解析，复用模型对象时不继承前一次的条件、字段和排序。
-        $op=[];
-
-		$array=explode(";",$func);
-
-		if(count($array)>1){
-			foreach($array as $v){
-				$this->tagsresolve($v,$op);
-			}
-		}else{
-			$this->tagsresolve($func,$op);
-		}
+        $op=CmsListExpression::parse($func,fn($classid)=>$this->whereclass($classid));
 		$field=$op['field']??'*';
 		$where=$op['where']??'id';
 		$sortf=$op['sort']['f']??'id';
@@ -138,7 +54,6 @@ class moduleModel extends model{
 			unset($row);
 		}
 		return $rows;
-		//return $this->getall();
 	}
 
     /** Keep other l() expressions on their original SQL path. */

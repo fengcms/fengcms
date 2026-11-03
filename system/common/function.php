@@ -55,11 +55,10 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 	}
 
 	/**
-	 * 模型方法
+	 * 创建应用模型；每次调用返回独立对象，普通数据库连接在请求内复用。
 	 *
-	 * @param	string $path   文件夹路径
-	 * @param	int    $mode   权限
-	 * @return	bool
+	 * @param string $model_name 受信任代码提供的应用模型名
+	 * @return model
 	 */
 	 function M($model_name){
 
@@ -87,11 +86,11 @@ defined('TPL_INCLUDE') or die( 'Restricted access');
 	 }
 
 	/**
-	 * 库方法
+	 * 创建通用数据模型；查询选项属于当前对象，不与其他对象共享。
 	 *
-	 * @param	string $path   文件夹路径
-	 * @param	int    $mode   权限
-	 * @return	bool
+	 * @param string|array $model_name 表名（不含前缀）
+	 * @param string $prefix 可选表前缀，空字符串使用配置值
+	 * @return model
 	 */
 	 function D($model_name,$prefix=""){
 

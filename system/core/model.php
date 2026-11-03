@@ -114,10 +114,11 @@ class model{
     }
 
 	/**
-     * 插入数据
-	 *
-     * @param array $row
-	 * @return bool|void
+     * 参数绑定插入数据，成功执行后使请求内读取快照失效。
+     *
+     * @param array<string,scalar|null> $row 字段和值
+     * @return int|false 新增 ID；空数据或非数组返回 false
+     * @throws mysqli_sql_exception 数据库错误
      */
     public function insert($row){
         if (!is_array($row)) { return false; }
@@ -132,10 +133,11 @@ class model{
 
 
 	/**
-     * 修改数据
-	 *
-     * @param array $row
-	 * @return bool|void
+     * 修改数据；零影响行也可能表示记录值没有变化，不等同于失败。
+     *
+     * @param array<string,scalar|null>|string $row 数组使用绑定；字符串仅限受信任 SQL
+     * @return int|false 影响行数；空数组返回 false
+     * @throws mysqli_sql_exception 数据库错误
      */
     public function update($row){
         $params = [];
@@ -155,7 +157,7 @@ class model{
     /**
      * 删除记录
 	 *
-	 * @return bool|void
+	 * @return int 影响行数；数据库错误通过异常报告
      */
     public function delete(){ 
         $this->db->query('delete from '.$this->name.($this->options['where'] ?? ''), $this->options['params'] ?? []);
