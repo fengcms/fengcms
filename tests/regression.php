@@ -2223,6 +2223,10 @@ try {
     expect_check($thumb['status']===200 && $thumbSize[0]===320 && $thumbSize[1]===240 && str_contains(strtolower($thumb['headers']),'content-type: image/png'),'thumbnail resizes image within bounds');
     expect_check(request('GET','/admin/api/thumbnail.php?path=../config.php',$cookies)['status']===400,'thumbnail path traversal rejected');
     expect_check(request('GET','/admin/api/thumbnail.php?path[]=a',$cookies)['status']===400,'thumbnail array path rejected');
+    $brokenPath=$resourceDir.'/broken.png'; $files[]=$brokenPath;file_put_contents($brokenPath,'not a PNG');
+    expect_check(request('GET','/admin/api/thumbnail.php?path='.rawurlencode('qa_'.$tag.'/broken.png'),$cookies)['status']===413,
+        'thumbnail rejects corrupt image without attempting decode');
+
 
     expect_check(request('GET','/admin/index.php?controller=tplmanage&operate=update&project=tpl&name=../../config',$cookies)['status']===400,'template editor traversal rejected');
     expect_check(request('POST','/admin/index.php?controller=dbmanage&operate=delete&name=..',$cookies,['_csrf'=>$newToken])['status']===400,'backup deletion traversal rejected');

@@ -1,6 +1,7 @@
 <?php
 require_once dirname(__DIR__, 2).'/system/common/security.php';
 require_once dirname(__DIR__, 2).'/system/common/upload_request.php';
+require_once dirname(__DIR__, 2).'/system/common/image_memory.php';
 require_once dirname(__DIR__, 2).'/system/common/database_gate.php';
 cms_session_start();
 cms_admin_required();
@@ -56,15 +57,8 @@ if ($dir === 'image') {
         !in_array($size['mime'], $mimeTypes[$ext], true)) {
         cms_fail(400, '图片不正确或尺寸过大。');
     }
-    // GD may need several pixel buffers while decoding. Reject images that exceed
-    // the current PHP process budget before loading their complete byte stream.
-    $memoryLimit=trim((string)ini_get('memory_limit'));
-    if(preg_match('/^([1-9][0-9]*)([KMG]?)$/iD',$memoryLimit,$memoryParts)){
-        $multiplier=match(strtoupper($memoryParts[2])){'G'=>1073741824,'M'=>1048576,'K'=>1024,default=>1};
-        $available=(int)$memoryParts[1]*$multiplier-memory_get_usage(true);
-        if($size[0]*$size[1]*8+(int)$file['size']+16*1048576>$available){
-            cms_fail(413,'图片尺寸超过服务器可处理范围。');
-        }
+    if (!cms_image_decode_fits_memory($size[0],$size[1],(int)$file['size'])) {
+        cms_fail(413,'图片尺寸超过服务器可处理范围。');
     }
     $bytes=@file_get_contents($file['tmp_name']);
     $decoded=$bytes===false?false:@imagecreatefromstring($bytes);
