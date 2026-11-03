@@ -17,7 +17,7 @@ function helper_check(bool $ok,string $message): void {
     if (!$ok) { throw new RuntimeException($message); }
     echo "PASS $message\n";
 }
-$tables=['module','view_field','classify','article','disabled'];
+$tables=['module','view_field','classify','article','disabled','tags'];
 try {
     $guard->query("CREATE TABLE `{$prefix}module` (id INT PRIMARY KEY,project VARCHAR(30),type INT,status INT)");
     $guard->query("CREATE TABLE `{$prefix}view_field` (id INT AUTO_INCREMENT PRIMARY KEY,project VARCHAR(30),name VARCHAR(30))");
@@ -32,7 +32,22 @@ try {
     }
     $guard->query("INSERT INTO `{$prefix}article` VALUES (1,1,'published','/one.jpg','/one','one',1,1,1),(2,1,'draft','/two.jpg','/two','two',0,1,1),(3,1,'recycled','/three.jpg','/three','three',-1,1,1),(4,2,'child','/four.jpg','/four','four',1,1,1),(5,9,'other','/five.jpg','/five','five',1,1,1)");
     $guard->query("INSERT INTO `{$prefix}disabled` VALUES (10,1,'disabled','/ten.jpg','/ten','ten',1,1,1)");
+    $guard->query("CREATE TABLE `{$prefix}tags` (id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(80))");
+    foreach (['中文','A&B','0'] as $name) { $guard->execute_query("INSERT INTO `{$prefix}tags` (name) VALUES (?)",[$name]); }
     $module=M('module');
+    $renderTags=new ReflectionMethod($module,'atags');
+    $repository=D('tags');
+    $selects=static fn()=>(int)$repository->excsql("SHOW SESSION STATUS LIKE 'Com_select'",[],true)[0]['Value'];
+    $revision=model::requestWriteRevision(); $before=$selects();
+    $html=$renderTags->invoke($module,'中文,A&B,missing,<x>,中文,0');
+    $expected='<a href="/?controller=search&amp;tags=%E4%B8%AD%E6%96%87" target="_blank">中文</a>,<a href="/?controller=search&amp;tags=A%26B" target="_blank">A&amp;B</a>,missing,&lt;x&gt;,<a href="/?controller=search&amp;tags=%E4%B8%AD%E6%96%87" target="_blank">中文</a>,<a href="/?controller=search&amp;tags=0" target="_blank">0</a>';
+    helper_check($html===$expected,'tag links preserve escaping, URLs, duplicates, zero tag and order');
+    helper_check(model::requestWriteRevision()===$revision && $selects()===$before+1,
+        'tag read uses one shared SELECT without invalidating metadata snapshots');
+    $before=$selects();
+    helper_check($renderTags->invoke($module,'')==='' && $selects()===$before,
+        'empty tags avoid database work');
+
     $pictures=$module->pic('article',1,10,'info');
     helper_check(array_column($pictures,'title')===['child','published'],'pic excludes draft/recycled rows and preserves descendant ordering');
     helper_check(array_keys($pictures[0])===['info','id','title','img','html'] && $pictures[0]['html']==='/four','pic preserves fields and URLs');

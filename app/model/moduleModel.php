@@ -324,12 +324,14 @@ class moduleModel extends model{
 	}
 
 	private function atags($string){
+        // 空标签不产生链接；固定实体表的参数化读取可复用请求连接。
+        if ((string)$string==='') { return ''; }
 		$names=explode(',',(string)$string);
 		$unique=array_values(array_unique($names));
 		$found=[];
 		if ($unique) {
 			$placeholders=implode(',',array_fill(0,count($unique),'?'));
-			$rows=D('tags')->excsql('SELECT name FROM '.model::identifier(DB_PREFIX.'tags').' WHERE name IN ('.$placeholders.')', $unique);
+			$rows=D('tags')->excsql('SELECT name FROM '.model::identifier(DB_PREFIX.'tags').' WHERE name IN ('.$placeholders.')', $unique, true);
 			foreach ($rows as $row) { $found[$row['name']]=true; }
 		}
 		$links=[];
