@@ -34,6 +34,7 @@ try {
     $guard->query("INSERT INTO `{$prefix}disabled` VALUES (10,1,'disabled','/ten.jpg','/ten','ten',1,1,1)");
     $guard->query("CREATE TABLE `{$prefix}tags` (id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(80))");
     foreach (['中文','A&B','0'] as $name) { $guard->execute_query("INSERT INTO `{$prefix}tags` (name) VALUES (?)",[$name]); }
+    $guard->query("INSERT INTO `{$prefix}disabled` SELECT * FROM `{$prefix}article` WHERE id=1");
     $module=M('module');
     $renderTags=new ReflectionMethod($module,'atags');
     $repository=D('tags');
@@ -67,7 +68,13 @@ try {
         helper_check(array_column($module->$method(10),'title')===['other','child','published'],"$method excludes disabled model and unpublished rows");
         D('module')->where(['project'=>'disabled'])->update(['status'=>1]);
         helper_check(array_column($module->$method(1),'title')===['disabled'],"$method reflects re-enable and preserves limit/order");
+        helper_check(array_column($module->$method(10),'title')===['disabled','other','child','published'],
+            "$method preserves UNION deduplication across models");
         D('module')->where(['project'=>'disabled'])->update(['status'=>0]);
+    }
+    D('view_field')->where(['project'=>'article'])->delete();
+    foreach (['wh','wt','wn','wpic'] as $method) {
+        helper_check($module->$method(10)===[],"$method returns empty array when enabled models lack required fields");
     }
     D('module')->where(['project'=>'article'])->update(['status'=>0]);
     foreach (['wh','wt','wn','wpic'] as $method) {
