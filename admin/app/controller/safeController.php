@@ -46,7 +46,7 @@ class safeController extends Controller{
 		]);
 		$ok=curl_exec($handle);
 		$status=curl_getinfo($handle,CURLINFO_RESPONSE_CODE);
-		curl_close($handle);
+		unset($handle); // PHP 8 的 CurlHandle 在释放引用时清理；避免 8.5 废弃调用。
 		if(!$ok || $status!==200 || !preg_match('/<div\s+class="detail"[^>]*>(.*?)<\/div>/is',$body,$match)){
 			return $fallback;
 		}
