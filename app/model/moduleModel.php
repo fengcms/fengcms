@@ -18,12 +18,11 @@ class moduleModel extends model{
     private const RELATED_MAX_TAGS = 8;
     private const RELATED_MAX_TAG_BYTES = 64;
 
-	private $op			 = array();
     /** @var array<string, array{revision:int, exists:bool}> */
     private static array $attributeAvailability = [];
 /*
 	public function __construct(){
-		unset($this->options);
+		unset($options);
 		parent::__construct($this->d_name);
 	}
 */	
@@ -31,13 +30,13 @@ class moduleModel extends model{
 	栏目模块
 	*/
 	public function module(){
-		return D($table)->where("type=1 and status=1")->findall();
+		return D($this->d_name)->where(['type'=>1,'status'=>1])->getall();
 	}
 
 	/*
 	万能标签解析
 	*/
-	private function tagsresolve($string){
+	private function tagsresolve($string, array &$op){
 
 		$str=substr(substr($string,2),0,-1);
 
@@ -50,11 +49,11 @@ class moduleModel extends model{
 
 			if($exp[1] ?? ''){
 
-			  return $this->op['where']=$exp[0].$this->whereclass($exp[1]);
+			  return $op['where']=$exp[0].$this->whereclass($exp[1]);
 			  
 			}elseif($str){
 
-			  return $this->op['where']=$str;
+			  return $op['where']=$str;
 
 			}
 
@@ -62,14 +61,14 @@ class moduleModel extends model{
 
 		case "n":
 
-			  return $this->op['limit']=$str;
+			  return $op['limit']=$str;
 
 		  break;
 
 		case "f":
 			if($str){
 
-				return $this->op['field']=$str;
+				return $op['field']=$str;
 
 			}
 
@@ -78,17 +77,17 @@ class moduleModel extends model{
 		case "s":
 		
 		  $exp=explode(',',$str);
-		  if($exp[1]==1){
+		  if(($exp[1] ?? null)==1){
 
-			return $this->op['sort']=array(
+			return $op['sort']=array(
 				'f'	=>	$exp[0],
 				's'	=>	'order',
 				'p'	=>	'desc',
 				);
 
-		  }elseif($exp[1]==2){
+		  }elseif(($exp[1] ?? null)==2){
 
-			return $this->op['sort']=array(
+			return $op['sort']=array(
 				'f'	=>	$exp[0],
 				's'	=>	'order',
 				'p'	=>	'asc',
@@ -98,7 +97,7 @@ class moduleModel extends model{
 		  break;
 
 		default:
-		  return $this->op['limit']=10;
+		  return $op['limit']=10;
 		}
 	}
 
@@ -106,22 +105,24 @@ class moduleModel extends model{
 	栏目模块
 	*/
 	public function l($table,$func=""){
+        // 每次调用独立解析，复用模型对象时不继承前一次的条件、字段和排序。
+        $op=[];
 
 		$array=explode(";",$func);
 
 		if(count($array)>1){
 			foreach($array as $v){
-				$this->tagsresolve($v);
+				$this->tagsresolve($v,$op);
 			}
 		}else{
-			$this->tagsresolve($func);
+			$this->tagsresolve($func,$op);
 		}
-		$field=$this->op['field']??'*';
-		$where=$this->op['where']??'id';
-		$sortf=$this->op['sort']['f']??'id';
-		$sorts=$this->op['sort']['s']??'order';
-		$sortp=$this->op['sort']['p']??'desc';
-		$limit=$this->op['limit']??10;
+		$field=$op['field']??'*';
+		$where=$op['where']??'id';
+		$sortf=$op['sort']['f']??'id';
+		$sorts=$op['sort']['s']??'order';
+		$sortp=$op['sort']['p']??'desc';
+		$limit=$op['limit']??10;
 
         $rows = $this->navigationRows($table, $field, $where, $sortf, $sorts, $sortp, $limit);
         if ($rows === null) {

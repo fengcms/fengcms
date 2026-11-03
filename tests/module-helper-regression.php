@@ -37,6 +37,17 @@ try {
     helper_check(array_column($pictures,'title')===['child','published'],'pic excludes draft/recycled rows and preserves descendant ordering');
     helper_check(array_keys($pictures[0])===['info','id','title','img','html'] && $pictures[0]['html']==='/four','pic preserves fields and URLs');
     helper_check(count($module->pic('article',1,1))===1,'pic preserves requested limit');
+    helper_check(array_column($module->module(),'project')===['article'],'module compatibility entry returns enabled content models');
+    $first=$module->l('article','w[status=1];f[title];n[1];s[id,2]');
+    helper_check($first===[['title'=>'published']],'explicit l expression preserves fields/order/limit');
+    $second=$module->l('article','');
+    helper_check(array_column($second,'id')===['5','4','3','2','1'] && isset($second[0]['info']),
+        'reused l object does not retain where/field/sort/limit');
+    helper_check($second===M('module')->l('article',''),'reused and fresh l objects agree');
+    helper_check(array_column($module->l('article','s[id]'),'id')===['5','4','3','2','1'],
+        'incomplete sorting uses legacy default without diagnostics');
+    helper_check(array_column($module->l('article','w[status=1,1];f[id];s[id,2]'),'id')===['1','4'],
+        'l preserves combined condition and descendant syntax');
     foreach (['wh','wt','wn','wpic'] as $method) {
         helper_check(array_column($module->$method(10),'title')===['other','child','published'],"$method excludes disabled model and unpublished rows");
         D('module')->where(['project'=>'disabled'])->update(['status'=>1]);
