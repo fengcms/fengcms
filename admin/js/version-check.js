@@ -25,7 +25,9 @@
         var remote = parts(tag);
         if (!remote) { throw new Error('Invalid release tag'); }
         latest.textContent = tag;
-        if (!local) {
+        if (/^v?\d+\.\d+(?:\.\d+)?-kindeditor$/.test(current.textContent.trim())) {
+            status.textContent = '当前为 KindEditor 特别版；通用版更新不代表本分支升级，请查看特别版发布说明。';
+        } else if (!local) {
             status.textContent = '当前版本号无法比较，请查看发布记录。';
         } else if (compare(remote, local) > 0) {
             status.textContent = '发现新版本，请查看发布记录并手动升级。';

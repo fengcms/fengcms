@@ -62,4 +62,9 @@ result = page('v1.36', {status: 500}, [['fengcms.latestRelease.v1', JSON.stringi
 assert.equal(result.elements.version.textContent, 'v1.37');
 assert.equal(result.requests.length, 0);
 
+result = page('v1.37-kindeditor', {status: 200, body: {tag_name: 'v1.38', draft: false, prerelease: false}});
+assert.equal(result.elements.version.textContent, 'v1.38');
+assert.match(result.elements['version-status'].textContent, /KindEditor 特别版/);
+assert.doesNotMatch(result.elements['version-status'].textContent, /无法比较|发现新版本/);
+
 console.log('GitHub 版本查询检查通过：新版本、同版本、无发布、异常内容、预发布、网络错误及缓存。');

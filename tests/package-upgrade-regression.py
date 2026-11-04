@@ -43,3 +43,21 @@ assert actual['bin/dev'][1] == 0o100755
 with tempfile.TemporaryDirectory() as directory:
     module.build({}, actual, Path(directory)/'actual.zip', 'v0.0', 'v1.38', 'empty', 'HEAD')
 print('真实 Git 发布树回归通过：普通文件默认权限、可执行脚本权限及完整叠加。')
+
+# Special releases use an explicit suffix; arbitrary refs/paths remain invalid.
+for tag in ('v1.37', 'v1.38.1', 'v1.37-kindeditor', 'v1.37.1-kindeditor'):
+    assert module.valid_tag(tag), tag
+for tag in ('v1.37-other', 'v1.37-kindeditor/../x', 'v1.37-kindeditor\n', '--help', 'HEAD', 'v1.37-kindeditor;id'):
+    assert not module.valid_tag(tag), tag
+with tempfile.TemporaryDirectory() as directory:
+    patch=Path(directory)/'special.zip'
+    manifest=module.build(base,target,patch,'v1.37','v1.37-kindeditor','base','target')
+    assert manifest['to']=='v1.37-kindeditor'
+    with zipfile.ZipFile(patch) as archive:
+        guide=archive.read('升级说明.md').decode()
+        server=archive.read('服务器配置说明.md').decode()
+        assert '无新增数据库结构迁移' in guide
+        assert 'KindEditor 富文本编辑' in guide
+        assert '/admin/api/richtext.php' in server
+        assert 'v1.37 → v1.37-kindeditor' in server
+print('特别版增补包回归通过：限定标签后缀、迁移声明、安全清洗入口与对应编辑器指引。')

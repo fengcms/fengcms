@@ -2,9 +2,9 @@
 set -eu
 
 cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-tag=${1:?Usage: ./bin/package-release vX.Y[.Z] [base-tag]}
-if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
-    echo 'Release tag must be vX.Y or vX.Y.Z.' >&2
+tag=${1:?Usage: ./bin/package-release vX.Y[.Z][-kindeditor] [base-tag]}
+if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+(\.[0-9]+)?(-kindeditor)?$'; then
+    echo 'Release tag must be vX.Y or vX.Y.Z, optionally followed by -kindeditor.' >&2
     exit 2
 fi
 git rev-parse -q --verify "refs/tags/$tag^{commit}" >/dev/null || {
