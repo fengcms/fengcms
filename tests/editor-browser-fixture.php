@@ -16,6 +16,8 @@ if ($action==='create') {
     echo json_encode(['id'=>$db->insert_id,'user'=>$title,'password'=>$password,'admincode'=>getenv('ADMIN_CODE')],JSON_THROW_ON_ERROR);
 } elseif ($action==='read') {
     echo json_encode($db->execute_query('SELECT id,title,content,status FROM f_article WHERE info=?',[$title])->fetch_assoc(),JSON_THROW_ON_ERROR);
+} elseif ($action==='publish' || $action==='unpublish') {
+    $db->execute_query('UPDATE f_article SET status=? WHERE info=?',[$action==='publish'?1:0,$title]);
 } elseif ($action==='inline') {
     $png=file_get_contents(dirname(__DIR__).'/admin/public/kindeditor-4.1.7/themes/default/default.png');
     $html='<div style="text-align:center;line-height:2"><p>内嵌图片</p><img src="data:image/png;base64,'.base64_encode($png).'" alt="内嵌" /></div>';

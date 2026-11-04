@@ -40,7 +40,7 @@ node tests/navigation-regression.js
 可选真实浏览器回归：在忽略目录安装 Playwright，不改变部署依赖；指定本机 Chromium/Chrome，或使用 Playwright 管理的 Chromium。
 
 ```sh
-npm install --prefix var/verification/browser --no-audit --no-fund playwright
+npm install --prefix var/verification/browser --no-audit --no-fund playwright@1.64.1
 PLAYWRIGHT_MODULE="$PWD/var/verification/browser/node_modules/playwright" \
 CHROME_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
 node tests/kindeditor-browser-regression.cjs
@@ -50,6 +50,16 @@ node tests/kindeditor-browser-regression.cjs
 
 ## 验证记录与限制
 
-PHP 8.4 的全套回归及新增 HTTP 659 项已通过。最终双版本、浏览器和诊断结果在完成后补记。
+2026-11-04 完成验证：
+
+| 环境 | PHP 语法 | 完整 `bin/dev test` | 本轮运行日志诊断 |
+| --- | --- | --- | --- |
+| PHP 8.4.27 | 370 个文件，0 失败 | 通过，含 HTTP 659 项及全部独立回归 | 0 |
+| PHP 8.5.12 | 370 个文件，0 失败 | 通过，含 HTTP 659 项及全部独立回归 | 0 |
+
+- 依赖来源摘要、Node 语法与适配器/资源/上传/图片字段/内嵌图片回归通过；后台导航回归 288 组通过。增补发布包、历史模型导入转换、版本检查及 PHP 诊断工具回归通过。
+- Playwright 1.64.1 / Chrome 156.0.8078.80 实测通过：实际后台 iframe 内编辑、标题单独保存保持正文原字节、修改后保存重开、前台原路由输出、安全 HTML 粘贴、全屏/Escape、原文查看、图片与附件上传、取消回填、选中图片替换和删除撤销、原生表格对话框、网络图片危险地址拒绝、Base64 原文保护与转存/撤销/再次应用、含内嵌图片的粘贴插入、多字段独立同步、版权字段省略，以及独立图片字段取消选择。覆盖 1440×1000 和 780×900 视口。未观察到浏览器脚本异常或旧上传接口请求。
+- 回归账号、文章与本次上传文件已清理；日志及截图位于忽略目录 `var/verification/`。默认运行环境恢复 PHP 8.4，原有性能测试容器和数据卷未删除。
+- 节点提交：`fe9c78a` 固定官方依赖并拆分上传，`9558a4e` 接入编辑器、安全兼容及回归。本次没有 push、部署或触发远端 GitHub Actions；记录为本地验证结果。PHP 8.3 未在本次重新执行完整回归。
 
 目前样本为合成回归资料，未收到本客户的代表性正文，不能据此宣称所有历史文章完全兼容。已变更正文可能由浏览器或清洗器规范化空白、属性顺序和标签；未变更正文按原字节保留。未测试旧 IE，也不为其放宽安全策略。回退本分支的代码不会恢复已经保存修改的文章；正式升级与回退都应使用一致的代码、数据库、上传及运行配置备份。
