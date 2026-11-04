@@ -45,9 +45,16 @@ def tree(ref):
 
 def build(base, target, output, base_tag, target_tag, base_commit, target_commit):
     migration_note = (f'从本包对应的正式 {base_tag} 到 {target_tag} 无新增数据库结构迁移，不运行安装器；若从更早版本升级，请使用完整包和对应迁移指南。'
-                      if (base_tag, target_tag) in {('v1.37', 'v1.38'), ('v1.37', 'v1.37-kindeditor')} else
+                      if (base_tag, target_tag) in {('v1.37', 'v1.38'), ('v1.37', 'v1.37-kindeditor'),
+                          ('v1.37', 'v1.38-kindeditor'), ('v1.38', 'v1.38-kindeditor')} else
                       '数据库迁移要求以目标版本发布说明为准；增补文件包不表示无需迁移。不运行首次安装器。')
     editor_check = 'KindEditor 富文本编辑、原文查看、内嵌图片转存/预览/撤销' if target_tag.endswith('-kindeditor') else '历史富文本优化'
+    if base_tag == 'v1.37' and target_tag in {'v1.38', 'v1.37-kindeditor', 'v1.38-kindeditor'}:
+        server_note = f'{base_tag} → {target_tag} 新增 `/admin/api/richtext.php`。若使用本项目的 PHP 入口白名单，在原 upload|files|thumbnail 后增加 |richtext，其余禁止规则保持不变。'
+    elif (base_tag, target_tag) == ('v1.38', 'v1.38-kindeditor'):
+        server_note = '正式 v1.38 已包含 `/admin/api/richtext.php`。本次无新增服务器入口规则，保留现有配置并确认该接口可访问；如之前未完整应用 v1.38 的白名单要求，先补齐。'
+    else:
+        server_note = '服务器入口变更以目标版本发布说明为准；保留已有 PHP 执行限制。'
     changes = []
     for name in sorted(base.keys() | target.keys()):
         safe_path(name)
@@ -82,7 +89,7 @@ def build(base, target, output, base_tag, target_tag, base_commit, target_commit
 
 “服务器配置参考”目录不用于直接覆盖。请按实际服务器选择配置，保留自己的域名、证书、PHP-FPM、目录及定制规则。
 
-v1.37 → v1.38 和 v1.37 → v1.37-kindeditor 均新增 `/admin/api/richtext.php`。适用于这两个版本组合时，若使用本项目的 PHP 入口白名单，在原 upload|files|thumbnail 后增加 |richtext，其余禁止规则保持不变。其他版本组合以目标版本发布说明为准。
+{server_note}
 
 - Apache：比较 .htaccess；保留隐藏文件可见，确认新接口允许访问。
 - IIS：比较 web.config 中的 PHP 白名单，目标 Windows/IIS 环境仍需实际验证。

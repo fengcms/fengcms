@@ -10,6 +10,6 @@
 6. [数据库备份与恢复](数据库备份与恢复.md)
 7. [常见问题](常见问题.md)
 
-当前特别版说明：[v1.37-kindeditor](releases/v1.37-kindeditor-发布说明.md)，提供完整包及 v1.37 → v1.37-kindeditor 增补包。编辑方式见[客户兼容版说明](客户兼容版说明.md)。
+当前特别版说明：[v1.38-kindeditor](releases/v1.38-kindeditor-发布说明.md)，提供完整包、v1.37 → v1.38-kindeditor 和 v1.38 → v1.38-kindeditor 两种增补包。编辑方式见[客户兼容版说明](客户兼容版说明.md)。
 
 每个版本的具体变化请查看[版本发布说明](releases/)。FengCMS 自有代码使用 MIT 许可；随附组件的许可见[第三方组件许可说明](第三方组件许可.md)。

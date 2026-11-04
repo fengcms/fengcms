@@ -1,1 +1,1 @@
-v1.37-kindeditor
+v1.38-kindeditor

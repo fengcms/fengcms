@@ -61,3 +61,54 @@ with tempfile.TemporaryDirectory() as directory:
         assert '/admin/api/richtext.php' in server
         assert 'v1.37 → v1.37-kindeditor' in server
 print('特别版增补包回归通过：限定标签后缀、迁移声明、安全清洗入口与对应编辑器指引。')
+
+for base_tag in ('v1.37', 'v1.38'):
+    with tempfile.TemporaryDirectory() as directory:
+        patch=Path(directory)/'renamed-special.zip'
+        module.build(base,target,patch,base_tag,'v1.38-kindeditor','base','target')
+        with zipfile.ZipFile(patch) as archive:
+            guide=archive.read('升级说明.md').decode()
+            server=archive.read('服务器配置说明.md').decode()
+            assert '无新增数据库结构迁移' in guide
+            assert 'v1.38-kindeditor' in guide
+            if base_tag=='v1.38':
+                assert '本次无新增服务器入口规则' in server
+                assert '在原 upload|files|thumbnail 后增加' not in server
+            else:
+                assert '在原 upload|files|thumbnail 后增加' in server
+print('更名后两条升级路径回归通过：分别使用对应基准和服务器入口指引。')
+
+# Run the actual release CLI against two immutable bases and verify the combined checksums.
+import subprocess
+import shutil
+import hashlib
+root=Path(__file__).resolve().parent.parent
+with tempfile.TemporaryDirectory() as directory:
+    repo=Path(directory)
+    (repo/'bin').mkdir()
+    (repo/'admin').mkdir()
+    shutil.copytree(root/'docs',repo/'docs')
+    shutil.copy2(root/'项目说明.md',repo/'项目说明.md')
+    shutil.copy2(root/'.gitattributes',repo/'.gitattributes')
+    for name in ('package-release','package-upgrade'):
+        shutil.copy2(root/'bin'/name,repo/'bin'/name)
+    def git(*args):
+        return subprocess.check_output(['git',*args],cwd=repo,text=True)
+    git('init','-q')
+    git('config','user.name','Release regression')
+    git('config','user.email','release-regression@example.invalid')
+    for tag in ('v1.37','v1.38','v1.38-kindeditor'):
+        (repo/'admin/version.php').write_text(tag+'\n')
+        (repo/'docs/releases'/f'{tag}-发布说明.md').write_text('# '+tag+'\n')
+        git('add','.')
+        git('commit','-qm','test(release): 创建隔离发布样本')
+        git('tag',tag)
+    subprocess.run(['./bin/package-release','v1.38-kindeditor','v1.37','v1.38'],cwd=repo,check=True,stdout=subprocess.DEVNULL)
+    checks=(repo/'var/releases/SHA256SUMS.txt').read_text().splitlines()
+    assert len(checks)==3
+    expected={'fengcms-v1.38-kindeditor.zip','fengcms-v1.37-to-v1.38-kindeditor.zip','fengcms-v1.38-to-v1.38-kindeditor.zip'}
+    assert {line.split()[1] for line in checks}==expected
+    for line in checks:
+        digest,name=line.split()
+        assert hashlib.sha256((repo/'var/releases'/name).read_bytes()).hexdigest()==digest
+print('多基准发布 CLI 回归通过：两份补丁均生成，汇总校验完整包含三个 ZIP。')
