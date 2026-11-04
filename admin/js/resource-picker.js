@@ -9,7 +9,7 @@
     function open(trigger, options) {
         const kind=trigger.dataset.cmsKind || 'image', isImage=kind==='image', isTemplate=kind==='template';
         const multiple=trigger.hasAttribute('data-cms-multiple');
-        const field=document.getElementById(trigger.dataset.cmsTarget);if(!field)return;
+        const field=document.getElementById(trigger.dataset.cmsTarget);if(!field && !Array.isArray(options.initial))return;
         const title=isTemplate?'选择模板':isImage?(multiple?'选择多张图片':'选择图片'):'选择附件';
         const rootLabel=isTemplate?'模板目录':isImage?'图片库':'附件库';
         const selected=[], queue=[];
@@ -75,7 +75,7 @@
             if(isImage && validURL(url)) { try { item.thumbnail_url='/admin/api/thumbnail.php?path='+encodeURIComponent(decodeURIComponent(url.slice('/upload/image/'.length))); } catch(_) {} }
             return item;
         }
-        const initial=multiple?field.value.split(',').filter(Boolean):[field.value].filter(Boolean);
+        const initial=options.initial ?? (multiple?field.value.split(',').filter(Boolean):[field.value].filter(Boolean));
         initial.forEach(url=>selected.push(resource(url)));
         const selectedIndex=url=>selected.findIndex(item=>item.url===url);
         function setStatus(text,error=false) { status.textContent=text;status.classList.toggle('is-error',error); }

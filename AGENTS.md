@@ -9,10 +9,10 @@
 - `app/`：前台控制器、模型；`admin/app/`：后台控制器、模型。
 - `system/`：框架、数据库驱动、模板编译、安全函数；`system/common/security.php` 负责认证、CSRF、路径等公共防护；`richtext.php` 负责服务端富文本清洗。
 - `template/`、`admin/template/`：前台及后台模板。原有 `{$变量}`、`{$record['fy']}` 语法必须保留。
-- `admin/js/editor.js`、`admin/css/editor.css`：wangEditor 适配与样式；`resource-picker.js`：资源选择器；`image-fields.js`：单图/多图缩略图、预览与排序，保留原输入字段 ID、名称及单图地址/多图逗号分隔的存储契约；`admin/api/`：上传、列表、缩略图接口。
+- `admin/js/editor.js`、`admin/css/editor.css`：本客户分支的 KindEditor 4.1.7 适配与样式，公共上传在 `resource-upload.js`；`resource-picker.js`：资源选择器；`image-fields.js`：单图/多图缩略图、预览与排序，保留原输入字段 ID、名称及单图地址/多图逗号分隔的存储契约；`admin/api/`：上传、列表、缩略图接口。
 - 后台只有 `super_admin` 与 `editor` 两种固定角色；编辑可管理“内容”“相关”，不能访问“系统”“模块”和“系统账号管理”。超级管理员可创建两种账号，但不可删除或停用超级管理员账号；编辑账号可删除。路由、模型 `project`、独立 API 都要在服务端校验；权限与迁移见 `docs/internal/ADMIN_ROLES.md`。
-- `admin/js/legacy-inline-images.js`：通过现有上传接口安全转存 Base64 图片；不得全局放行 `data:`，清洗前后和编辑器回填均须检查图片完整性。`admin/js/legacy-richtext.js`：主动历史正文优化、原文快照、预览和撤销；`admin/api/richtext.php` 只进行认证和 CSRF 保护下的清洗，不读写文章。转换库本地托管在 `admin/public/legacy-richtext/`，构建源码和锁文件在 `tools/vendor/`。禁止恢复默认自动重排旧正文；维护说明见 `docs/internal/历史富文本优化说明.md`。
-- `admin/public/wangeditor/`：wangEditor 5.1.23（MIT）；`system/vendor/htmlpurifier/`：HTML Purifier 4.19.1（LGPL）。这些是部署所需源码，应纳入 Git。
+- `admin/js/legacy-inline-images.js`：通过现有上传接口安全转存 Base64 图片；不得全局放行 `data:`，清洗前后和编辑器回填均须检查图片完整性。`admin/js/legacy-richtext.js`：master 的历史实现，本客户分支不加载；其功能为主动历史正文优化、原文快照、预览和撤销；`admin/api/richtext.php` 只进行认证和 CSRF 保护下的清洗，不读写文章。转换库本地托管在 `admin/public/legacy-richtext/`，构建源码和锁文件在 `tools/vendor/`。禁止恢复默认自动重排旧正文；维护说明见 `docs/internal/历史富文本优化说明.md`。
+- `admin/public/kindeditor-4.1.7/`：官方 4.1.7 静态子集（LGPL），不含旧 PHP 上传或 SWF；客户分支维护见 `docs/internal/KINDEDITOR_CUSTOMER_BRANCH.md`。`richtext-compat.js` 与现有清洗 API 负责安全载入、预览和图片核对，编辑页不加载 Markdown 转换组件。`admin/public/wangeditor/`：保留的 wangEditor 5.1.23（MIT）资产；`system/vendor/htmlpurifier/`：HTML Purifier 4.19.1（LGPL）。这些是部署所需源码，应纳入 Git。
 - `docker/`、`compose.yaml`、`bin/dev`：本地容器；`tools/`：初始化、迁移、检查；`tests/regression.php`：HTTP/数据库回归。
 - `install/index.php`、`system/common/install_schema.php`：共享主机的一次性网页安装与开发初始化共用数据导入；用户安装步骤见 `docs/安装指南.md`。本地 Docker 显式关闭网页入口。
 - `config.php`：部署生成并被 Git 忽略的私有设置数组，只返回配置数据；示例为 `config.example.php`。`system/common/config_loader.php` 负责读取、验证和初始化常量；本地 Docker 从 Compose 环境变量读取，旧站点 `config.local.php` 保持兼容。维护细节见 `docs/internal/CONFIGURATION.md`。

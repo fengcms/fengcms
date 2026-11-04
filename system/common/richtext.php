@@ -10,8 +10,13 @@ function cms_clean_html($html): string
         $config = HTMLPurifier_Config::createDefault();
         $config->set('Core.Encoding', 'UTF-8');
         $config->set('HTML.Doctype', 'HTML 4.01 Transitional');
-        $config->set('HTML.Allowed', 'p[style],br,h1[style],h2[style],h3[style],h4[style],h5[style],h6[style],strong,b,em,i,u,s,strike,span[style],blockquote,ul,ol[start],li,a[href|title],img[src|alt|width|height|style],table[width|style],thead,tbody,tfoot,tr,th[colspan|rowspan|style],td[colspan|rowspan|style]');
-        $config->set('CSS.AllowedProperties', ['color','background-color','font-size','font-weight','font-style','text-decoration','text-align','width','height','border','border-collapse','padding']);
+        // Client compatibility branch: preserve safe legacy typography and table
+        // geometry. Active content, arbitrary classes/IDs and CSS URLs stay forbidden.
+        $blocks='div[style|align],p[style|align],h1[style|align],h2[style|align],h3[style|align],h4[style|align],h5[style|align],h6[style|align],blockquote[style],pre[style],center[style]';
+        $table='table[width|align|border|cellpadding|cellspacing|bgcolor|style],caption[style],thead,tbody,tfoot,tr[align|valign|bgcolor|style],th[colspan|rowspan|width|height|align|valign|bgcolor|style],td[colspan|rowspan|width|height|align|valign|bgcolor|style]';
+        $config->set('HTML.Allowed', $blocks.',br,hr,strong,b,em,i,u,s,strike,sub,sup,code,font[color|face|size],span[style],ul[style],ol[start|style],li[style],dl,dt,dd,a[href|title|target],img[src|alt|title|width|height|align|border|hspace|vspace|style],'.$table);
+        $config->set('Attr.AllowedFrameTargets', ['_blank','_self']);
+        $config->set('CSS.AllowedProperties', ['color','background-color','font-size','font-family','font-weight','font-style','text-decoration','text-align','text-indent','line-height','width','height','border','border-collapse','padding','padding-left','padding-right','padding-top','padding-bottom','margin','margin-left','margin-right','margin-top','margin-bottom','float','vertical-align']);
         $config->set('URI.AllowedSchemes', ['http'=>true, 'https'=>true, 'mailto'=>true, 'tel'=>true]);
         $config->set('HTML.SafeIframe', false);
         $config->set('Attr.EnableID', false);
@@ -36,7 +41,7 @@ function cms_clean_html_for_save($html): string
     $tokens = $lexer->tokenizeHTML($html, $config, new HTMLPurifier_Context());
     foreach ($tokens as $token) {
         if (($token->name ?? null) === 'img' && preg_match('/^data:/i', trim($token->attr['src'] ?? ''))) {
-            cms_fail(400, '正文包含尚未转存的内嵌图片，请先使用“优化历史富文本”完成图片转存后再保存。');
+            cms_fail(400, '正文包含尚未转存的内嵌图片，请先使用“编辑 HTML / 转存内嵌图片”完成图片转存后再保存。');
         }
     }
     return cms_clean_html($html);
@@ -53,7 +58,7 @@ function cms_clean_copyright($value): string
     }
     static $lastInput=null, $lastResult=null;
     if ($lastInput===$html) { return $lastResult; }
-    $key='fengcms:copyright:purifier-v1:'.hash('sha256',$html);
+    $key='fengcms:copyright:purifier-kindeditor-v2:'.hash('sha256',$html);
     $hit=false;
     $clean=function_exists('apcu_fetch') ? apcu_fetch($key,$hit) : false;
     if (!$hit || !is_string($clean)) {

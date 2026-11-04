@@ -1,105 +1,55 @@
-/* Exercise the real adapter's menu callbacks without loading a browser/vendor bundle. */
+/* Exercise field omission and recovery against the real customer adapter. */
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-let editorOptions, toolbarOptions, legacyOptions;
-const registered={};
-const textarea = {name:'content', value:'<p>已有正文</p>', after() {}};
-const node = () => ({style:{}, before() {}, append() {}, setAttribute() {}, querySelectorAll() {return [];}});
-const editor = {setHtml() {},getHtml:()=>'<p>同步正文</p>', isEmpty:()=>false, on() {}};
-const context = {
-    URL, console, alert() {},
-    MutationObserver:class {observe() {}},
-    document:{readyState:'complete', createElement:node, addEventListener(name,callback) {registered[name]=callback;},
-        querySelectorAll:()=>[textarea]},
-    window:{FengUpload:{pending:0},FengLegacyRichtext:{mount(options){legacyOptions=options;}},addEventListener() {}, wangEditor:{
-        createEditor(options) {editorOptions=options;return editor;},
-        createToolbar(options) {toolbarOptions=options;}
-    }}
-};
-vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/editor.js'),'utf8'),context);
-const {insertImage, editImage} = editorOptions.config.MENU_CONF;
-for (const url of ['https://images.example.com/a.jpg','http://images.example.com/view?id=1&size=large',' HTTPS://images.example.com/a.png ']) {
-    assert.equal(insertImage.checkImage(url,'说明',''),true,url);
+const path = require('node:path');
+const read = name => fs.readFileSync(path.join(__dirname,'../admin/js/',name),'utf8');
+const boundary = {window:{}, URL};
+vm.runInNewContext(read('richtext-compat.js'), boundary);
+for (const url of ['https://example.com/a.png','http://example.com/a.png','/upload/image/a.png']) assert.equal(boundary.window.FengRichtext.validURL(url,true),true);
+for (const url of ['javascript:alert(1)','data:image/png;base64,AAAA','//host/a','https://u:p@host/a','https://host/\nx','/\\host/a']) assert.equal(boundary.window.FengRichtext.validURL(url,true),false,url);
+assert.equal(boundary.window.FengRichtext.validURL('mailto:a@example.com'),true);
+assert.equal(boundary.window.FengRichtext.validURL('mailto:a@example.com',true),false);
+assert.equal(boundary.window.FengRichtext.escape('<a "x">&'), '&lt;a &quot;x&quot;&gt;&amp;');
+class Node {
+    constructor(){this.children=[];this.style={};this.dataset={};this.events={};}
+    append(...children){this.children.push(...children);} after(){} setAttribute(){} remove(){}
+    addEventListener(name,fn){this.events[name]=fn;}
 }
-for (const url of ['', 'https://', '/upload/image/a.jpg', '//images.example.com/a.jpg',
-    'javascript:alert(1)', 'data:image/svg+xml;base64,xxx', 'file:///tmp/a.jpg',
-    'https://name:secret@example.com/a.jpg', 'http://example.com/\na.jpg', 'https:\\example.com/a.jpg']) {
-    assert.equal(typeof insertImage.checkImage(url,'',''),'string',url);
+async function setup({existing=true, fail=false, inline=false, original='<div>历史排版</div>', settings=false}={}) {
+    const registered={}, editors=[];
+    const textarea={name:'content',value:original,after(){},form:{elements:{namedItem:name=>(name==='id'&&existing)||(name==='_settings_version'&&settings)?{value:'123'}:null}}};
+    const context={console,URL,Event,AbortController,document:{readyState:'complete',createElement:()=>new Node(),
+        querySelectorAll:()=>[textarea],addEventListener:(name,fn)=>{registered[name]=fn;}},
+        window:{FengUpload:{pending:0},addEventListener(){},FengRichtext:{
+            ...boundary.window.FengRichtext,hasInlineImages:()=>inline,checkImages(){},
+            clean:async()=>{if(fail)throw Error('synthetic cleaning failure');return '<div>安全排版</div>';}
+        },KindEditor:{lang(){},plugin(){},create(field,options){
+            let html=field.value;
+            const editor={html(value){if(value!==undefined)html=value;return html;},
+                edit:{iframe:[{}],doc:{addEventListener(){}}},readonly(){},remove(){}};
+            editors.push({editor,options});queueMicrotask(()=>options.afterCreate.call(editor));return editor;
+        }}}, alert(){}};
+    vm.runInNewContext(read('editor.js'), context);
+    await new Promise(setImmediate);
+    function save(){let blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});return blocked;}
+    return {context,textarea,editors,save};
 }
-assert.equal(insertImage.parseImageSrc(' https://images.example.com/a.jpg '),'https://images.example.com/a.jpg');
-assert.equal(editImage.checkImage('/upload/image/20261026/a.jpg','已有图片',''),true);
-assert.equal(editImage.checkImage('https://images.example.com/a.jpg','','/content_article_7.html'),true);
-for (const link of ['javascript:alert(1)','data:text/html,evil','//evil.example/a','https://user:secret@example.com/']) {
-    assert.equal(typeof insertImage.checkImage('https://images.example.com/a.jpg','',link),'string',link);
-    assert.equal(typeof editImage.checkImage('/upload/image/a.jpg','',link),'string',link);
-}
-const group = toolbarOptions.config.toolbarKeys.find(item=>item.key==='group-image');
-assert.equal(Array.from(group.menuKeys).join(','),'uploadImage,insertImage');
-for(const key of ['cmsLegacyOptimize','cmsLegacySource','cmsLegacyUndo'])assert.ok(toolbarOptions.config.toolbarKeys.includes(key),'historical tools belong to the editor toolbar');
-editorOptions.config.onChange();
-assert.equal(textarea.value,'<p>同步正文</p>');
-assert.equal(legacyOptions.originalHtml,'<p>已有正文</p>','original HTML snapshot survives editor synchronization');
-console.log('编辑器校验通过：网络图片地址、危险协议、跳转链接、已有图片兼容、菜单入口与正文同步。');
-// Parser failures must retain the immutable source and leave recovery controls mounted.
-textarea.value='<p>无法直接解析的历史原文</p>';
-let disabled=false;
-const brokenEditor={...editor,setHtml(html){if(html===textarea.value)throw Error('synthetic parser failure');},clear(){},disable(){disabled=true;},enable(){disabled=false;}};
-context.window.wangEditor.createEditor=options=>{editorOptions=options;return brokenEditor;};
-vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/editor.js'),'utf8'),context);
-assert.equal(editorOptions.html,'<p><br></p>','create a stable editor before loading legacy HTML');
-assert.equal(disabled,true);
-assert.equal(legacyOptions.recovery,true,'failed parsing retains external recovery buttons');
-assert.equal(textarea.readOnly,true);
-assert.equal(textarea.hidden,false);
-context.window.FengEditor.sync();
-assert.equal(textarea.value,'<p>无法直接解析的历史原文</p>','failed parser cannot synchronize an empty editor over the source');
-let blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});
-assert.equal(blocked,true,'failed legacy parsing blocks form submission');
-const restore=legacyOptions.onApplied();
-assert.equal(disabled,false);
-blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,false,'successful recovery permits normal save');
-assert.equal(textarea.hidden,true);
-restore();
-assert.equal(disabled,true);
-assert.equal(textarea.value,'<p>无法直接解析的历史原文</p>','undo of recovery restores the protected original');
-console.log('编辑器初始化失败保护通过：原文、优化入口及撤销恢复均保留。');
-// Base64 source must be protected even when an editor silently drops the image.
-textarea.value='<p><img src="data:image/png;base64,AAAA"></p>';
-const inlineOriginal=textarea.value;
-context.window.FengLegacyConverter={hasInlineImages:html=>html.includes('data:image/'),forEditor:html=>html,forStorage:html=>html};
-context.window.wangEditor.createEditor=options=>({...editor,enable(){},disable(){}});
-vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/editor.js'),'utf8'),context);
-context.window.FengEditor.sync();assert.equal(textarea.value,inlineOriginal);
-blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});
-assert.equal(blocked,true,'ordinary save must not silently strip an untransferred Base64 image');
-const restoreInline=legacyOptions.onApplied();
-blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,false);
-restoreInline();context.window.FengEditor.sync();assert.equal(textarea.value,inlineOriginal);
-blocked=false;registered.submit({preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,true);
-console.log('Base64 保存保护通过：原文保持、转存前阻止保存、撤销恢复保护。');
-// Real custom menus remain available without a selection and bind to each field's source.
-const menus=new Map(),elements=[];
-function menuNode(tag){const events={};const element={tag,hidden:false,disabled:false,children:[],
- append(...children){this.children.push(...children);},before(){},setAttribute(){},remove(){},
- addEventListener(name,fn){events[name]=fn;},click(){if(!this.disabled)events.click?.();},showModal(){this.open=true;}};
- elements.push(element);return element;}
-const menuContext={window:{wangEditor:{Boot:{registerMenu:menu=>menus.set(menu.key,menu.factory())}}},
- document:{createElement:menuNode,body:menuNode('body')},AbortController,TextEncoder};
-vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../admin/js/legacy-richtext.js'),'utf8'),menuContext);
-const sourceMenu=menus.get('cmsLegacySource'),optimizeMenu=menus.get('cmsLegacyOptimize'),undoMenu=menus.get('cmsLegacyUndo');
-const fieldA={on(){}},fieldB={on(){}};
-assert.equal(sourceMenu.isDisabled(fieldA),true,'unmounted fields have no actions');
-for(const [field,original] of [[fieldA,'<p>字段甲原文</p>'],[fieldB,'']])menuContext.window.FengLegacyRichtext.mount({
- editor:field,textarea:{},wrapper:menuNode('wrapper'),originalHtml:original});
-assert.equal(sourceMenu.isDisabled(fieldA),false);assert.equal(sourceMenu.alwaysEnable,true,'source view needs no text selection');
-assert.equal(optimizeMenu.isDisabled(fieldA),false);assert.equal(optimizeMenu.alwaysEnable,true);
-assert.equal(optimizeMenu.isDisabled(fieldB),true,'empty original cannot optimize');
-assert.equal(optimizeMenu.alwaysEnable,false,'selection bypass must not override an unavailable action');
-assert.equal(undoMenu.isDisabled(fieldA),true,'undo is unavailable before applying');
-sourceMenu.exec(fieldA);
-assert.equal(elements.filter(el=>el.tag==='textarea').at(-1).value,'<p>字段甲原文</p>','toolbar reads the selected field original snapshot');
-sourceMenu.exec(fieldB);
-assert.equal(elements.filter(el=>el.tag==='textarea').at(-1).value,'','different fields keep independent sources');
-console.log('历史正文工具栏通过：无选区可操作、空原文及撤销禁用、多字段原文独立。');
+(async()=>{
+    const a=await setup();
+    assert.equal(a.save(),false);assert.equal(a.textarea.disabled,true);assert.equal(a.textarea.value,'<div>历史排版</div>');
+    a.editors[0].editor.html('<p>修改正文</p>');a.save();assert.equal(a.textarea.disabled,false);assert.equal(a.textarea.value,'<p>修改正文</p>');
+    a.editors[0].editor.html('<div>安全排版</div>');a.save();assert.equal(a.textarea.disabled,true,'undo to initial editor view preserves original bytes');
+    a.context.window.FengUpload.pending=1;assert.equal(a.save(),true,'upload blocks submission');
+    for(const options of [{fail:true},{inline:true}]) {
+        const preserved=await setup(options);assert.equal(preserved.save(),false);assert.equal(preserved.textarea.disabled,true);assert.equal(preserved.textarea.value,'<div>历史排版</div>');
+        const blocked=await setup({...options,existing:false});assert.equal(blocked.save(),true,'new record cannot save a failed richtext field');
+    }
+    const copyright=await setup({existing:false,settings:true});copyright.save();assert.equal(copyright.textarea.disabled,true,'associated settings controls need not be descendants of the form');
+    const fresh=await setup({existing:false,original:''});fresh.save();assert.equal(fresh.textarea.disabled,false,'new fields are never omitted');
+    assert.equal(a.editors[0].options.filterMode,true);assert.equal(a.editors[0].options.syncType,'none');
+    assert.equal(a.editors[0].options.allowFileManager,false);
+    assert.ok(!a.editors[0].options.items.includes('source'),'raw source must pass the safe preview flow');
+    console.log('KindEditor 适配回归通过：地址校验、未改正文省略、编辑/撤销、新建、载入失败、内嵌图片及上传保护。');
+})().catch(error=>{console.error(error);process.exitCode=1;});

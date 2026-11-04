@@ -22,6 +22,10 @@ jobs:
         run: |
           node --check admin/js/image-fields.js
           node tests/image-fields-regression.js
+          node --check admin/js/resource-upload.js
+          node --check admin/js/richtext-compat.js
+          node tests/resource-picker-regression.js
+          node tests/upload-adapter-regression.js
           node --check admin/js/editor.js
           node --check admin/js/legacy-richtext.js
           node --check admin/js/legacy-inline-images.js
@@ -30,6 +34,7 @@ jobs:
           node --check js/common.js
           node --check js/jquery-compat.js
           node --check admin/js/session-warning.js
+          node --check tests/kindeditor-browser-regression.cjs
           node tests/editor-regression.js
           node tests/navigation-regression.js
           node tests/version-check.js

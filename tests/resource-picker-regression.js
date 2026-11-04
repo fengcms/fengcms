@@ -59,3 +59,13 @@ assert.deepEqual(current.result(),[urls[0],urls[0]],'duplicate references keep t
 current=picker(urls.join(',')+',');current.click('清空选择');current.click('使用所选图片');
 assert.deepEqual(current.result(),[],'explicit clear may remove all references');
 console.log('资源选择器回填检查通过：61 项、绝对地址、重复项、取消与明确清空。');
+
+// Richtext insertion has no backing single/multi-image input.
+let richSelection=null, restored=0;
+const richTrigger={dataset:{cmsKind:'image'},hasAttribute:()=>false,focus(){}};
+context.window.FengResourcePicker.open(richTrigger,{initial:[],upload:async()=>'',
+    onSelect:urls=>{richSelection=Array.from(urls);},restoreFocus:()=>restored++});
+const richDialog=document.body.children.at(-1);
+find(richDialog,node=>node.tag==='button'&&node.textContent==='取消').onclick();
+assert.equal(richSelection,null);assert.equal(restored,1);
+console.log('富文本资源入口检查通过：无需隐藏地址字段，取消不回填且恢复焦点。');

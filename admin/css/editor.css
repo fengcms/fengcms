@@ -149,3 +149,17 @@ input.if-value.Validform_error ~ .cms-image-field { outline:1px solid #d05a4a; b
 .if-card { border:0; }
 .if-preview-button { border:1px solid #d8e2ed; }
 .if-controls { border:1px solid #d8e2ed; border-top:0; }
+
+/* KindEditor customer branch: keep native resource dialogs and image fields. */
+.ke-container { box-sizing:border-box; max-width:100%; }
+.ke-container .ke-toolbar { white-space:normal; }
+.cms-kindeditor-actions { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.cms-kindeditor-actions button { cursor:pointer; padding:5px 9px; }
+.legacy-dialog-body > input { box-sizing:border-box; width:100%; padding:8px; }
+
+.legacy-warning:empty { display:none; }
+
+.ke-icon-cmsnetworkimage,.ke-icon-cmshtml,.ke-icon-cmssource { background-image:none; text-align:center; font:12px/16px sans-serif; }
+.ke-icon-cmsnetworkimage::after { content:'网'; }
+.ke-icon-cmshtml::after { content:'<>'; }
+.ke-icon-cmssource::after { content:'原'; }

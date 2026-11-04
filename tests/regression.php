@@ -1074,6 +1074,20 @@ try {
     $articleStmt=$db->prepare('INSERT INTO f_article (title,content,info,template,classid,status,time,date) VALUES (?,?,?,"/article_content.html","0",?,UNIX_TIMESTAMP(),CURDATE())');
     $status=1; $articleStmt->bind_param('sssi',$articleTitle,$rich,$tag,$status); $articleStmt->execute(); $articleId=$db->insert_id; $articleIds[]=$articleId;
     $status=0; $articleStmt->execute(); $draftId=$db->insert_id; $articleIds[]=$draftId;
+    // A title-only save must not normalize historical HTML that the editor omitted.
+    $legacyLayout=file_get_contents(__DIR__.'/fixtures/kindeditor-legacy.html');
+    $db->execute_query('UPDATE f_article SET content=? WHERE id=?',[$legacyLayout,$draftId]);
+    $titleOnly=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$draftId,'title'=>$articleTitle.'兼容']);
+    expect_check(($titleOnly['json']['status']??'')==='y' &&
+        $db->query('SELECT content FROM f_article WHERE id='.(int)$draftId)->fetch_row()[0]===$legacyLayout,
+        'omitted legacy richtext survives a title-only save byte for byte');
+    $dirtyLegacy=request('POST','/admin/index.php?controller=module&project=article&operate=save',$cookies,
+        ['_csrf'=>$newToken,'id'=>(string)$draftId,'content'=>$legacyLayout.'<script>alert(1)</script>']);
+    $storedLegacy=$db->query('SELECT content FROM f_article WHERE id='.(int)$draftId)->fetch_row()[0];
+    expect_check(($dirtyLegacy['json']['status']??'')==='y' && $storedLegacy===cms_clean_html_for_save($legacyLayout) &&
+        str_contains($storedLegacy,'colspan="2"') && str_contains($storedLegacy,'line-height:1.8'),
+        'changed legacy richtext retains safe layout and still receives server sanitization');
     $draftEdit=request('GET','/admin/index.php?controller=module&project=article&operate=update&id='.$draftId,$cookies);
     expect_check($draftEdit['status']===200 &&
         preg_match('/name="status" value="0"/',$draftEdit['body'])===1,
@@ -1874,8 +1888,11 @@ try {
     expect_check(request('GET',$recoverRoute.'&operate=recovers',$cookies)['status']===404,'recycle bin internal batch helpers cannot be called as routes');
     expect_check(request('GET',$recoverRoute.'&operate=execution&type=save&re=1&id=undefined',$cookies)['status']===400,'invalid numeric query parameters are still rejected after recycle bin repair');
 
+    $copyrightBeforeOmission=$db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_row()[0];
     $base=request('POST','/admin/index.php?controller=base&operate=save',$cookies,['_csrf'=>$newToken,'_settings_version'=>settings_version($cookies),'name'=>'base_'.$tag,'url_type'=>'1']);
     expect_check(($base['json']['status']??'')==='y','site settings save without writing PHP source');
+    expect_check($db->query('SELECT copyright FROM f_base LIMIT 1')->fetch_row()[0]===$copyrightBeforeOmission,
+        'omitted copyright is preserved during unrelated settings edits');
     $baseForge=request('POST','/admin/index.php?controller=base&operate=save',$cookies,
         ['_csrf'=>$newToken,'_settings_version'=>settings_version($cookies),'name'=>'base_safe_'.$tag,'time'=>'1','unlisted'=>'injected','url_type'=>'1']);
     $baseAfterForge=$db->query('SELECT name,time FROM f_base LIMIT 1')->fetch_assoc();
@@ -2055,7 +2072,7 @@ try {
     foreach (['add', 'update&id='.$articleId] as $operation) {
         $formPage=request('GET','/admin/index.php?controller=module&project=article&operate='.$operation,$cookies);
         preg_match('/<form\b[^>]*>/i', $formPage['body'], $formTag);
-        expect_check(str_contains($formPage['body'],'/admin/public/wangeditor/index.js') && str_contains($formPage['body'],'textarea data-cms-editor') && !str_contains($formPage['body'],'kindeditor.js'), 'article screen loads wangEditor adapter: '.$operation);
+        expect_check(str_contains($formPage['body'],'/admin/public/kindeditor-4.1.7/kindeditor.js') && str_contains($formPage['body'],'textarea data-cms-editor') && !str_contains($formPage['body'],'/admin/public/wangeditor/index.js'), 'article screen loads KindEditor customer adapter: '.$operation);
 
         expect_check($formPage['status']===200 && isset($formTag[0]) &&
             str_contains($formTag[0], 'action="?controller=module&project=article&operate=save"') &&
@@ -2248,6 +2265,8 @@ try {
     $customName='qa_rich_'.$tag;
     $fieldInsert=$db->prepare('INSERT INTO f_module_field (module_id,name,aliases,type,status) SELECT m.id,?,"QA rich text",t.id,1 FROM f_module m JOIN f_module_field_type t ON t.quote="htmledit.html" WHERE m.project="article" LIMIT 1');
     $fieldInsert->bind_param('s',$customName); $fieldInsert->execute(); $fieldFixtureId=$db->insert_id;
+    expect_check(cms_clean_record(['title'=>'unchanged custom richtext'],'article')===['title'=>'unchanged custom richtext'],
+        'omitted custom richtext fields are not added or cleared by sanitization');
     $customClean=cms_clean_record([$customName=>$attack],'article');
     expect_check($fieldFixtureId>0 && !str_contains($customClean[$customName],'<script') && str_contains($customClean[$customName],'<strong>加粗</strong>'), 'custom rich-text fields use metadata-driven sanitization');
     $metadataFixture=['content'=>$attack,'title'=>'<b>plain title</b>'];
