@@ -55,9 +55,9 @@ async function main(){
     const editorContext={window:{addEventListener(){}},document:{readyState:'loading',addEventListener(){},
         querySelector:()=>({content:'test-csrf'})},crypto:webcrypto,FormData,Blob,DOMException,
         XMLHttpRequest:FakeXHR,URL,MutationObserver:class {},console};
-    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../admin/js/editor.js'),'utf8'),editorContext);
-    await editorContext.window.FengEditor.upload(new Blob(['first upload']));
-    await editorContext.window.FengEditor.upload(new Blob(['first upload']));
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../admin/js/resource-upload.js'),'utf8'),editorContext);
+    await editorContext.window.FengUpload.upload(new Blob(['first upload']));
+    await editorContext.window.FengUpload.upload(new Blob(['first upload']));
     assert.equal(transportKeys.length,2);
     assert.match(transportKeys[0],/^[a-f0-9]{32}$/);
     assert.notEqual(transportKeys[0],transportKeys[1],'new upload operations need distinct keys');

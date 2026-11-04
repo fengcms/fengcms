@@ -1,0 +1,21 @@
+{
+  "version": "4.1.7 (2013-04-21)",
+  "source": "https://github.com/kindsoft/kindeditor",
+  "commit": "3403a67f61896c4aa4dd11ab40bbde7ba7e77ed6",
+  "license": "LGPL-2.1",
+  "files": {
+    "kindeditor.js": "9c6824eac0a92c97090a2fffdb8f9e88b8e05e8fedf4009a0f5443345f2f8b62",
+    "lang/zh_CN.js": "182d4c854fc9aa605a86938c530e5f504c83419265d4f3dbd0372a4fd4fd50cc",
+    "license.txt": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+    "plugins/table/table.js": "8da670035643283d2e9b38601dce46924f472846285f9182cd7fc8e9e3e1a92b",
+    "themes/common/anchor.gif": "a8e607305fce6f95375fb2add2fc0c04a5c2780102a46db7c9f0a00bb8e2f853",
+    "themes/common/blank.gif": "548f2d6f4d0d820c6c5ffbeffcbd7f0e73193e2932eefe542accc84762deec87",
+    "themes/common/flash.gif": "5d2ca62d6526fd785bf0f33ba13f46524bc6c00bf0ca1763c754a7c640373e7e",
+    "themes/common/loading.gif": "eb7cfd3d959b2e09c170f532e29f8b825f9bc770b2279fde58e595617753e244",
+    "themes/common/media.gif": "fe636c38f791c8fbeec2cbe2af591496b3b814e26ddcff2d6ea7179abfa44ebb",
+    "themes/common/rm.gif": "9ed94842517c7e842854247dafb28eb5c9a54ad3d81cc1b83418eb32426180db",
+    "themes/default/background.png": "b125db2f6c18f305e2f2df431013f0f36b2ba83e67f9af013814c90120cba4d0",
+    "themes/default/default.css": "92e8214b70b20e0a71116ca455be087194890753499d3fca236da19a46f7d01d",
+    "themes/default/default.png": "2117be313f98d13a0645ac12f2074ab75d6660b5149713adf44aaacd1d6b6c9f"
+  }
+}

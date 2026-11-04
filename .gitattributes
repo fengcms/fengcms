@@ -4,3 +4,6 @@
 /AGENTS.md export-ignore
 /README.md export-ignore
 /.github/ export-ignore
+
+# Preserve the byte-for-byte upstream editor distribution and its line endings.
+/admin/public/kindeditor-4.1.7/** -text -whitespace

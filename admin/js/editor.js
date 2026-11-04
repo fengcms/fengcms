@@ -4,10 +4,6 @@
     const instances = new Map();
     const failedEditors = new Set();
     const inlineEditors = new Set();
-    let pending = 0;
-    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const uploadKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
-        byte=>byte.toString(16).padStart(2,'0')).join('');
     function checkImageURL(value, allowRelative = false) {
         if (typeof value !== 'string' || !value.trim() || /[\\\x00-\x1f\x7f]/.test(value)) return false;
         const text = value.trim();
@@ -25,31 +21,7 @@
         if (link && !checkImageURL(link, true)) return '图片跳转链接须为 HTTP/HTTPS 网址或站内绝对路径。';
         return true;
     }
-    async function upload(file, dir = 'image', onProgress = () => {}, signal, requestKey = uploadKey()) {
-        if (file.size <= 0 || file.size > 10 * 1024 * 1024) throw new Error('文件必须大于 0 且不能超过 10MB');
-        const data = new FormData();
-        data.append('imgFile', file); data.append('_csrf', csrf());data.append('_upload_key',requestKey);
-        pending++;
-        try {
-            return await new Promise((resolve,reject) => {
-                const xhr = new XMLHttpRequest();
-                const abort=()=>xhr.abort();
-                const cleanup=()=>signal?.removeEventListener('abort',abort);
-                xhr.open('POST','/admin/api/upload.php?dir='+encodeURIComponent(dir));
-                xhr.timeout=120000;
-                xhr.upload.onprogress=event=>{if(event.lengthComputable)onProgress(Math.round(event.loaded/event.total*100));};
-                xhr.onload=()=>{cleanup();try{const result=JSON.parse(xhr.responseText);
-                    if(xhr.status<200 || xhr.status>=300 || result.error!==0)throw new Error(result.message || '上传失败');
-                    resolve(result.url);
-                }catch(error){reject(error instanceof SyntaxError?new Error('服务器返回异常，请重试'):error);}};
-                xhr.onerror=()=>{cleanup();reject(new Error('网络连接失败，请重试'));};
-                xhr.ontimeout=()=>{cleanup();reject(new Error('上传超时，请重试'));};
-                xhr.onabort=()=>{cleanup();reject(new DOMException('上传已取消','AbortError'));};
-                if(signal?.aborted){reject(new DOMException('上传已取消','AbortError'));return;}
-                signal?.addEventListener('abort',abort,{once:true});xhr.send(data);
-            });
-        } finally { pending--; }
-    }
+    const upload = (...args) => window.FengUpload.upload(...args);
     function sync() { instances.forEach((editor, textarea) => { if (!failedEditors.has(editor) && !inlineEditors.has(editor)) {const html=editor.isEmpty()?'':editor.getHtml();textarea.value=window.FengLegacyConverter?.forStorage(html)??html;} }); }
     // The administration shell embeds forms in an iframe. Expand that frame
     // while an editor is fullscreen; removing the class restores its layout.
@@ -110,7 +82,7 @@
         }
         try { const html=originalHtml || '<p><br></p>';editor.setHtml(window.FengLegacyConverter?.forEditor(html)??html); }
         catch (_) { editor.clear(); showRecovery(); }
-        legacyControls=window.FengLegacyRichtext?.mount({textarea, editor, wrapper, originalHtml, canOptimize:()=>pending===0,recovery:failedEditors.has(editor),
+        legacyControls=window.FengLegacyRichtext?.mount({textarea, editor, wrapper, originalHtml, canOptimize:()=>window.FengUpload.pending===0,recovery:failedEditors.has(editor),
             onApplied:()=>{
                 const wasFailed=failedEditors.has(editor);
                 const hadInline=inlineEditors.has(editor);inlineEditors.delete(editor);inlineNotice.hidden=true;
@@ -160,10 +132,10 @@
         if(event.target.closest('#save, [type="submit"]')){
             if(inlineEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('正文含 Base64 图片，请先使用“优化历史富文本”转存图片，避免保存时丢失。');return;}
             if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('存在无法载入的历史正文，请先优化并检查，避免保存时丢失内容。');return;}
-            if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成，请稍后保存。');return;}sync();
+            if(window.FengUpload.pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成，请稍后保存。');return;}sync();
         }
     },true);
-    document.addEventListener('submit',function(event){if(inlineEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先转存正文中的 Base64 图片。');}else if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先处理无法载入的历史正文。');}else if(pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
+    document.addEventListener('submit',function(event){if(inlineEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先转存正文中的 Base64 图片。');}else if(failedEditors.size){event.preventDefault();event.stopImmediatePropagation();alert('请先处理无法载入的历史正文。');}else if(window.FengUpload.pending){event.preventDefault();event.stopImmediatePropagation();alert('文件上传尚未完成。');}else sync();},true);
     function start(){document.querySelectorAll('textarea[data-cms-editor]').forEach(mount);window.FengImageFields?.mount({open:picker});}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
     window.addEventListener('pageshow', updateFullscreenFrame);

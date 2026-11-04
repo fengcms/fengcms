@@ -13,7 +13,7 @@ const context = {
     MutationObserver:class {observe() {}},
     document:{readyState:'complete', createElement:node, addEventListener(name,callback) {registered[name]=callback;},
         querySelectorAll:()=>[textarea]},
-    window:{FengLegacyRichtext:{mount(options){legacyOptions=options;}},addEventListener() {}, wangEditor:{
+    window:{FengUpload:{pending:0},FengLegacyRichtext:{mount(options){legacyOptions=options;}},addEventListener() {}, wangEditor:{
         createEditor(options) {editorOptions=options;return editor;},
         createToolbar(options) {toolbarOptions=options;}
     }}
