@@ -8,7 +8,10 @@ define('TPL_INCLUDE',true);define('ROOT_PATH',dirname(__DIR__));define('APP_PATH
 require_once ROOT_PATH.'/system/common/config_loader.php';cms_config_bootstrap(ROOT_PATH);
 require ROOT_PATH.'/system/common/security.php';
 $tag='qa_thumb_'.bin2hex(random_bytes(6));$accountId=null;
-$folder=ROOT_PATH.'/upload/image/'.$tag;mkdir($folder,0755);
+// A fresh CI upload volume has no image directory before its first upload.
+$imageRoot=ROOT_PATH.'/upload/image';$createdImageRoot=!is_dir($imageRoot);
+$folder=$imageRoot.'/'.$tag;
+if (!mkdir($folder,0755,true)) { throw new RuntimeException('Cannot create thumbnail fixture directory.'); }
 try {
     $account=['admin'=>$tag,'password'=>password_hash(bin2hex(random_bytes(16)),PASSWORD_DEFAULT),
         'role'=>'editor','enabled'=>1,'auth_version'=>1,'login_code_hash'=>null];
@@ -50,4 +53,6 @@ CHILD;
     if ($accountId) { $db->execute_query('DELETE FROM f_manage WHERE id=?',[$accountId]); }
     if (isset($sessionId)) { session_id($sessionId);session_start();session_destroy(); }
     foreach (glob($folder.'/*') as $file) { unlink($file); }rmdir($folder);
+    // Do not leave a root-owned parent that blocks later HTTP uploads by FPM.
+    if ($createdImageRoot && count(scandir($imageRoot))===2) { rmdir($imageRoot); }
 }
